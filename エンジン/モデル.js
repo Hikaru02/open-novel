@@ -3,7 +3,7 @@ function setPhase(phase) { document.title = '【' +phase+ '】' }
 
 
 function parseScript(text) {
-	text = text.replace(/\n+/g, '\n')
+	text = text.replace(/\r\n/g, '\n').replace(/\n+/g, '\n').replace(/\n/g, '\r\n')
 	function parseOne(base, text) {
 		var chanks = text.match(/[^\n]+?\n(\t+[\s\S]+?\n)+/g) || []
 		chanks.forEach(function (chank) {
