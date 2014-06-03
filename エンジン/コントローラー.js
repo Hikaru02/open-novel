@@ -1,16 +1,16 @@
 
-Promise.all([HELPER_READY, MODEL_READY]).next('設定読み込み', function () {
+READY('MODEL').next('設定読み込み', function () {
 
-	return getSettingData().then(function (setting) {
+	return Player.getSettingData().then(function (setting) {
 		LOG(setting)
-		return getScriptData(setting['初期スクリプト'][0])
+		return Player.getScriptData(setting['初期スクリプト'][0])
 	})
 
 }).next('ビューテスト', function (script) {
 
 	//LOG(script)
 
-	return VIEW_READY.then(function () {
+	return READY('VIEW').then(function () {
 
 
 		View.changeMode('TEST')
@@ -32,7 +32,7 @@ function START(script) {
 
 	View.changeMode('NOVEL')
 
-	runScript(script).next('実行', function () {
+	Player.runScript(script).next('実行', function () {
 
 		View.changeMode('TEST')
 

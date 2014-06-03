@@ -1,13 +1,8 @@
 
-var View
-
-var DOM_READY = new Promise(function (ok) {
-	window.addEventListener('DOMContentLoaded', ok)
-})
+var View = null
 
 
-
-var VIEW_READY = Promise.all([HELPER_READY, MODEL_READY, DOM_READY]).then(function () {
+READY('MODEL', 'DOM').then(function () {
 	'use strict'
 
 	var EP = Element.prototype
@@ -451,5 +446,7 @@ var VIEW_READY = Promise.all([HELPER_READY, MODEL_READY, DOM_READY]).then(functi
 		}
 	}()
 
+
+	READY.VIEW.ready() 
 
 })
