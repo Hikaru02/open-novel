@@ -2,7 +2,7 @@
 READY('MODEL').next('設定読み込み', function () {
 
 	return Player.getSettingData().then(function (setting) {
-		LOG(setting)
+		//LOG(setting)
 		return Player.getScriptData(setting['初期スクリプト'][0])
 	})
 

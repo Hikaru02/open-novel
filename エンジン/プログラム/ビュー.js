@@ -56,7 +56,7 @@ READY('MODEL', 'DOM').then(function () {
 
 	function adjustScale(height, ratio, full) {
 
-		LOG(arguments)
+		//LOG(arguments)
 
 		if (!full) el_player.style.height = '100%'
 
