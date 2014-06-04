@@ -395,12 +395,12 @@ System.register("ES6/ビュー", [], function() {
         fitScreen = NOP;
     }
     var el_debug = new DOM('div', {
-      width: '350px',
+      width: '330px',
       textAlign: 'center',
       fontSize: '1em'
     });
     ;
-    [240, 360, 480, 640, 720, 960, 1080].forEach((function(size) {
+    [240, 360, 480, 640, 720, 1080].forEach((function(size) {
       var el = el_root.append(el_debug).append(new DOM('button'));
       el.append(new DOM('text', size + 'p'));
       el.on('click', (function(_) {

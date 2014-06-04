@@ -77,13 +77,13 @@ READY('Player', 'DOM').then( _ => {
 
 
 	var el_debug = new DOM('div', {
-		width		: '350px',
+		width		: '330px',
 		textAlign	: 'center',
 		fontSize	: '1em',
 	})
 
 
-	;[240, 360, 480, 640, 720, 960, 1080].forEach(size => {
+	;[240, 360, 480, 640, 720, 1080].forEach(size => {
 
 		var el = el_root.append(el_debug).append(new DOM('button'))
 		el.append(new DOM('text', size + 'p'))
