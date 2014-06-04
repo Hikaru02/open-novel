@@ -77,7 +77,7 @@ READY('Player', 'DOM').then( _ => {
 
 
 	var el_debug = new DOM('div', {
-		width		: '360px',
+		width		: '350px',
 		textAlign	: 'center',
 		fontSize	: '1em',
 	})

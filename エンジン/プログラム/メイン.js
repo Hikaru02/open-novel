@@ -395,7 +395,7 @@ System.register("ES6/ビュー", [], function() {
         fitScreen = NOP;
     }
     var el_debug = new DOM('div', {
-      width: '360px',
+      width: '350px',
       textAlign: 'center',
       fontSize: '1em'
     });
