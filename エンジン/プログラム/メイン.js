@@ -458,8 +458,9 @@ System.register("ES6/ビュー", [], function() {
       }));
     }
     var $full = false;
-    var $scale = screen.width >= 500 ? 480 : screen.width - 20;
     var $ratio = 16 / 9;
+    var width = document.body.offsetWidth;
+    var $scale = width / $ratio >= 500 ? 480 : width / $ratio - 20;
     adjustScale($scale, $ratio);
     var fitScreen = NOP;
     window.onresize = (function(_) {
