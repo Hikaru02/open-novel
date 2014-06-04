@@ -77,8 +77,9 @@ READY('Player', 'DOM').then( _ => {
 
 
 	var el_debug = new DOM('div', {
-		width : '640px',
-		textAlign: 'center',
+		width		: '460px',
+		textAlign	: 'center',
+		fontSize	: '1em',
 	})
 
 
@@ -88,7 +89,9 @@ READY('Player', 'DOM').then( _ => {
 		el.append(new DOM('text', size + 'p'))
 		el.on('click', _ =>	adjustScale(size) )
 	})
-
+	
+	el_root.append(el_debug).append(new DOM('br'))
+	
 	var el = el_root.append(el_debug).append(new DOM('button'))
 	el.append(new DOM('text', 'フルウィンドウ（横）'))
 	el.on('click', _ => {
@@ -143,7 +146,7 @@ READY('Player', 'DOM').then( _ => {
 
 
 	var $full = false
-	var $scale = 480
+	var $scale = screen.width >= 500 ? 480 : screen.width - 20
 	var $ratio = 16 / 9
 
 	adjustScale($scale, $ratio)

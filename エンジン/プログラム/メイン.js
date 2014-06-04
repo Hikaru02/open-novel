@@ -395,8 +395,9 @@ System.register("ES6/ビュー", [], function() {
         fitScreen = NOP;
     }
     var el_debug = new DOM('div', {
-      width: '640px',
-      textAlign: 'center'
+      width: '460px',
+      textAlign: 'center',
+      fontSize: '1em'
     });
     ;
     [240, 360, 480, 640, 720, 960, 1080].forEach((function(size) {
@@ -406,6 +407,7 @@ System.register("ES6/ビュー", [], function() {
         return adjustScale(size);
       }));
     }));
+    el_root.append(el_debug).append(new DOM('br'));
     var el = el_root.append(el_debug).append(new DOM('button'));
     el.append(new DOM('text', 'フルウィンドウ（横）'));
     el.on('click', (function(_) {
@@ -456,7 +458,7 @@ System.register("ES6/ビュー", [], function() {
       }));
     }
     var $full = false;
-    var $scale = 480;
+    var $scale = screen.width >= 500 ? 480 : screen.width - 20;
     var $ratio = 16 / 9;
     adjustScale($scale, $ratio);
     var fitScreen = NOP;
