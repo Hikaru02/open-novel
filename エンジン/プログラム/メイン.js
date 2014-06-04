@@ -530,6 +530,8 @@ System.register("ES6/ビュー", [], function() {
               opacity = delta / delay_time;
               if (opacity >= 1) {
                 opacity = 1;
+                if (typeof navigator.vibrate == 'function')
+                  navigator.vibrate([100, 100, 100]);
                 complete();
               }
               noticeWindow.style.opacity = opacity;
