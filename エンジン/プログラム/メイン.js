@@ -461,7 +461,6 @@ System.register("ES6/ビュー", [], function() {
     var $ratio = 16 / 9;
     var width = document.body.offsetWidth;
     var $scale = width / $ratio >= 500 ? 480 : width / $ratio - 20;
-    document.body.style.width = '100%';
     adjustScale($scale, $ratio);
     var fitScreen = NOP;
     window.onresize = (function(_) {
