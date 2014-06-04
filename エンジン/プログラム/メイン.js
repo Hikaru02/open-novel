@@ -694,7 +694,7 @@ System.register("ES6/ビュー", [], function() {
           opts.forEach(function(opt) {
             var bt = new DOM('button', {
               display: 'block',
-              fontSize: '1.5em',
+              fontSize: '1em',
               boxShadow: 'inset 0 1px 3px #F1F1F1, inset 0 -15px rgba(0,0,223,0.2), 1px 1px 2px #E7E7E7',
               background: 'rgba(0,0,100,0.8)',
               color: 'white',
