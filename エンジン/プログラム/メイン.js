@@ -476,7 +476,8 @@ System.register("ES6/ビュー", [], function() {
             margin: 'auto',
             position: 'relative',
             hidth: '100%',
-            height: '100%'
+            height: '100%',
+            overflow: 'hidden'
           });
           var height = opt.HEIGHT || 480;
           opt.height = opt.width = '100%';
@@ -484,12 +485,14 @@ System.register("ES6/ビュー", [], function() {
           el_player.removeChildren();
           el_player.append(el_context);
           el_wrapper.setStyles({
+            overflow: 'hidden',
             maxHeight: '100%',
             maxWidth: '100%'
           });
           if (!document.fullscreenElement)
             el_player.setStyles({
               position: 'relative',
+              overflow: 'hidden',
               height: '100%',
               width: '100%'
             });

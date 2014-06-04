@@ -169,6 +169,7 @@ READY('Player', 'DOM').then( _ => {
 					position		: 'relative',
 					hidth			: '100%',
 					height			: '100%',
+					overflow		: 'hidden',
 				//	$height			: 360,
 				//	$raito			: 16 / 9,
 				})
@@ -179,8 +180,8 @@ READY('Player', 'DOM').then( _ => {
 				el_context = new DOM('div')
 				el_player.removeChildren()
 				el_player.append(el_context)
-				el_wrapper.setStyles({ maxHeight: '100%', maxWidth: '100%' })
-				if (!document.fullscreenElement) el_player.setStyles({ position: 'relative', height: '100%', width: '100%' })
+				el_wrapper.setStyles({ overflow	: 'hidden', maxHeight: '100%', maxWidth: '100%' })
+				if (!document.fullscreenElement) el_player.setStyles({ position: 'relative', overflow: 'hidden', height: '100%', width: '100%' })
 				el_context.setStyles(opt)
 			},
 
