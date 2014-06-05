@@ -69,8 +69,9 @@ READY('Player', 'DOM').then( _ => {
 
 		el_wrapper.style.height = height + 'px'
 		el_wrapper.style.width  = width  + 'px'
-		if (full) el_player.style.height = height + 'px'
-		else fitScreen = Util.NOP 
+		if (full) {
+			el_fullscreen.style.height = el_player.style.height = height + 'px'
+		} else fitScreen = Util.NOP 
 
 		//RAF(styleAdjustLoop) 
 	}
@@ -105,21 +106,22 @@ READY('Player', 'DOM').then( _ => {
 		fitScreen()
 	})
 
+	var el_fullscreen
 	var el = el_root.append(el_debug).append(new DOM('button'))
 	el.append(new DOM('text', 'フルスクリーン（横）'))
 	el.on('click', _ => {
-		el_player.requestFullscreen()
+		el_fullscreen = new DOM('div', {width: '100%', height: '100%', fontSize: '100%'})
+		el_player.remove()
+		el_wrapper.append(el_fullscreen).append(el_player)
+		el_fullscreen.requestFullscreen()
 		fitScreen = _ => {
 			var ratio = 16 / 9
 			var width = screen.width, height = screen.height
 			if (height * ratio > width) height = width / ratio
 			adjustScale(height, 0, true)
 		}
-		fitScreen()
-		if (document.onmozfullscreenchange) 
-			View.showNotice('お使いのブラウザでは\n表示が崩れる場合があります', 3000)
-		else
-			View.showNotice('この機能はブラウザにより\n表示の差があります', 3000)
+		setTimeout(fitScreen, 100)
+		View.showNotice('この機能はブラウザにより\n表示の差があります', 3000)
 	})
 
 
@@ -158,9 +160,14 @@ READY('Player', 'DOM').then( _ => {
 	window.onresize = _ => fitScreen()
 
 	document.onfullscreenchange = _ => {
-		var full = document.fullscreenElement == el_player
+		var full = document.fullscreenElement == el_fullscreen
 		//LOG(full)
-		if (!full) adjustScale($scale, $ratio)
+		if (!full) {
+			el_fullscreen.remove()
+			el_fullscreen.removeChildren()
+			el_wrapper.append(el_player)
+			adjustScale($scale, $ratio)
+		}
 	}
 
 

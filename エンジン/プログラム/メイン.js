@@ -477,9 +477,9 @@ System.register("ES6/ビュー", [], function() {
       el_player.style.fontSize = height / 20 + 'px';
       el_wrapper.style.height = height + 'px';
       el_wrapper.style.width = width + 'px';
-      if (full)
-        el_player.style.height = height + 'px';
-      else
+      if (full) {
+        el_fullscreen.style.height = el_player.style.height = height + 'px';
+      } else
         fitScreen = Util.NOP;
     }
     var el_debug = new DOM('div', {
@@ -507,10 +507,18 @@ System.register("ES6/ビュー", [], function() {
       });
       fitScreen();
     }));
+    var el_fullscreen;
     var el = el_root.append(el_debug).append(new DOM('button'));
     el.append(new DOM('text', 'フルスクリーン（横）'));
     el.on('click', (function(_) {
-      el_player.requestFullscreen();
+      el_fullscreen = new DOM('div', {
+        width: '100%',
+        height: '100%',
+        fontSize: '100%'
+      });
+      el_player.remove();
+      el_wrapper.append(el_fullscreen).append(el_player);
+      el_fullscreen.requestFullscreen();
       fitScreen = (function(_) {
         var ratio = 16 / 9;
         var width = screen.width,
@@ -519,11 +527,8 @@ System.register("ES6/ビュー", [], function() {
           height = width / ratio;
         adjustScale(height, 0, true);
       });
-      fitScreen();
-      if (document.onmozfullscreenchange)
-        View.showNotice('お使いのブラウザでは\n表示が崩れる場合があります', 3000);
-      else
-        View.showNotice('この機能はブラウザにより\n表示の差があります', 3000);
+      setTimeout(fitScreen, 100);
+      View.showNotice('この機能はブラウザにより\n表示の差があります', 3000);
     }));
     function setAnimate(func) {
       var start = performance.now();
@@ -555,9 +560,13 @@ System.register("ES6/ビュー", [], function() {
       return fitScreen();
     });
     document.onfullscreenchange = (function(_) {
-      var full = document.fullscreenElement == el_player;
-      if (!full)
+      var full = document.fullscreenElement == el_fullscreen;
+      if (!full) {
+        el_fullscreen.remove();
+        el_fullscreen.removeChildren();
+        el_wrapper.append(el_player);
         adjustScale($scale, $ratio);
+      }
     });
     var METHODS = {};
     METHODS = {COMMON: {
