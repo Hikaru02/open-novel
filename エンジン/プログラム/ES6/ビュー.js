@@ -120,7 +120,7 @@ READY('Player', 'DOM').then( _ => {
 			if (height * ratio > width) height = width / ratio
 			adjustScale(height, 0, true)
 		}
-		setTimeout(fitScreen, 100)
+		fitScreen()
 		View.showNotice('この機能はブラウザにより\n表示の差があります', 3000)
 	})
 
