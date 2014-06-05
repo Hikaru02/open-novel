@@ -527,7 +527,7 @@ System.register("ES6/ビュー", [], function() {
           height = width / ratio;
         adjustScale(height, 0, true);
       });
-      setTimeout(fitScreen, 100);
+      fitScreen();
       View.showNotice('この機能はブラウザにより\n表示の差があります', 3000);
     }));
     function setAnimate(func) {
