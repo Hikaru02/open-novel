@@ -2,15 +2,19 @@
 READY().then(function () {
 	'use strict'
 
+	//var {Promise} = Util.overrides
+
 	function setPhase(phase) { document.title = '【' +phase+ '】' }
+	function setRunPhase(kind) { setPhase(`${kind}中...`) }
+	function setErrorPhase(kind) { setPhase(`${kind}エラー`) }
 
 
 	function parseScript(text) {
 		text = text.replace(/\r\n/g, '\n').replace(/\n+/g, '\n').replace(/\n/g, '\r\n')
 		function parseOne(base, text) {
 			var chanks = text.match(/[^\n]+?\n(\t+[\s\S]+?\n)+/g) || []
-			chanks.forEach(function (chank) {
-				//chank.replace(/^\t/gm,'').replace(/\n$/, '').split(/\n(?!\t)/).forEach(function (chank) {
+			chanks.forEach(chank => {
+				
 					var blocks = chank.replace(/^\t/gm,'').replace(/\n$/, '').match(/.+/g)
 					//LOG(blocks)
 					var act = blocks.shift()
@@ -26,8 +30,6 @@ READY().then(function () {
 						//LOG(data)
 						parseOne(ary, data)
 					} else base.push([act, blocks])
-				//})
-
 			})
 		}
 
@@ -45,36 +47,35 @@ READY().then(function () {
 
 
 	function otherName(name) {
-		return function () {
-			return this[name].apply(this, arguments)
-		}
+		return function () { return this[name].apply(this, arguments) }
 	}
 
 	function preloadImage(url, result) {
 		var hide = View.setLoadingMessage('Loadind...')
-		return new Promise(function (ok, ng) {
+		return new Promise((ok, ng) => {
 			//LOG(url, isNoneType(url))
 			if (isNoneType(url)) return ok()
 			url = forceImageURL(url)
 			var img = new Image
-			img.onload = function () { ok(result) }
-			img.onerror = function (evt) { ng('画像URL『'+url+'』のキャッシュに失敗') }
+			img.onload = _ => ok(result)
+			img.onerror = _ => ng(`画像URL『${url}』のキャッシュに失敗`)
 			img.src = url
-		}).then(function (result) {
+		}).then(result => {
 			hide()
 			return result
 		})
 	}
 
 
-
 	function runScript(script) {
+
+		View.changeMode('NOVEL')
 
 		var run = Promise.defer()
 		script = copyObject(script)	
 
 		var actHandlers = {
-			'会話': function (data, done, failed) {
+			会話(data, done, failed) {
 
 				function nextPage() {
 
@@ -87,7 +88,7 @@ READY().then(function () {
 					function nextSentence() {
 						var text = texts.shift()
 						if (!text) return nextPage()
-						text = text.replace(/\\w(\d+)/g, function (_, num) {
+						text = text.replace(/\\w(\d+)/g, (_, num) => {
 							return '\u200B'.repeat(num)
 						}).replace(/\\n/g, '\n')
 						View.addSentence(text).on('go', nextSentence, failed)
@@ -97,14 +98,14 @@ READY().then(function () {
 
 				nextPage()
 			},
-			'背景': function (data, done, failed) {
+			背景(data, done, failed) {
 				var url = data[0]
 				preloadImage(url).then( View.setBGImage.bind(View, { url: forceCSSURL(url) }) ).then(done, failed)
 			},
-			'立絵': otherName('立ち絵'),
-			'立ち絵': function (data, done, failed) {
+			立絵: otherName('立ち絵'),
+			立ち絵(data, done, failed) {
 				//LOG(data)
-				Promise.all(data.reduce(function (base, ary) {
+				Promise.all(data.reduce((base, ary) => {
 
 					if (isNoneType(ary)) return base
 
@@ -119,20 +120,19 @@ READY().then(function () {
 					return base
 				}, [])).then(View.setFDImages.bind(View)).then(done, failed)
 			},
-			'選択': otherName('選択肢'),
-			'選択肢': function (data, done, failed) {
+			選択: otherName('選択肢'),
+			選択肢(data, done, failed) {
 
-				View.setChoiceWindow(data.map(function (ary) {
+				View.setChoiceWindow(data.map(ary => {
 					return { name: ary[0], value: ary[1][0] }
-				})).then(function (url) {
+				})).then(url => {
 					url = forceScriptURL(url)
 
-					//LOG(url)
-					getScriptData(url).then(runScript).then(done, failed)
+					fetchScriptData(url).then(runScript).then(done, failed)
 					
 				})
 			},
-			'コメント': function (data, done, failed) {
+			コメント(data, done, failed) {
 				done()
 			},
 
@@ -142,7 +142,7 @@ READY().then(function () {
 
 			//var loop = Promise.defer()
 
-			var act, loop = new Promise(function (resolve, reject) {
+			var act, loop = new Promise( (resolve, reject) => {
 
 				var prog = script.shift()
 				if (!prog) return run.resolve() 
@@ -151,13 +151,13 @@ READY().then(function () {
 
 				if (act in actHandlers) actHandlers[act](data, resolve, reject)
 				else {
-					ERROR('サポートされていないコマンド『' +act+ '』を検出しました。\n\nこのコマンドを飛ばして再生が継続されます。')
+					Util.error('サポートされていないコマンド『' +act+ '』を検出しました。\n\nこのコマンドを飛ばして再生が継続されます。')
 					resolve()
 				}
 
-			}).then(main_loop, function (err) {
-				var message = err ? 'コマンド『' +act+ '』で『' +err+ '』が起こりました。' : 'コマンド『' +act+ '』が原因かもしれません。'
-				ERROR('スクリプトを解析中にエラーが発生しました。\n\n' +message+ '\n\nこのコマンドを保証せず再生が継続されます。')
+			}).then(main_loop, err => {
+				var message = err ? `コマンド『${act}』で『${err}』が起こりました。` : `コマンド『${act}』が原因かもしれません。`
+				Util.error('スクリプトを解析中にエラーが発生しました。\n\n' +message+ '\n\nこのコマンドを保証せず再生が継続されます。')
 				return main_loop()
 			})
 		}
@@ -174,49 +174,40 @@ READY().then(function () {
 
 	function forceCSSURL(url, type, root) {
 		if (!url) throw 'URL特定不能エラー'
-		return isNoneType(url) ? 'none' : 'url(' +forceImageURL(url, type, root)+ ')'
+		return isNoneType(url) ? 'none' : `url(${forceImageURL(url, type, root)})`
 	}
 
-	function forceImageURL(url, type, root) {
-		type = type || 'png'
-		root = root || '画像'
+	function forceImageURL(url, type = 'png', root = '画像') {
 		return forceURL(url, type, root)
 	}
 
-	function forceScriptURL(url, type, root) {
-		type = type || 'txt'
-		root = root || 'テキスト'
+	function forceScriptURL(url, type = 'txt', root = 'テキスト') {
 		return forceURL(url, type, root)
 	}
 
 	function forceURL(url, type, root) {
-		if (!url) throw 'URL特定不能エラー'
-		if (!url.match(/\.[^\.]+$/)) url += '.' + type
-		if (root && (!url.match(root))) url = 'データ/' + root + '/' + url
+		if (!(url && type && root)) throw 'URL特定不能エラー'
+		if (!url.match(/\.[^\.]+$/)) url += `.${type}`
+		if (root && (!url.match(root))) url = `データ/${root}/${url}`
 		return url
 	}
 
 
-	function getSettingData() {
-		return loadText(URLs.SettingData).then(function (text) {
+	function fetchSettingData() {
+		return loadText(Data.URL.SettingData).then( text => {
 			var setting = parseScript(text)
 			var data = {}
-			setting.forEach(function (ary) {
+			setting.forEach( ary => {
 				data[ary[0]] = ary[1]
 			})
 			return data
-		})
+		} )
 	}
 
 
-	function getScriptData(url) {
+	function fetchScriptData(url) {
 		url = forceScriptURL(url)
-		return loadText(url).then(function (text) {
-			var script = parseScript(text)
-			var data = script
-			return data
-		})
-
+		return loadText(url).then( text => parseScript(text) )
 	}
 
 
@@ -227,7 +218,7 @@ READY().then(function () {
 	function load(url, type) {
 		return new Promise(function (ok, ng) {
 			var xhr = new XMLHttpRequest()
-			xhr.onload = function () { ok(xhr.response) }
+			xhr.onload = _ => ok(xhr.response)
 			xhr.onerror = ng
 			xhr.open('GET', url)
 			if (type) xhr.responseType = type
@@ -236,11 +227,13 @@ READY().then(function () {
 	}
 
 
+	function print(message) {
+		View.changeMode('TEST')
+		View.print(message)
+	}
+
 	READY.Player.ready({
-		setPhase		: setPhase,
-		getSettingData	: getSettingData,
-		getScriptData	: getScriptData,
-		runScript		: runScript,
+		setRunPhase, setErrorPhase, fetchSettingData, fetchScriptData, runScript, print
 	})
 
 })

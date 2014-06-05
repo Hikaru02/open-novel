@@ -2,7 +2,14 @@
 	'use strict'
 
 	var global = (1,eval)('this')
+	var Promise = global.Promise
 	var LOG = console.log.bind(console)
+
+	var Data = {
+		URL: {
+			SettingData: 'データ/作品設定.txt',
+		},
+	}
 
 	var Util = ( _ => {
 
@@ -23,6 +30,8 @@
 				Object.keys(props).forEach(key => obj[key] = props[key] )
 				return obj
 			},
+			NOP() {},
+			error(message) { alert(message) },
 		}
 	})()
 
@@ -48,15 +57,16 @@
 	})
 
 
+
 	Util.setProperties(Promise.prototype, {
 
 		next: function next(kind, onFulfilled, onRejected) {
 			return this.then( result => {
-				Player.setPhase(kind + '中...')
+				Player.setRunPhase(kind)
 				return onFulfilled(result)
 			}, onRejected).catch(err => {
 				LOG(kind + 'エラー', err)
-				Player.setPhase(kind + 'エラー')
+				Player.setErrorPhase(kind)
 				return Promise.reject(err)
 			})
 		},
@@ -73,21 +83,74 @@
 			if (!+time) throw 'illegal time number'
 			return this.then( _ => new Promise( resolve => setTimeout(resolve, time) ) )
 		},
-
 	})
 
+	Object.defineProperty(Promise.prototype, '$', {
+		enumerable: true, configurable: true, 
+		get: function () {
+			var _p = this
+			var $p = function (...args) {
+	 			var len = args.length
+	 			if (len === 0) return $p
+	 			var [arg0, arg1, arg2] = args
+
+	 			if (typeof arg0 == 'function') {
+		 			switch (args.length) {
+						case 1: 
+						case 2: return _p.then(arg0).$
+					}
+				} else {
+		 			switch (args.length) {
+						case 1: return _p.on(arg0).$
+						case 2:
+						case 3: return _p.next(arg0, arg1, arg2).$
+					}
+
+				}
+				throw 'illegal arguments length'
+			}
+			Util.setProperties($p, {
+				then: (res, rej) => _p.then(res, rej).$ ,
+				catch: rej => _p.catch(rej).$ ,
+			})
+			Object.defineProperty($p, '_', {
+				enumerable: true, configurable: true,
+				get: _ => _p
+			})
+			$p.__proto__ = _p
+			return $p
+		}
+	})
+
+	function $Promise(func) {
+		return new Promise(func).$
+	}
+
+	Util.setProperties($Promise, {
+		defer: _ => {
+			var defer = Promise.defer()
+			defer.promise = defer.promise.$
+			return defer
+		},
+		resolve: val => Promise.resolve(val).$ ,
+		reject : val => Promise.reject(val).$ ,
+		all    : ary => Promise.all(ary).$ ,
+		race   : ary => Promise.race(ary).$ ,
+	})
+
+	Util.overrides = { Promise }
 
 	var READY = ( _ => {
 		function READY(type) {
 			var types = (arguments.length != 1) ? [].slice.call(arguments) : (Array.isArray(type)) ? type : [type]
-			return Promise.all(types.map(type => {
+			return $Promise.all(types.map(type => {
 				if (!(type in READY)) throw 'illegal READY type "' +type+ '"'
 				return READY[type]
 			}))
 		}
 		;['DOM', 'Player', 'View'].forEach(type => {
 			global[type] = null
-			var defer = Promise.defer()
+			var defer = $Promise.defer()
 			READY[type] = defer.promise
 			READY[type].ready = obj => {
 				global[type] = obj
@@ -101,12 +164,7 @@
 
 
 	Util.setDefalts(global, {
-		global, READY, Util, LOG,
-		NOP() {},
-		ERROR(message) { alert(message) },
-		URLs	: {
-			SettingData: 'データ/作品設定.txt',
-		},
+		global, READY, Util, LOG, Data,
 	})
 
 })();

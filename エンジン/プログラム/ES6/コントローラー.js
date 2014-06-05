@@ -1,34 +1,37 @@
 
-READY('Player').next('設定読み込み', _ => {
+READY('Player', 'View').next('待機', _ => {
 	'use strict'
 
-	Player.getSettingData().then( setting => Player.getScriptData(setting['初期スクリプト'][0])
+	//var {Promise} = Util.overrides
 
-		).next('待機', script => READY('View').then( _ => {
-			
-			View.changeMode('TEST')
-			View.print('準備が完了しました。\nクリック（orエンターキー　orスペースキー）で次のページに進みます。')
-			return script
-		})
-	
-	).on('go').next('実行', START)
+	Player.print('準備が完了しました。\nクリック（orエンターキー　orスペースキー）で次のページに進みます。')
+
+	View.on('go').next('作品設定読込', Player.fetchSettingData).next('スクリプト読込', START)
 
 
-	function START(script) {
+	function START(setting) {
+
+		var hideLodingMessade = View.setLoadingMessage('Loading...')
+
+		function fetchFirstScriptData(setting) {
+			return Player.fetchScriptData(setting['初期スクリプト'][0])
+		}
 		
-		//LOG(script)
+		fetchFirstScriptData(setting).next('実行', script => {
 
-		View.changeMode('NOVEL')
+			hideLodingMessade()
 
-		Player.runScript(script).next('待機', _ => {
+			Player.runScript(script).next('待機', _ => {
 
-			View.changeMode('TEST')
-			View.print('再生が終了しました。\nクリックするともう一度最初から再生します。')
+				Player.print('再生が終了しました。\nクリックするともう一度最初から再生します。')
 
-		}).on('go').next('実行', _ => START(script) )
+			}).on('go').next('スクリプト読込', _ => START(setting) )
+
+		})
 
 	}
 
 
 })
+
 

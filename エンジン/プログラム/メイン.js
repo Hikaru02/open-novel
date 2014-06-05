@@ -5,7 +5,9 @@ System.register("ES6/ヘルパー", [], function() {
   ((function(_) {
     'use strict';
     var global = (1, eval)('this');
+    var Promise = global.Promise;
     var LOG = console.log.bind(console);
+    var Data = {URL: {SettingData: 'データ/作品設定.txt'}};
     var Util = ((function(_) {
       return {
         setDefalts: function() {
@@ -26,6 +28,10 @@ System.register("ES6/ヘルパー", [], function() {
             return obj[key] = props[key];
           }));
           return obj;
+        },
+        NOP: function() {},
+        error: function(message) {
+          alert(message);
         }
       };
     }))();
@@ -47,11 +53,11 @@ System.register("ES6/ヘルパー", [], function() {
     Util.setProperties(Promise.prototype, {
       next: function next(kind, onFulfilled, onRejected) {
         return this.then((function(result) {
-          Player.setPhase(kind + '中...');
+          Player.setRunPhase(kind);
           return onFulfilled(result);
         }), onRejected).catch((function(err) {
           LOG(kind + 'エラー', err);
-          Player.setPhase(kind + 'エラー');
+          Player.setErrorPhase(kind);
           return Promise.reject(err);
         }));
       },
@@ -81,10 +87,85 @@ System.register("ES6/ヘルパー", [], function() {
         }));
       }
     });
+    Object.defineProperty(Promise.prototype, '$', {
+      enumerable: true,
+      configurable: true,
+      get: function() {
+        var _p = this;
+        var $p = function() {
+          for (var args = [],
+              $__0 = 0; $__0 < arguments.length; $__0++)
+            args[$__0] = arguments[$__0];
+          var len = args.length;
+          if (len === 0)
+            return $p;
+          var $__1 = $traceurRuntime.assertObject(args),
+              arg0 = $__1[0],
+              arg1 = $__1[1],
+              arg2 = $__1[2];
+          if (typeof arg0 == 'function') {
+            switch (args.length) {
+              case 1:
+              case 2:
+                return _p.then(arg0).$;
+            }
+          } else {
+            switch (args.length) {
+              case 1:
+                return _p.on(arg0).$;
+              case 2:
+              case 3:
+                return _p.next(arg0, arg1, arg2).$;
+            }
+          }
+          throw 'illegal arguments length';
+        };
+        Util.setProperties($p, {
+          then: (function(res, rej) {
+            return _p.then(res, rej).$;
+          }),
+          catch: (function(rej) {
+            return _p.catch(rej).$;
+          })
+        });
+        Object.defineProperty($p, '_', {
+          enumerable: true,
+          configurable: true,
+          get: (function(_) {
+            return _p;
+          })
+        });
+        $p.__proto__ = _p;
+        return $p;
+      }
+    });
+    function $Promise(func) {
+      return new Promise(func).$;
+    }
+    Util.setProperties($Promise, {
+      defer: (function(_) {
+        var defer = Promise.defer();
+        defer.promise = defer.promise.$;
+        return defer;
+      }),
+      resolve: (function(val) {
+        return Promise.resolve(val).$;
+      }),
+      reject: (function(val) {
+        return Promise.reject(val).$;
+      }),
+      all: (function(ary) {
+        return Promise.all(ary).$;
+      }),
+      race: (function(ary) {
+        return Promise.race(ary).$;
+      })
+    });
+    Util.overrides = {Promise: Promise};
     var READY = ((function(_) {
       function READY(type) {
         var types = (arguments.length != 1) ? [].slice.call(arguments) : (Array.isArray(type)) ? type : [type];
-        return Promise.all(types.map((function(type) {
+        return $Promise.all(types.map((function(type) {
           if (!(type in READY))
             throw 'illegal READY type "' + type + '"';
           return READY[type];
@@ -93,7 +174,7 @@ System.register("ES6/ヘルパー", [], function() {
       ;
       ['DOM', 'Player', 'View'].forEach((function(type) {
         global[type] = null;
-        var defer = Promise.defer();
+        var defer = $Promise.defer();
         READY[type] = defer.promise;
         READY[type].ready = (function(obj) {
           global[type] = obj;
@@ -108,11 +189,7 @@ System.register("ES6/ヘルパー", [], function() {
       READY: READY,
       Util: Util,
       LOG: LOG,
-      NOP: function() {},
-      ERROR: function(message) {
-        alert(message);
-      },
-      URLs: {SettingData: 'データ/作品設定.txt'}
+      Data: Data
     });
   }))();
   return {};
@@ -126,11 +203,17 @@ System.register("ES6/モデル", [], function() {
     function setPhase(phase) {
       document.title = '【' + phase + '】';
     }
+    function setRunPhase(kind) {
+      setPhase((kind + "中..."));
+    }
+    function setErrorPhase(kind) {
+      setPhase((kind + "エラー"));
+    }
     function parseScript(text) {
       text = text.replace(/\r\n/g, '\n').replace(/\n+/g, '\n').replace(/\n/g, '\r\n');
       function parseOne(base, text) {
         var chanks = text.match(/[^\n]+?\n(\t+[\s\S]+?\n)+/g) || [];
-        chanks.forEach(function(chank) {
+        chanks.forEach((function(chank) {
           var blocks = chank.replace(/^\t/gm, '').replace(/\n$/, '').match(/.+/g);
           var act = blocks.shift();
           var data = '\n' + blocks.join('\n') + '\n';
@@ -145,7 +228,7 @@ System.register("ES6/モデル", [], function() {
             parseOne(ary, data);
           } else
             base.push([act, blocks]);
-        });
+        }));
       }
       var base = [];
       parseOne(base, text);
@@ -161,28 +244,29 @@ System.register("ES6/モデル", [], function() {
     }
     function preloadImage(url, result) {
       var hide = View.setLoadingMessage('Loadind...');
-      return new Promise(function(ok, ng) {
+      return new Promise((function(ok, ng) {
         if (isNoneType(url))
           return ok();
         url = forceImageURL(url);
         var img = new Image;
-        img.onload = function() {
-          ok(result);
-        };
-        img.onerror = function(evt) {
-          ng('画像URL『' + url + '』のキャッシュに失敗');
-        };
+        img.onload = (function(_) {
+          return ok(result);
+        });
+        img.onerror = (function(_) {
+          return ng(("画像URL『" + url + "』のキャッシュに失敗"));
+        });
         img.src = url;
-      }).then(function(result) {
+      })).then((function(result) {
         hide();
         return result;
-      });
+      }));
     }
     function runScript(script) {
+      View.changeMode('NOVEL');
       var run = Promise.defer();
       script = copyObject(script);
       var actHandlers = {
-        '会話': function(data, done, failed) {
+        会話: function(data, done, failed) {
           function nextPage() {
             var ary = data.shift();
             if (!ary)
@@ -194,22 +278,22 @@ System.register("ES6/モデル", [], function() {
               var text = texts.shift();
               if (!text)
                 return nextPage();
-              text = text.replace(/\\w(\d+)/g, function(_, num) {
+              text = text.replace(/\\w(\d+)/g, (function(_, num) {
                 return '\u200B'.repeat(num);
-              }).replace(/\\n/g, '\n');
+              })).replace(/\\n/g, '\n');
               View.addSentence(text).on('go', nextSentence, failed);
             }
             nextSentence();
           }
           nextPage();
         },
-        '背景': function(data, done, failed) {
+        背景: function(data, done, failed) {
           var url = data[0];
           preloadImage(url).then(View.setBGImage.bind(View, {url: forceCSSURL(url)})).then(done, failed);
         },
-        '立絵': otherName('立ち絵'),
-        '立ち絵': function(data, done, failed) {
-          Promise.all(data.reduce(function(base, ary) {
+        立絵: otherName('立ち絵'),
+        立ち絵: function(data, done, failed) {
+          Promise.all(data.reduce((function(base, ary) {
             if (isNoneType(ary))
               return base;
             var type = ['left', 'right']['左右'.indexOf(ary[0])];
@@ -220,27 +304,27 @@ System.register("ES6/モデル", [], function() {
             ro[type] = '0px';
             base.push(preloadImage(url, ro));
             return base;
-          }, [])).then(View.setFDImages.bind(View)).then(done, failed);
+          }), [])).then(View.setFDImages.bind(View)).then(done, failed);
         },
-        '選択': otherName('選択肢'),
-        '選択肢': function(data, done, failed) {
-          View.setChoiceWindow(data.map(function(ary) {
+        選択: otherName('選択肢'),
+        選択肢: function(data, done, failed) {
+          View.setChoiceWindow(data.map((function(ary) {
             return {
               name: ary[0],
               value: ary[1][0]
             };
-          })).then(function(url) {
+          }))).then((function(url) {
             url = forceScriptURL(url);
-            getScriptData(url).then(runScript).then(done, failed);
-          });
+            fetchScriptData(url).then(runScript).then(done, failed);
+          }));
         },
-        'コメント': function(data, done, failed) {
+        コメント: function(data, done, failed) {
           done();
         }
       };
       function main_loop() {
         var act,
-            loop = new Promise(function(resolve, reject) {
+            loop = new Promise((function(resolve, reject) {
               var prog = script.shift();
               if (!prog)
                 return run.resolve();
@@ -249,14 +333,14 @@ System.register("ES6/モデル", [], function() {
               if (act in actHandlers)
                 actHandlers[act](data, resolve, reject);
               else {
-                ERROR('サポートされていないコマンド『' + act + '』を検出しました。\n\nこのコマンドを飛ばして再生が継続されます。');
+                Util.error('サポートされていないコマンド『' + act + '』を検出しました。\n\nこのコマンドを飛ばして再生が継続されます。');
                 resolve();
               }
-            }).then(main_loop, function(err) {
-              var message = err ? 'コマンド『' + act + '』で『' + err + '』が起こりました。' : 'コマンド『' + act + '』が原因かもしれません。';
-              ERROR('スクリプトを解析中にエラーが発生しました。\n\n' + message + '\n\nこのコマンドを保証せず再生が継続されます。');
+            })).then(main_loop, (function(err) {
+              var message = err ? ("コマンド『" + act + "』で『" + err + "』が起こりました。") : ("コマンド『" + act + "』が原因かもしれません。");
+              Util.error('スクリプトを解析中にエラーが発生しました。\n\n' + message + '\n\nこのコマンドを保証せず再生が継続されます。');
               return main_loop();
-            });
+            }));
       }
       main_loop();
       return run.promise;
@@ -267,44 +351,42 @@ System.register("ES6/モデル", [], function() {
     function forceCSSURL(url, type, root) {
       if (!url)
         throw 'URL特定不能エラー';
-      return isNoneType(url) ? 'none' : 'url(' + forceImageURL(url, type, root) + ')';
+      return isNoneType(url) ? 'none' : ("url(" + forceImageURL(url, type, root) + ")");
     }
-    function forceImageURL(url, type, root) {
-      type = type || 'png';
-      root = root || '画像';
+    function forceImageURL(url) {
+      var type = arguments[1] !== (void 0) ? arguments[1] : 'png';
+      var root = arguments[2] !== (void 0) ? arguments[2] : '画像';
       return forceURL(url, type, root);
     }
-    function forceScriptURL(url, type, root) {
-      type = type || 'txt';
-      root = root || 'テキスト';
+    function forceScriptURL(url) {
+      var type = arguments[1] !== (void 0) ? arguments[1] : 'txt';
+      var root = arguments[2] !== (void 0) ? arguments[2] : 'テキスト';
       return forceURL(url, type, root);
     }
     function forceURL(url, type, root) {
-      if (!url)
+      if (!(url && type && root))
         throw 'URL特定不能エラー';
       if (!url.match(/\.[^\.]+$/))
-        url += '.' + type;
+        url += ("." + type);
       if (root && (!url.match(root)))
-        url = 'データ/' + root + '/' + url;
+        url = ("データ/" + root + "/" + url);
       return url;
     }
-    function getSettingData() {
-      return loadText(URLs.SettingData).then(function(text) {
+    function fetchSettingData() {
+      return loadText(Data.URL.SettingData).then((function(text) {
         var setting = parseScript(text);
         var data = {};
-        setting.forEach(function(ary) {
+        setting.forEach((function(ary) {
           data[ary[0]] = ary[1];
-        });
+        }));
         return data;
-      });
+      }));
     }
-    function getScriptData(url) {
+    function fetchScriptData(url) {
       url = forceScriptURL(url);
-      return loadText(url).then(function(text) {
-        var script = parseScript(text);
-        var data = script;
-        return data;
-      });
+      return loadText(url).then((function(text) {
+        return parseScript(text);
+      }));
     }
     function loadText(url) {
       return load(url, 'text');
@@ -312,9 +394,9 @@ System.register("ES6/モデル", [], function() {
     function load(url, type) {
       return new Promise(function(ok, ng) {
         var xhr = new XMLHttpRequest();
-        xhr.onload = function() {
-          ok(xhr.response);
-        };
+        xhr.onload = (function(_) {
+          return ok(xhr.response);
+        });
         xhr.onerror = ng;
         xhr.open('GET', url);
         if (type)
@@ -322,11 +404,17 @@ System.register("ES6/モデル", [], function() {
         xhr.send();
       });
     }
+    function print(message) {
+      View.changeMode('TEST');
+      View.print(message);
+    }
     READY.Player.ready({
-      setPhase: setPhase,
-      getSettingData: getSettingData,
-      getScriptData: getScriptData,
-      runScript: runScript
+      setRunPhase: setRunPhase,
+      setErrorPhase: setErrorPhase,
+      fetchSettingData: fetchSettingData,
+      fetchScriptData: fetchScriptData,
+      runScript: runScript,
+      print: print
     });
   });
   return {};
@@ -348,10 +436,10 @@ System.register("ES6/ビュー", [], function() {
         return this;
       },
       setStyles: function(styles) {
-        var $__0 = this;
+        var $__2 = this;
         styles = styles || {};
         Object.keys(styles).forEach((function(key) {
-          $__0.style[key] = styles[key];
+          $__2.style[key] = styles[key];
         }), this);
         return this;
       }
@@ -392,15 +480,15 @@ System.register("ES6/ビュー", [], function() {
       if (full)
         el_player.style.height = height + 'px';
       else
-        fitScreen = NOP;
+        fitScreen = Util.NOP;
     }
     var el_debug = new DOM('div', {
-      width: '310px',
+      width: '300px',
       textAlign: 'center',
       fontSize: '1em'
     });
     ;
-    [240, 360, 480, 640, 720, 1080].forEach((function(size) {
+    [240, 360, 480, 720, 1080].forEach((function(size) {
       var el = el_root.append(el_debug).append(new DOM('button'));
       el.append(new DOM('text', size + 'p'));
       el.on('click', (function(_) {
@@ -462,7 +550,7 @@ System.register("ES6/ビュー", [], function() {
     var width = document.body.clientWidth;
     var $scale = width / $ratio >= 480 ? 480 : width / $ratio;
     adjustScale($scale, $ratio);
-    var fitScreen = NOP;
+    var fitScreen = Util.NOP;
     window.onresize = (function(_) {
       return fitScreen();
     });
@@ -811,24 +899,22 @@ System.get("ES6/ビュー" + '');
 System.register("ES6/コントローラー", [], function() {
   "use strict";
   var __moduleName = "ES6/コントローラー";
-  READY('Player').next('設定読み込み', (function(_) {
+  READY('Player', 'View').next('待機', (function(_) {
     'use strict';
-    Player.getSettingData().then((function(setting) {
-      return Player.getScriptData(setting['初期スクリプト'][0]);
-    })).next('待機', (function(script) {
-      return READY('View').then((function(_) {
-        View.changeMode('TEST');
-        View.print('準備が完了しました。\nクリック（orエンターキー　orスペースキー）で次のページに進みます。');
-        return script;
-      }));
-    })).on('go').next('実行', START);
-    function START(script) {
-      View.changeMode('NOVEL');
-      Player.runScript(script).next('待機', (function(_) {
-        View.changeMode('TEST');
-        View.print('再生が終了しました。\nクリックするともう一度最初から再生します。');
-      })).on('go').next('実行', (function(_) {
-        return START(script);
+    Player.print('準備が完了しました。\nクリック（orエンターキー　orスペースキー）で次のページに進みます。');
+    View.on('go').next('作品設定読込', Player.fetchSettingData).next('スクリプト読込', START);
+    function START(setting) {
+      var hideLodingMessade = View.setLoadingMessage('Loading...');
+      function fetchFirstScriptData(setting) {
+        return Player.fetchScriptData(setting['初期スクリプト'][0]);
+      }
+      fetchFirstScriptData(setting).next('実行', (function(script) {
+        hideLodingMessade();
+        Player.runScript(script).next('待機', (function(_) {
+          Player.print('再生が終了しました。\nクリックするともう一度最初から再生します。');
+        })).on('go').next('スクリプト読込', (function(_) {
+          return START(setting);
+        }));
       }));
     }
   }));

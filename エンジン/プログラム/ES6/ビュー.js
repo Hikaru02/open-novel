@@ -2,6 +2,7 @@
 READY('Player', 'DOM').then( _ => {
 	'use strict'
 
+	//var {Promise} = Util.overrides
 	var View = null
 
 	var EP = Element.prototype
@@ -69,7 +70,7 @@ READY('Player', 'DOM').then( _ => {
 		el_wrapper.style.height = height + 'px'
 		el_wrapper.style.width  = width  + 'px'
 		if (full) el_player.style.height = height + 'px'
-		else fitScreen = NOP 
+		else fitScreen = Util.NOP 
 
 		//RAF(styleAdjustLoop) 
 	}
@@ -77,13 +78,13 @@ READY('Player', 'DOM').then( _ => {
 
 
 	var el_debug = new DOM('div', {
-		width		: '310px',
+		width		: '300px',
 		textAlign	: 'center',
 		fontSize	: '1em',
 	})
 
 
-	;[240, 360, 480, 640, 720, 1080].forEach(size => {
+	;[240, 360, 480, 720, 1080].forEach(size => {
 
 		var el = el_root.append(el_debug).append(new DOM('button'))
 		el.append(new DOM('text', size + 'p'))
@@ -153,7 +154,7 @@ READY('Player', 'DOM').then( _ => {
 
 	adjustScale($scale, $ratio)
 
-	var fitScreen = NOP
+	var fitScreen = Util.NOP
 	window.onresize = _ => fitScreen()
 
 	document.onfullscreenchange = _ => {
