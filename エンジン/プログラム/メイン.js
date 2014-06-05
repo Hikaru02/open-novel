@@ -492,7 +492,7 @@ System.register("ES6/ビュー", [], function() {
       var el = el_root.append(el_debug).append(new DOM('button'));
       el.append(new DOM('text', size + 'p'));
       el.on('click', (function(_) {
-        return adjustScale(size);
+        return adjustScale(size / devicePixelRatio);
       }));
     }));
     el_root.append(el_debug).append(new DOM('br'));
