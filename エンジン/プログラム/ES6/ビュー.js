@@ -84,11 +84,11 @@ READY('Player', 'DOM').then( _ => {
 	})
 
 
-	;[240, 360, 480, 720, 1080].forEach(size => {
+	;[240, 360, 480, 720, 1080].forEach( size => {
 
 		var el = el_root.append(el_debug).append(new DOM('button'))
 		el.append(new DOM('text', size + 'p'))
-		el.on('click', _ =>	adjustScale(size) )
+		el.on('click', _ =>	adjustScale(size / devicePixelRatio) )
 	})
 	
 	el_root.append(el_debug).append(new DOM('br'))
