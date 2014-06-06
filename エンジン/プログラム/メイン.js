@@ -616,11 +616,6 @@ System.register("ES6/ビュー", [], function() {
         requestAnimationFrame(loop);
       }));
     }
-    var $full = false;
-    var $ratio = 16 / 9;
-    var width = document.body.clientWidth;
-    var $scale = width / $ratio >= 480 ? 480 : width / $ratio;
-    adjustScale($scale, $ratio);
     var fitScreen = Util.NOP;
     window.onresize = (function(_) {
       return fitScreen();
@@ -919,14 +914,13 @@ System.register("ES6/ビュー", [], function() {
         }
       }
     };
-    var $MODE = '';
     var ViewProto = {
       __proto__: METHODS.COMMON,
       fresh: function() {
         View = {__proto__: ViewProto};
       },
       clean: function() {
-        this.changeMode($MODE);
+        this.changeMode($mode);
       },
       init: function(opt) {
         this.initDisplay(opt.style || {});
@@ -939,12 +933,12 @@ System.register("ES6/ビュー", [], function() {
         opt = opt || {};
         if (!type in METHODS)
           throw 'illegal ViewContext mode type';
-        $MODE = type;
+        $mode = type;
         ViewProto.__proto__ = METHODS[type];
         View.init(opt);
       },
       changeModeIfNeeded: function(type, opt) {
-        if ($MODE != type)
+        if ($mode != type)
           this.changeMode(type, opt);
       },
       on: function(type, onFulfilled, onRejected) {
@@ -991,6 +985,12 @@ System.register("ES6/ビュー", [], function() {
         hooks.push(hook);
       };
     }))();
+    var $full = false;
+    var $ratio = 16 / 9;
+    var $mode = '';
+    var width = document.body.clientWidth;
+    var $scale = width / $ratio >= 480 ? 480 : width / $ratio;
+    adjustScale($scale, $ratio);
     READY.View.ready(View);
   }));
   return {};

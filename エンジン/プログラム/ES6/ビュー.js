@@ -153,13 +153,7 @@ READY('Player', 'DOM').then( _ => {
 	}
 
 
-	var $full = false
-	var $ratio = 16 / 9
-	var width = document.body.clientWidth
-	var $scale = width / $ratio >= 480 ? 480 : width / $ratio
-	//document.body.style.width = '100%'
 
-	adjustScale($scale, $ratio)
 
 	var fitScreen = Util.NOP
 	window.onresize = _ => fitScreen()
@@ -487,8 +481,6 @@ READY('Player', 'DOM').then( _ => {
 	}
 
 
-	var $MODE = ''
-
 
 	var ViewProto = { __proto__: METHODS.COMMON,
 		//get el_wrapper() { return el_wrapper },
@@ -496,7 +488,7 @@ READY('Player', 'DOM').then( _ => {
 			View = { __proto__: ViewProto }
 		},
 		clean: function () {
-			this.changeMode($MODE)
+			this.changeMode($mode)
 		},
 		init: function (opt) {
 			this.initDisplay(opt.style || {})
@@ -510,13 +502,13 @@ READY('Player', 'DOM').then( _ => {
 
 			if (!type in METHODS) throw 'illegal ViewContext mode type'
 
-			$MODE = type
+			$mode = type
 			ViewProto.__proto__ = METHODS[type]
 			View.init(opt)
 
 		},
 		changeModeIfNeeded: function (type, opt) {
-			if ($MODE != type) this.changeMode(type, opt)
+			if ($mode != type) this.changeMode(type, opt)
 		},
 		on: function (type, onFulfilled, onRejected) {
 
@@ -573,6 +565,15 @@ READY('Player', 'DOM').then( _ => {
 		}
 	})()
 
+
+	var $full = false
+	var $ratio = 16 / 9
+	var $mode = ''
+	var width = document.body.clientWidth
+	var $scale = width / $ratio >= 480 ? 480 : width / $ratio
+	//document.body.style.width = '100%'
+
+	adjustScale($scale, $ratio)
 
 	READY.View.ready(View) 
 
