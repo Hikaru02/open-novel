@@ -1,31 +1,78 @@
 
-READY('Player', 'View').next('待機', _ => {
+READY('Player', 'View').next('起動', _ => {
 	'use strict'
 
 	//var {Promise} = Util.overrides
 
-	Player.print('準備が完了しました。\nクリック（orエンターキー　orスペースキー）で次のページに進みます。')
+	Player.fetchSettingData(Data.URL.EngineSetting).then(setting => {
+		Data.SystemVersion = setting['システムバージョン'][0]
+		return message( 'openノベルプレイヤー by Hikaru02\n\nシステムバージョン：　' + Data.SystemVersion)
+	}).delay(1000).next('準備', setup)
 
-	View.on('go').next('作品設定読込', Player.fetchSettingData).next('スクリプト読込', START)
+
+	var message = (_ => {
+		var abort = Util.NOP
+		return text => {
+			abort()
+			View.changeModeIfNeeded('NOVEL')
+			View.nextPage('システム')
+			var p = View.addSentence(text, { weight: 20 })
+			abort = p.abort
+			return p
+		}
+	})()
 
 
-	function START(setting) {
 
-		var hideLodingMessade = View.setLoadingMessage('Loading...')
+	function setup() {
+
+		message('作品一覧を読み込んでいます...')
+
+		Player.fetchSettingData(Data.URL.ContentsSetting).then(setting => {
+
+			message('再生する作品を選んでください')
+			return View.setChoiceWindow(setting['作品'].reduce( (opts, name) => {
+				opts.push({ name })
+				return opts
+			}, []))
+
+		}).then(scenarioSetup)
+
+
+	}
+
+
+	function scenarioSetup(name) {
+
+		message('作品情報を読み込んでいます...')
+		//var hideLodingMessade = View.setLoadingMessage('Loading...')
+
+		Player.baseURL = ''
+
+		var url = Util.forceURL('設定', 'txt', name)
+		
+		Player.baseURL = name
 
 		function fetchFirstScriptData(setting) {
-			return Player.fetchScriptData(setting['初期スクリプト'][0])
+			message('開始シナリオを読み込んでいます...')
+			var url = setting['開始シナリオ'][0]
+			return Player.fetchScriptData(url)
 		}
-		
-		fetchFirstScriptData(setting).next('実行', script => {
 
-			hideLodingMessade()
 
-			Player.runScript(script).next('待機', _ => {
+		Player.fetchSettingData(url).then(fetchFirstScriptData).next('待機', script => {
 
-				Player.print('再生が終了しました。\nクリックするともう一度最初から再生します。')
 
-			}).on('go').next('スクリプト読込', _ => START(setting) )
+			message('再生準備が完了しました。\nクリック、タップ、エンターキー、スペースキーで進みます。').delay(1000).next('実行', _ => {
+
+				return Player.runScript(script)
+
+			}).next('待機', _ => {
+
+				View.clean()
+				return message('再生が終了しました。\n作品選択メニューに戻ります。')
+
+			}).delay(1000).next('準備', setup)
 
 		})
 

@@ -11,6 +11,7 @@ READY().then(function () {
 
 	function parseScript(text) {
 		text = text.replace(/\r\n/g, '\n').replace(/\n+/g, '\n').replace(/\n/g, '\r\n')
+		text = text.replace(/^\#.*\n/gm, '')
 		function parseOne(base, text) {
 			var chanks = text.match(/[^\n]+?\n(\t+[\s\S]+?\n)+/g) || []
 			chanks.forEach(chank => {
@@ -50,19 +51,30 @@ READY().then(function () {
 		return function () { return this[name].apply(this, arguments) }
 	}
 
-	function preloadImage(url, result) {
+	function preloadImage(name, url, kind) {
+
+		function loadImageTest(url) {
+			return new Promise( (ok, ng) => {
+				var img = new Image
+				img.onload = _ => ok(url)
+				img.onerror = _ => ng(`画像『${name}』のキャッシュに失敗`)
+				img.src = url
+			} )
+		}
+
 		var hide = View.setLoadingMessage('Loadind...')
 		return new Promise((ok, ng) => {
-			//LOG(url, isNoneType(url))
-			if (isNoneType(url)) return ok()
-			url = forceImageURL(url)
-			var img = new Image
-			img.onload = _ => ok(result)
-			img.onerror = _ => ng(`画像URL『${url}』のキャッシュに失敗`)
-			img.src = url
-		}).then(result => {
+			//LOG(url, Util.isNoneType(url))
+			if (Util.isNoneType(name)) return ok(url)
+			//url = Util.forceImageURL(url)
+			loadImageTest(url).catch( _ => { 
+				var url = Util.forceImageURL(`データ/[[共通素材]]/${kind}/${name}`, Util.Default, '')
+				return loadImageTest(url)
+			} ).then(ok, ng)
+		}).then( url => {
+			//LOG(url)
 			hide()
-			return result
+			return url
 		})
 	}
 
@@ -83,6 +95,7 @@ READY().then(function () {
 					if (!ary) return done()
 
 					var name = ary[0], texts = ary[1]
+					if (Util.isNoneType(name)) name = ''
 					View.nextPage(name)
 
 					function nextSentence() {
@@ -99,24 +112,24 @@ READY().then(function () {
 				nextPage()
 			},
 			背景(data, done, failed) {
-				var url = data[0]
-				preloadImage(url).then( View.setBGImage.bind(View, { url: forceCSSURL(url) }) ).then(done, failed)
+				var name = data[0], url = Util.forceBGImageURL(name)
+				preloadImage(name, url, '背景').then( url => View.setBGImage({ url }) ).then(done, failed)
 			},
 			立絵: otherName('立ち絵'),
 			立ち絵(data, done, failed) {
 				//LOG(data)
 				Promise.all(data.reduce((base, ary) => {
 
-					if (isNoneType(ary)) return base
+					if (Util.isNoneType(ary)) return base
 
 					var type = ['left','right']['左右'.indexOf(ary[0])]
-					var url = ary[1][0]
+					var name = ary[1][0], url = Util.forceFDImageURL(name)
 
 					if (!type) failed('不正な位置検出')
 
-					var ro = { url: forceImageURL(url) }
-					ro[type] = '0px'
-					base.push(preloadImage(url, ro))
+					//var ro = { url }
+					//ro[type] = '0px'
+					base.push(preloadImage(name, url, '立ち絵').then( url => ({ url, [type]: '0px' }) ))
 					return base
 				}, [])).then(View.setFDImages.bind(View)).then(done, failed)
 			},
@@ -126,7 +139,7 @@ READY().then(function () {
 				View.setChoiceWindow(data.map(ary => {
 					return { name: ary[0], value: ary[1][0] }
 				})).then(url => {
-					url = forceScriptURL(url)
+					url = Util.forceScriptURL(url)
 
 					fetchScriptData(url).then(runScript).then(done, failed)
 					
@@ -168,33 +181,11 @@ READY().then(function () {
 	}
 
 
-	function isNoneType(str) {
-		return (typeof str === 'string') && /^(無し|なし)$/.test(str)
-	}
-
-	function forceCSSURL(url, type, root) {
-		if (!url) throw 'URL特定不能エラー'
-		return isNoneType(url) ? 'none' : `url(${forceImageURL(url, type, root)})`
-	}
-
-	function forceImageURL(url, type = 'png', root = '画像') {
-		return forceURL(url, type, root)
-	}
-
-	function forceScriptURL(url, type = 'txt', root = 'テキスト') {
-		return forceURL(url, type, root)
-	}
-
-	function forceURL(url, type, root) {
-		if (!(url && type && root)) throw 'URL特定不能エラー'
-		if (!url.match(/\.[^\.]+$/)) url += `.${type}`
-		if (root && (!url.match(root))) url = `データ/${root}/${url}`
-		return url
-	}
 
 
-	function fetchSettingData() {
-		return loadText(Data.URL.SettingData).then( text => {
+
+	function fetchSettingData(url) {
+		return loadText(url).then( text => {
 			var setting = parseScript(text)
 			var data = {}
 			setting.forEach( ary => {
@@ -206,7 +197,7 @@ READY().then(function () {
 
 
 	function fetchScriptData(url) {
-		url = forceScriptURL(url)
+		url = Util.forceScriptURL(url)
 		return loadText(url).then( text => parseScript(text) )
 	}
 
@@ -228,7 +219,7 @@ READY().then(function () {
 
 
 	function print(message) {
-		View.changeMode('TEST')
+		if (!View.print) View.changeMode('TEST')
 		View.print(message)
 	}
 

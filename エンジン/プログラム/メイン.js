@@ -7,38 +7,74 @@ System.register("ES6/ヘルパー", [], function() {
     var global = (1, eval)('this');
     var Promise = global.Promise;
     var LOG = console.log.bind(console);
-    var Data = {URL: {SettingData: 'データ/作品設定.txt'}};
-    var Util = ((function(_) {
-      return {
-        setDefalts: function() {
-          var obj = arguments[0] !== (void 0) ? arguments[0] : {};
-          var props = arguments[1];
-          if (arguments.length !== 2)
-            throw 'illegal arguments length';
-          Object.keys(props).forEach((function(key) {
-            if (!(key in obj))
-              obj[key] = props[key];
-          }));
-          return obj;
-        },
-        setProperties: function() {
-          var obj = arguments[0] !== (void 0) ? arguments[0] : {};
-          var props = arguments[1];
-          Object.keys(props).forEach((function(key) {
-            return obj[key] = props[key];
-          }));
-          return obj;
-        },
-        NOP: function() {},
-        error: function(message) {
-          alert(message);
-        }
-      };
-    }))();
-    Util.setDefalts(String.prototype, {repeat: function repeat(num) {
+    var Data = {URL: {
+        ContentsSetting: 'データ/作品.txt',
+        EngineSetting: 'エンジン/エンジン定義.txt'
+      }};
+    var Util = {
+      setDefaults: function() {
+        var obj = arguments[0] !== (void 0) ? arguments[0] : {};
+        var props = arguments[1];
+        if (arguments.length !== 2)
+          throw 'illegal arguments length';
+        Object.keys(props).forEach((function(key) {
+          if (!(key in obj))
+            obj[key] = props[key];
+        }));
+        return obj;
+      },
+      setProperties: function() {
+        var obj = arguments[0] !== (void 0) ? arguments[0] : {};
+        var props = arguments[1];
+        Object.keys(props).forEach((function(key) {
+          return obj[key] = props[key];
+        }));
+        return obj;
+      },
+      isNoneType: function(str) {
+        return (typeof str === 'string') && /^(無し|なし)$/.test(str);
+      },
+      forceImageURL: function(url) {
+        var type = arguments[1] !== (void 0) ? arguments[1] : 'png';
+        var kind = arguments[2];
+        return Util.isNoneType(url) ? null : Util.forceURL(url, type, kind);
+      },
+      forceFDImageURL: function(url) {
+        var type = arguments[1] !== (void 0) ? arguments[1] : 'png';
+        var kind = arguments[2] !== (void 0) ? arguments[2] : '立ち絵';
+        return Util.isNoneType(url) ? null : Util.forceURL(url, type, kind);
+      },
+      forceBGImageURL: function(url) {
+        var type = arguments[1] !== (void 0) ? arguments[1] : 'png';
+        var kind = arguments[2] !== (void 0) ? arguments[2] : '背景';
+        return Util.isNoneType(url) ? null : Util.forceURL(url, type, kind);
+      },
+      forceScriptURL: function(url) {
+        var type = arguments[1] !== (void 0) ? arguments[1] : 'txt';
+        var kind = arguments[2] !== (void 0) ? arguments[2] : 'シナリオ';
+        return Util.forceURL(url, type, kind);
+      },
+      forceURL: function(url, type, kind) {
+        if (!url || arguments.length != 3)
+          throw 'URL特定不能エラー';
+        if (!url.match(/\.[^\.]+$/))
+          url = (url + "." + type);
+        var base = Player.baseURL || '';
+        if (kind && (!url.match(kind)))
+          url = ("データ/" + base + "/" + kind + "/" + url);
+        url = url.replace(/\/+/g, '/');
+        return url;
+      },
+      NOP: function() {},
+      error: function(message) {
+        alert(message);
+      },
+      Default: undefined
+    };
+    Util.setDefaults(String.prototype, {repeat: function repeat(num) {
         return new Array(num + 1).join(this);
       }});
-    Util.setDefalts(Promise, {defer: function() {
+    Util.setDefaults(Promise, {defer: function() {
         var resolve,
             reject;
         var promise = new Promise((function(ok, ng) {
@@ -184,7 +220,7 @@ System.register("ES6/ヘルパー", [], function() {
       return READY;
     }))();
     window.addEventListener('DOMContentLoaded', READY.DOM.ready);
-    Util.setDefalts(global, {
+    Util.setDefaults(global, {
       global: global,
       READY: READY,
       Util: Util,
@@ -211,6 +247,7 @@ System.register("ES6/モデル", [], function() {
     }
     function parseScript(text) {
       text = text.replace(/\r\n/g, '\n').replace(/\n+/g, '\n').replace(/\n/g, '\r\n');
+      text = text.replace(/^\#.*\n/gm, '');
       function parseOne(base, text) {
         var chanks = text.match(/[^\n]+?\n(\t+[\s\S]+?\n)+/g) || [];
         chanks.forEach((function(chank) {
@@ -242,37 +279,47 @@ System.register("ES6/モデル", [], function() {
         return this[name].apply(this, arguments);
       };
     }
-    function preloadImage(url, result) {
+    function preloadImage(name, url, kind) {
+      function loadImageTest(url) {
+        return new Promise((function(ok, ng) {
+          var img = new Image;
+          img.onload = (function(_) {
+            return ok(url);
+          });
+          img.onerror = (function(_) {
+            return ng(("画像『" + name + "』のキャッシュに失敗"));
+          });
+          img.src = url;
+        }));
+      }
       var hide = View.setLoadingMessage('Loadind...');
       return new Promise((function(ok, ng) {
-        if (isNoneType(url))
-          return ok();
-        url = forceImageURL(url);
-        var img = new Image;
-        img.onload = (function(_) {
-          return ok(result);
-        });
-        img.onerror = (function(_) {
-          return ng(("画像URL『" + url + "』のキャッシュに失敗"));
-        });
-        img.src = url;
-      })).then((function(result) {
+        if (Util.isNoneType(name))
+          return ok(url);
+        loadImageTest(url).catch((function(_) {
+          var url = Util.forceImageURL(("データ/[[共通素材]]/" + kind + "/" + name), Util.Default, '');
+          return loadImageTest(url);
+        })).then(ok, ng);
+      })).then((function(url) {
         hide();
-        return result;
+        return url;
       }));
     }
     function runScript(script) {
+      var $__2;
       View.changeMode('NOVEL');
       var run = Promise.defer();
       script = copyObject(script);
-      var actHandlers = {
-        会話: function(data, done, failed) {
+      var actHandlers = ($__2 = {}, Object.defineProperty($__2, "会話", {
+        value: function(data, done, failed) {
           function nextPage() {
             var ary = data.shift();
             if (!ary)
               return done();
             var name = ary[0],
                 texts = ary[1];
+            if (Util.isNoneType(name))
+              name = '';
             View.nextPage(name);
             function nextSentence() {
               var text = texts.shift();
@@ -287,41 +334,83 @@ System.register("ES6/モデル", [], function() {
           }
           nextPage();
         },
-        背景: function(data, done, failed) {
-          var url = data[0];
-          preloadImage(url).then(View.setBGImage.bind(View, {url: forceCSSURL(url)})).then(done, failed);
+        configurable: true,
+        enumerable: true,
+        writable: true
+      }), Object.defineProperty($__2, "背景", {
+        value: function(data, done, failed) {
+          var name = data[0],
+              url = Util.forceBGImageURL(name);
+          preloadImage(name, url, '背景').then((function(url) {
+            return View.setBGImage({url: url});
+          })).then(done, failed);
         },
-        立絵: otherName('立ち絵'),
-        立ち絵: function(data, done, failed) {
+        configurable: true,
+        enumerable: true,
+        writable: true
+      }), Object.defineProperty($__2, "立絵", {
+        value: otherName('立ち絵'),
+        configurable: true,
+        enumerable: true,
+        writable: true
+      }), Object.defineProperty($__2, "立ち絵", {
+        value: function(data, done, failed) {
           Promise.all(data.reduce((function(base, ary) {
-            if (isNoneType(ary))
+            if (Util.isNoneType(ary))
               return base;
             var type = ['left', 'right']['左右'.indexOf(ary[0])];
-            var url = ary[1][0];
+            var name = ary[1][0],
+                url = Util.forceFDImageURL(name);
             if (!type)
               failed('不正な位置検出');
-            var ro = {url: forceImageURL(url)};
-            ro[type] = '0px';
-            base.push(preloadImage(url, ro));
+            base.push(preloadImage(name, url, '立ち絵').then((function(url) {
+              var $__2;
+              return (($__2 = {}, Object.defineProperty($__2, "url", {
+                value: url,
+                configurable: true,
+                enumerable: true,
+                writable: true
+              }), Object.defineProperty($__2, type, {
+                value: '0px',
+                configurable: true,
+                enumerable: true,
+                writable: true
+              }), $__2));
+            })));
             return base;
           }), [])).then(View.setFDImages.bind(View)).then(done, failed);
         },
-        選択: otherName('選択肢'),
-        選択肢: function(data, done, failed) {
+        configurable: true,
+        enumerable: true,
+        writable: true
+      }), Object.defineProperty($__2, "選択", {
+        value: otherName('選択肢'),
+        configurable: true,
+        enumerable: true,
+        writable: true
+      }), Object.defineProperty($__2, "選択肢", {
+        value: function(data, done, failed) {
           View.setChoiceWindow(data.map((function(ary) {
             return {
               name: ary[0],
               value: ary[1][0]
             };
           }))).then((function(url) {
-            url = forceScriptURL(url);
+            url = Util.forceScriptURL(url);
             fetchScriptData(url).then(runScript).then(done, failed);
           }));
         },
-        コメント: function(data, done, failed) {
+        configurable: true,
+        enumerable: true,
+        writable: true
+      }), Object.defineProperty($__2, "コメント", {
+        value: function(data, done, failed) {
           done();
-        }
-      };
+        },
+        configurable: true,
+        enumerable: true,
+        writable: true
+      }), $__2);
       function main_loop() {
         var act,
             loop = new Promise((function(resolve, reject) {
@@ -345,35 +434,8 @@ System.register("ES6/モデル", [], function() {
       main_loop();
       return run.promise;
     }
-    function isNoneType(str) {
-      return (typeof str === 'string') && /^(無し|なし)$/.test(str);
-    }
-    function forceCSSURL(url, type, root) {
-      if (!url)
-        throw 'URL特定不能エラー';
-      return isNoneType(url) ? 'none' : ("url(" + forceImageURL(url, type, root) + ")");
-    }
-    function forceImageURL(url) {
-      var type = arguments[1] !== (void 0) ? arguments[1] : 'png';
-      var root = arguments[2] !== (void 0) ? arguments[2] : '画像';
-      return forceURL(url, type, root);
-    }
-    function forceScriptURL(url) {
-      var type = arguments[1] !== (void 0) ? arguments[1] : 'txt';
-      var root = arguments[2] !== (void 0) ? arguments[2] : 'テキスト';
-      return forceURL(url, type, root);
-    }
-    function forceURL(url, type, root) {
-      if (!(url && type && root))
-        throw 'URL特定不能エラー';
-      if (!url.match(/\.[^\.]+$/))
-        url += ("." + type);
-      if (root && (!url.match(root)))
-        url = ("データ/" + root + "/" + url);
-      return url;
-    }
-    function fetchSettingData() {
-      return loadText(Data.URL.SettingData).then((function(text) {
+    function fetchSettingData(url) {
+      return loadText(url).then((function(text) {
         var setting = parseScript(text);
         var data = {};
         setting.forEach((function(ary) {
@@ -383,7 +445,7 @@ System.register("ES6/モデル", [], function() {
       }));
     }
     function fetchScriptData(url) {
-      url = forceScriptURL(url);
+      url = Util.forceScriptURL(url);
       return loadText(url).then((function(text) {
         return parseScript(text);
       }));
@@ -405,7 +467,8 @@ System.register("ES6/モデル", [], function() {
       });
     }
     function print(message) {
-      View.changeMode('TEST');
+      if (!View.print)
+        View.changeMode('TEST');
       View.print(message);
     }
     READY.Player.ready({
@@ -427,7 +490,7 @@ System.register("ES6/ビュー", [], function() {
     'use strict';
     var View = null;
     var EP = Element.prototype;
-    Util.setDefalts(EP, {
+    Util.setDefaults(EP, {
       on: EP.addEventListener,
       requestFullscreen: EP.webkitRequestFullscreen || EP.mozRequestFullScreen,
       append: EP.appendChild,
@@ -436,10 +499,10 @@ System.register("ES6/ビュー", [], function() {
         return this;
       },
       setStyles: function(styles) {
-        var $__2 = this;
+        var $__3 = this;
         styles = styles || {};
         Object.keys(styles).forEach((function(key) {
-          $__2.style[key] = styles[key];
+          $__3.style[key] = styles[key];
         }), this);
         return this;
       }
@@ -474,7 +537,7 @@ System.register("ES6/ビュー", [], function() {
         el_player.style.height = '100%';
       var ratio = ratio || 16 / 9;
       var width = height * ratio;
-      el_player.style.fontSize = height / 20 + 'px';
+      el_player.style.fontSize = height / 25 + 'px';
       el_wrapper.style.height = height + 'px';
       el_wrapper.style.width = width + 'px';
       if (full) {
@@ -488,7 +551,7 @@ System.register("ES6/ビュー", [], function() {
       fontSize: '1em'
     });
     ;
-    [240, 360, 480, 720, 1080].forEach((function(size) {
+    [360, 480, 720, 1080].forEach((function(size) {
       var el = el_root.append(el_debug).append(new DOM('button'));
       el.append(new DOM('text', size + 'p'));
       el.on('click', (function(_) {
@@ -571,7 +634,7 @@ System.register("ES6/ビュー", [], function() {
     var METHODS = {};
     METHODS = {COMMON: {
         initDisplay: function(opt) {
-          Util.setDefalts(opt, {
+          Util.setDefaults(opt, {
             background: 'black',
             margin: 'auto',
             position: 'relative',
@@ -670,7 +733,7 @@ System.register("ES6/ビュー", [], function() {
       TEST: {
         __proto__: METHODS.COMMON,
         initDisplay: function(opt) {
-          Util.setDefalts(opt, {
+          Util.setDefaults(opt, {
             fontSize: 'calc(100% * 2 / 3)',
             color: 'white'
           });
@@ -681,13 +744,13 @@ System.register("ES6/ビュー", [], function() {
           el_context.append(el).append(el_body);
         },
         print: function(text, opt) {
-          this.el_test.textContent = text;
+          this.el_test.textContent += text;
         }
       },
       NOVEL: {
         __proto__: METHODS.COMMON,
         initDisplay: function(opt) {
-          Util.setDefalts(opt, {
+          Util.setDefaults(opt, {
             color: 'rgba(255,255,255,0.9)',
             textShadow: 'rgba(0,0,0,0.9) 0.1em 0.1em 0.1em',
             overflow: 'hidden'
@@ -704,41 +767,54 @@ System.register("ES6/ビュー", [], function() {
           },
           addSentence: function(text, opt) {
             text += '\n';
-            opt = Util.setDefalts(opt, {weight: 33});
+            opt = Util.setDefaults(opt, {weight: 33});
             var length = text.length;
             var at = 0;
             var el = this.el_body;
             var weight = opt.weight;
-            var cancelled = false;
-            View.on('go').then((function(_) {
+            var $__4 = [false, false],
+                aborted = $__4[0],
+                cancelled = $__4[1];
+            var $__4 = [(function(_) {
+              return aborted = true;
+            }), (function(_) {
               return cancelled = true;
-            }));
-            return setAnimate((function(delay, complete) {
+            })],
+                abort = $__4[0],
+                cancel = $__4[1];
+            View.on('go').then(cancel);
+            var p = setAnimate((function(delay, complete) {
+              if (aborted)
+                return complete();
               if (cancelled) {
                 el.append(new DOM('text', text.slice(at).replace(/\u200B/g, '')));
                 return complete();
               }
-              if (delay / weight < at)
-                return;
-              var str = text[at];
-              if (str != '\u200B')
-                el.append(new DOM('text', str));
-              if (++at >= length)
-                complete();
+              while (delay / weight >= at) {
+                var str = text[at];
+                if (str != '\u200B')
+                  el.append(new DOM('text', str));
+                if (++at >= length)
+                  return complete();
+              }
             }));
+            p.abort = abort;
+            p.cancel = cancel;
+            return p;
           }
         },
         addMessageWindow: function(opt) {
-          Util.setDefalts(opt, {
+          Util.setDefaults(opt, {
             background: 'rgba(0,0,100,0.5)',
             boxShadow: 'rgba(0,0,100,0.5) 0px 0px 5px 5px',
             borderRadius: '1% / 1%',
             width: 'calc(100% - 10px - (2% + 2%))',
-            height: 'calc( 30% - 10px - (4% + 2%))',
+            height: 'calc( 25% - 10px - (4% + 2%))',
             fontSize: '100%',
-            lineHeight: '1.3em',
+            lineHeight: '1.5em',
             fontWeight: 'bold',
             padding: '4% 2% 2% 2%',
+            whiteSpace: 'nowrap',
             position: 'absolute',
             bottom: '5px',
             left: '5px',
@@ -751,7 +827,7 @@ System.register("ES6/ビュー", [], function() {
             marginRight: '5%',
             textAlign: 'right',
             verticalAlign: 'top',
-            width: '20%',
+            width: '15%',
             height: '100%'
           }));
           var el_body = el.append(new DOM('div', {
@@ -780,18 +856,20 @@ System.register("ES6/ビュー", [], function() {
           var defer = Promise.defer();
           var cw = new DOM('div', {
             position: 'absolute',
-            left: 'calc((100% - 60%) / 2 - 10%)',
+            left: 'calc((100% - 60%) / 2 - 5%)',
             width: '60%',
             top: '10%',
             boxShadow: 'rgba(100, 100, 255, 0.5) 0 0 2em',
             borderRadius: '3% / 5%',
             background: 'rgba(100, 100, 255, 0.3)',
-            padding: '5% 10%'
+            padding: '3% 5%'
           });
           opts.forEach(function(opt) {
+            if (!('value' in opt))
+              opt.value = opt.name;
             var bt = new DOM('button', {
               display: 'block',
-              fontSize: '1em',
+              fontSize: '1.5em',
               boxShadow: 'inset 0 1px 3px #F1F1F1, inset 0 -15px rgba(0,0,223,0.2), 1px 1px 2px #E7E7E7',
               background: 'rgba(0,0,100,0.8)',
               color: 'white',
@@ -811,7 +889,8 @@ System.register("ES6/ビュー", [], function() {
           return defer.promise;
         },
         setBGImage: function(opt) {
-          el_context.style.backgroundImage = opt.url;
+          var url = opt.url ? ("url(" + opt.url + ")") : 'none';
+          el_context.style.backgroundImage = url;
           el_context.style.backgroundSize = 'cover';
         },
         setFDImages: function(opts) {
@@ -837,10 +916,14 @@ System.register("ES6/ビュー", [], function() {
         }
       }
     };
+    var $MODE = '';
     var ViewProto = {
       __proto__: METHODS.COMMON,
       fresh: function() {
         View = {__proto__: ViewProto};
+      },
+      clean: function() {
+        this.changeMode($MODE);
       },
       init: function(opt) {
         this.initDisplay(opt.style || {});
@@ -853,8 +936,13 @@ System.register("ES6/ビュー", [], function() {
         opt = opt || {};
         if (!type in METHODS)
           throw 'illegal ViewContext mode type';
+        $MODE = type;
         ViewProto.__proto__ = METHODS[type];
         View.init(opt);
+      },
+      changeModeIfNeeded: function(type, opt) {
+        if ($MODE != type)
+          this.changeMode(type, opt);
       },
       on: function(type, onFulfilled, onRejected) {
         return new Promise((function(resolve) {
@@ -908,22 +996,50 @@ System.get("ES6/ビュー" + '');
 System.register("ES6/コントローラー", [], function() {
   "use strict";
   var __moduleName = "ES6/コントローラー";
-  READY('Player', 'View').next('待機', (function(_) {
+  READY('Player', 'View').next('起動', (function(_) {
     'use strict';
-    Player.print('準備が完了しました。\nクリック（orエンターキー　orスペースキー）で次のページに進みます。');
-    View.on('go').next('作品設定読込', Player.fetchSettingData).next('スクリプト読込', START);
-    function START(setting) {
-      var hideLodingMessade = View.setLoadingMessage('Loading...');
+    Player.fetchSettingData(Data.URL.EngineSetting).then((function(setting) {
+      Data.SystemVersion = setting['システムバージョン'][0];
+      return message('openノベルプレイヤー by Hikaru02\n\nシステムバージョン：　' + Data.SystemVersion);
+    })).delay(1000).next('準備', setup);
+    var message = ((function(_) {
+      var abort = Util.NOP;
+      return (function(text) {
+        abort();
+        View.changeModeIfNeeded('NOVEL');
+        View.nextPage('システム');
+        var p = View.addSentence(text, {weight: 20});
+        abort = p.abort;
+        return p;
+      });
+    }))();
+    function setup() {
+      message('作品一覧を読み込んでいます...');
+      Player.fetchSettingData(Data.URL.ContentsSetting).then((function(setting) {
+        message('再生する作品を選んでください');
+        return View.setChoiceWindow(setting['作品'].reduce((function(opts, name) {
+          opts.push({name: name});
+          return opts;
+        }), []));
+      })).then(scenarioSetup);
+    }
+    function scenarioSetup(name) {
+      message('作品情報を読み込んでいます...');
+      Player.baseURL = '';
+      var url = Util.forceURL('設定', 'txt', name);
+      Player.baseURL = name;
       function fetchFirstScriptData(setting) {
-        return Player.fetchScriptData(setting['初期スクリプト'][0]);
+        message('開始シナリオを読み込んでいます...');
+        var url = setting['開始シナリオ'][0];
+        return Player.fetchScriptData(url);
       }
-      fetchFirstScriptData(setting).next('実行', (function(script) {
-        hideLodingMessade();
-        Player.runScript(script).next('待機', (function(_) {
-          Player.print('再生が終了しました。\nクリックするともう一度最初から再生します。');
-        })).on('go').next('スクリプト読込', (function(_) {
-          return START(setting);
-        }));
+      Player.fetchSettingData(url).then(fetchFirstScriptData).next('待機', (function(script) {
+        message('再生準備が完了しました。\nクリック、タップ、エンターキー、スペースキーで進みます。').delay(1000).next('実行', (function(_) {
+          return Player.runScript(script);
+        })).next('待機', (function(_) {
+          View.clean();
+          return message('再生が終了しました。\n作品選択メニューに戻ります。');
+        })).delay(1000).next('準備', setup);
       }));
     }
   }));

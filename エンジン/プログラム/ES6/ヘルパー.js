@@ -7,44 +7,78 @@
 
 	var Data = {
 		URL: {
-			SettingData: 'データ/作品設定.txt',
+			ContentsSetting: 'データ/作品.txt',
+			EngineSetting: 'エンジン/エンジン定義.txt',
 		},
 	}
 
-	var Util = ( _ => {
+	var Util = {
 
-		return {
-			//setDefalt(obj, name, value) {
-			//	if (arguments.length !== 3) throw 'illegal arguments length'
-			//	if (!(name in obj)) obj[name] = value
-			//	return obj
-			//},
+		//setDefault(obj, name, value) {
+		//	if (arguments.length !== 3) throw 'illegal arguments length'
+		//	if (!(name in obj)) obj[name] = value
+		//	return obj
+		//},
 
-			setDefalts(obj = {}, props) {
-				if (arguments.length !== 2) throw 'illegal arguments length'
-				Object.keys(props).forEach(key => { if (!(key in obj)) obj[key] = props[key] })
-				return obj
-			},
+		setDefaults(obj = {}, props) {
+			if (arguments.length !== 2) throw 'illegal arguments length'
+			Object.keys(props).forEach(key => { if (!(key in obj)) obj[key] = props[key] })
+			return obj
+		},
 
-			setProperties(obj = {}, props) {
-				Object.keys(props).forEach(key => obj[key] = props[key] )
-				return obj
-			},
-			NOP() {},
-			error(message) { alert(message) },
-		}
-	})()
+		setProperties(obj = {}, props) {
+			Object.keys(props).forEach(key => obj[key] = props[key] )
+			return obj
+		},
+
+		isNoneType(str) {
+			return (typeof str === 'string') && /^(無し|なし)$/.test(str)
+		},
+
+		forceImageURL(url, type = 'png', kind) {
+			return Util.isNoneType(url) ? null :  Util.forceURL(url, type, kind)
+		},
+
+		forceFDImageURL(url, type = 'png', kind = '立ち絵') {
+			return Util.isNoneType(url) ? null :  Util.forceURL(url, type, kind)
+		},
+
+		forceBGImageURL(url, type = 'png', kind = '背景') {
+			return Util.isNoneType(url) ? null :  Util.forceURL(url, type, kind)
+		},
+
+		forceScriptURL(url, type = 'txt', kind = 'シナリオ') {
+			return Util.forceURL(url, type, kind)
+		},
+
+		forceURL(url, type, kind) {
+			if (!url || arguments.length != 3) throw 'URL特定不能エラー'
+			if (!url.match(/\.[^\.]+$/)) url = `${url}.${type}`
+			var base = Player.baseURL || ''
+			if (kind && (!url.match(kind))) url = `データ/${base}/${kind}/${url}`
+			url = url.replace(/\/+/g, '/')
+			return url
+		},
+
+		NOP() {},
+
+		error(message) { alert(message) },
+
+		Default: undefined,
+
+	}
 
 
 
-	Util.setDefalts(String.prototype, {
+
+	Util.setDefaults(String.prototype, {
 		repeat: function repeat(num) {
 			return new Array(num + 1).join(this)
 		},
 	})
 
 
-	Util.setDefalts(Promise, {
+	Util.setDefaults(Promise, {
 
 		defer() {
 			var resolve, reject
@@ -163,7 +197,7 @@
 	window.addEventListener('DOMContentLoaded', READY.DOM.ready)
 
 
-	Util.setDefalts(global, {
+	Util.setDefaults(global, {
 		global, READY, Util, LOG, Data,
 	})
 

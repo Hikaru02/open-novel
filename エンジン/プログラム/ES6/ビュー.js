@@ -6,7 +6,7 @@ READY('Player', 'DOM').then( _ => {
 	var View = null
 
 	var EP = Element.prototype
-	Util.setDefalts(EP, {
+	Util.setDefaults(EP, {
 		on					: EP.addEventListener,
 		requestFullscreen	: EP.webkitRequestFullscreen || EP.mozRequestFullScreen,
 		append				: EP.appendChild,
@@ -62,7 +62,7 @@ READY('Player', 'DOM').then( _ => {
 
 		var width = height * ratio
 
-		el_player.style.fontSize = height / 20 + 'px'
+		el_player.style.fontSize = height / 25 + 'px'
 
 		
 		//width = screen.width < width ? screen.width : width
@@ -85,7 +85,7 @@ READY('Player', 'DOM').then( _ => {
 	})
 
 
-	;[240, 360, 480, 720, 1080].forEach( size => {
+	;[360, 480, 720, 1080].forEach( size => {
 
 		var el = el_root.append(el_debug).append(new DOM('button'))
 		el.append(new DOM('text', size + 'p'))
@@ -176,7 +176,7 @@ READY('Player', 'DOM').then( _ => {
 	METHODS = {
 		COMMON: {
 			initDisplay: function (opt) {
-				Util.setDefalts(opt, {
+				Util.setDefaults(opt, {
 					background		: 'black',
 					margin			: 'auto',
 					position		: 'relative',
@@ -269,7 +269,7 @@ READY('Player', 'DOM').then( _ => {
 	METHODS = {
 		TEST: { __proto__: METHODS.COMMON,
 			initDisplay: function (opt) {
-				Util.setDefalts(opt, {
+				Util.setDefaults(opt, {
 					fontSize		: 'calc(100% * 2 / 3)',
 					color			: 'white',
 				})
@@ -282,13 +282,13 @@ READY('Player', 'DOM').then( _ => {
 				el_context.append(el).append(el_body)
 			},
 			print: function (text, opt) {
-				this.el_test.textContent = text
+				this.el_test.textContent += text
 			},
 		},
 
 		NOVEL: { __proto__: METHODS.COMMON,
 			initDisplay: function (opt) {
-				Util.setDefalts(opt, {
+				Util.setDefaults(opt, {
 					color			: 'rgba(255,255,255,0.9)',
 				//	fontSize		: 'calc(480px / 20)',
 					textShadow		: 'rgba(0,0,0,0.9) 0.1em 0.1em 0.1em',
@@ -310,7 +310,7 @@ READY('Player', 'DOM').then( _ => {
 				},
 				addSentence: function (text, opt) {
 					text += '\n'
-					opt = Util.setDefalts(opt, {
+					opt = Util.setDefaults(opt, {
 						weight: 33
 					})
 					
@@ -318,32 +318,41 @@ READY('Player', 'DOM').then( _ => {
 					var at = 0
 					var el = this.el_body
 					var weight = opt.weight
-					var cancelled = false
-					View.on('go').then( _ => cancelled = true )
-					return setAnimate( (delay, complete) => {
+					var [aborted, cancelled] = [false, false]
+					var [abort, cancel] = [_ => aborted = true, _ => cancelled = true]
+					View.on('go').then(cancel)
+
+					var p = setAnimate( (delay, complete) => {
+						if (aborted) return complete()
 						if (cancelled) {
 							el.append(new DOM('text', text.slice(at).replace(/\u200B/g, '') ))
 							return complete()
 						}
-						if (delay / weight < at) return
-						var str = text[at]
-						if (str != '\u200B') el.append(new DOM('text', str))
-						if (++at >= length) complete()
+						while (delay / weight >= at) {
+							var str = text[at]
+							if (str != '\u200B') el.append(new DOM('text', str))
+							if (++at >= length) return complete()
+						}
 					})
+
+					p.abort = abort
+					p.cancel = cancel
+					return p
 				},
 			},
 
 			addMessageWindow: function (opt) {
-				Util.setDefalts(opt, {
+				Util.setDefaults(opt, {
 					background		: 'rgba(0,0,100,0.5)',
 					boxShadow		: 'rgba(0,0,100,0.5) 0px 0px 5px 5px',
 					borderRadius	: '1% / 1%',
 					width			: 'calc(100% - 10px - (2% + 2%))',
-					height			: 'calc( 30% - 10px - (4% + 2%))',
+					height			: 'calc( 25% - 10px - (4% + 2%))',
 					fontSize		: '100%',
-					lineHeight		: '1.3em',
+					lineHeight		: '1.5em',
 					fontWeight		: 'bold',
 					padding			: '4% 2% 2% 2%',
+					whiteSpace		: 'nowrap',
 					position		: 'absolute',
 					bottom			: '5px',
 					left			: '5px',
@@ -359,7 +368,7 @@ READY('Player', 'DOM').then( _ => {
 				//	color			: 'blue',
 					textAlign		: 'right',
 					verticalAlign	: 'top',
-					width			: '20%',
+					width			: '15%',
 					height			: '100%',
 				//	background		: 'rgba(255,100,200,0.5)',
 				//	padding			: '5px',
@@ -401,20 +410,21 @@ READY('Player', 'DOM').then( _ => {
 
 				var cw = new DOM('div', {
 					position		: 'absolute',
-					left			: 'calc((100% - 60%) / 2 - 10%)',
+					left			: 'calc((100% - 60%) / 2 - 5%)',
 					width			: '60%',
 					top				: '10%', 
 					boxShadow		: 'rgba(100, 100, 255, 0.5) 0 0 2em',
 					borderRadius	: '3% / 5%',
 					background		: 'rgba(100, 100, 255, 0.3)',
-					padding			: '5% 10%',
+					padding			: '3% 5%',
 
 				})
 
 				opts.forEach(function (opt) {
+					if (!('value' in opt)) opt.value = opt.name
 					var bt = new DOM('button', {
 						display			: 'block',
-						fontSize		: '1em',
+						fontSize		: '1.5em',
 						boxShadow		: 'inset 0 1px 3px #F1F1F1, inset 0 -15px rgba(0,0,223,0.2), 1px 1px 2px #E7E7E7',
 						background		: 'rgba(0,0,100,0.8)',
 						color			: 'white',
@@ -438,7 +448,8 @@ READY('Player', 'DOM').then( _ => {
 			},
 
 			setBGImage: function (opt) {
-				el_context.style.backgroundImage = opt.url
+				var url = opt.url ? `url(${opt.url})` : 'none'
+				el_context.style.backgroundImage = url
 				el_context.style.backgroundSize = 'cover'
 			},
 
@@ -471,12 +482,16 @@ READY('Player', 'DOM').then( _ => {
 	}
 
 
-
+	var $MODE = ''
 
 
 	var ViewProto = { __proto__: METHODS.COMMON,
+		//get el_wrapper() { return el_wrapper },
 		fresh: function () {
 			View = { __proto__: ViewProto }
+		},
+		clean: function () {
+			this.changeMode($MODE)
 		},
 		init: function (opt) {
 			this.initDisplay(opt.style || {})
@@ -490,9 +505,13 @@ READY('Player', 'DOM').then( _ => {
 
 			if (!type in METHODS) throw 'illegal ViewContext mode type'
 
+			$MODE = type
 			ViewProto.__proto__ = METHODS[type]
 			View.init(opt)
 
+		},
+		changeModeIfNeeded: function (type, opt) {
+			if ($MODE != type) this.changeMode(type, opt)
 		},
 		on: function (type, onFulfilled, onRejected) {
 
