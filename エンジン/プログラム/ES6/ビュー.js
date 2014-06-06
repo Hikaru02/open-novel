@@ -58,8 +58,7 @@ READY('Player', 'DOM').then( _ => {
 
 		if (!full) {
 			el_player.style.height = '100%'
-			if (height < 480) View.showNotice('表示領域が小さ過ぎるため\n表示が崩れる場合があります')
-
+			if (height < 480 && View.showNotice) View.showNotice('表示領域が小さ過ぎるため\n表示が崩れる場合があります')
 		}
 
 		var ratio = ratio || 16 / 9
@@ -69,16 +68,13 @@ READY('Player', 'DOM').then( _ => {
 
 		el_player.style.fontSize = height / 25 + 'px'
 
-		
-		//width = screen.width < width ? screen.width : width
-
 		el_wrapper.style.height = height + 'px'
 		el_wrapper.style.width  = width  + 'px'
 		if (full) {
-			el_fullscreen.style.height = el_player.style.height = height + 'px'
+			el_player.style.height = height + 'px'
+			if (el_fullscreen) el_fullscreen.style.height = height + 'px'
 		} else fitScreen = Util.NOP 
 
-		//RAF(styleAdjustLoop) 
 	}
 	
 
