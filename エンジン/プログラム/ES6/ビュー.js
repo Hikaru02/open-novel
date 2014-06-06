@@ -58,7 +58,7 @@ READY('Player', 'DOM').then( _ => {
 
 		if (!full) {
 			el_player.style.height = '100%'
-			if (height < 480) READY('View').then( _ => View.showNotice('表示領域が小さ過ぎるため\n表示が崩れる場合があります') )
+			if (height < 480) View.showNotice('表示領域が小さ過ぎるため\n表示が崩れる場合があります')
 		}
 
 		var ratio = ratio || 16 / 9
@@ -569,6 +569,7 @@ READY('Player', 'DOM').then( _ => {
 	var $scale = width / $ratio >= 480 ? 480 : width / $ratio
 	//document.body.style.width = '100%'
 
+	View.changeMode('TEST')
 	adjustScale($scale, $ratio)
 
 	READY.View.ready(View) 
