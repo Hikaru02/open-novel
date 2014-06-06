@@ -56,11 +56,16 @@ READY('Player', 'DOM').then( _ => {
 
 		//LOG(arguments)
 
-		if (!full) el_player.style.height = '100%'
+		if (!full) {
+			el_player.style.height = '100%'
+			if (height < 480) View.showNotice('表示領域が小さ過ぎるため\n表示が崩れる場合があります')
+
+		}
 
 		var ratio = ratio || 16 / 9
 
 		var width = height * ratio
+
 
 		el_player.style.fontSize = height / 25 + 'px'
 
@@ -410,8 +415,8 @@ READY('Player', 'DOM').then( _ => {
 
 				var cw = new DOM('div', {
 					position		: 'absolute',
-					left			: 'calc((100% - 60%) / 2 - 5%)',
-					width			: '60%',
+					left			: 'calc((100% - 70%) / 2 - 5%)',
+					width			: '70%',
 					top				: '10%', 
 					boxShadow		: 'rgba(100, 100, 255, 0.5) 0 0 2em',
 					borderRadius	: '3% / 5%',
