@@ -533,10 +533,11 @@ System.register("ES6/ビュー", [], function() {
     el_root.removeChildren();
     el_root.append(el_wrapper).append(el_player).append(el_context);
     function adjustScale(height, ratio, full) {
+      var p = Promise.resolve();
       if (!full) {
         el_player.style.height = '100%';
         if (height < 480)
-          View.showNotice('表示領域が小さ過ぎるため\n表示が崩れる場合があります');
+          p = View.showNotice('表示領域が小さ過ぎるため\n表示が崩れる場合があります');
       }
       var ratio = ratio || 16 / 9;
       var width = height * ratio;
@@ -549,6 +550,7 @@ System.register("ES6/ビュー", [], function() {
           el_fullscreen.style.height = height + 'px';
       } else
         fitScreen = Util.NOP;
+      return p;
     }
     var el_debug = new DOM('div', {
       width: '300px',
@@ -993,8 +995,10 @@ System.register("ES6/ビュー", [], function() {
     var width = document.body.clientWidth;
     var $scale = width / $ratio >= 480 ? 480 : width / $ratio;
     View.changeMode('TEST');
-    adjustScale($scale, $ratio);
-    READY.View.ready(View);
+    var p = adjustScale($scale, $ratio);
+    p.then((function(_) {
+      return READY.View.ready(View);
+    }));
   }));
   return {};
 });

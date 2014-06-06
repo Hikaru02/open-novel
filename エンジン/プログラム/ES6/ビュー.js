@@ -55,10 +55,11 @@ READY('Player', 'DOM').then( _ => {
 	function adjustScale(height, ratio, full) {
 
 		//LOG(arguments)
+		var p = Promise.resolve()
 
 		if (!full) {
 			el_player.style.height = '100%'
-			if (height < 480) View.showNotice('表示領域が小さ過ぎるため\n表示が崩れる場合があります')
+			if (height < 480) p = View.showNotice('表示領域が小さ過ぎるため\n表示が崩れる場合があります')
 		}
 
 		var ratio = ratio || 16 / 9
@@ -74,6 +75,8 @@ READY('Player', 'DOM').then( _ => {
 			el_player.style.height = height + 'px'
 			if (el_fullscreen) el_fullscreen.style.height = height + 'px'
 		} else fitScreen = Util.NOP 
+
+		return p
 
 	}
 	
@@ -570,8 +573,8 @@ READY('Player', 'DOM').then( _ => {
 	//document.body.style.width = '100%'
 
 	View.changeMode('TEST')
-	adjustScale($scale, $ratio)
+	var p = adjustScale($scale, $ratio)
 
-	READY.View.ready(View) 
+	p.then( _ => READY.View.ready(View) )
 
 })
