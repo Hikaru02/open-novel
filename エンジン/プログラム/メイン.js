@@ -236,6 +236,8 @@ System.register("ES6/モデル", [], function() {
   var __moduleName = "ES6/モデル";
   READY().then(function() {
     'use strict';
+    var $__4,
+        $__5;
     function setPhase(phase) {
       document.title = '【' + phase + '】';
     }
@@ -279,8 +281,12 @@ System.register("ES6/モデル", [], function() {
         return this[name].apply(this, arguments);
       };
     }
-    function preloadImage(name, url, kind) {
-      function loadImageTest(url) {
+    function preloadImage($__3) {
+      var name = $__3.name,
+          url = $__3.url,
+          kind = $__3.kind,
+          type = ($__4 = $__3.type) === void 0 ? 'png' : $__4;
+      function test(url) {
         return new Promise((function(ok, ng) {
           var img = new Image;
           img.onload = (function(_) {
@@ -292,13 +298,45 @@ System.register("ES6/モデル", [], function() {
           img.src = url;
         }));
       }
+      return preload({
+        name: name,
+        url: url,
+        kind: kind,
+        test: test,
+        type: type
+      });
+    }
+    function preloadScript($__4) {
+      var name = $__4.name,
+          url = $__4.url,
+          kind = ($__5 = $__4.kind) === void 0 ? 'シナリオ' : $__5,
+          type = ($__5 = $__4.type) === void 0 ? 'txt' : $__5;
+      function test(url) {
+        return find(url).then((function(_) {
+          return url;
+        }));
+      }
+      return preload({
+        name: name,
+        url: url,
+        kind: kind,
+        test: test,
+        type: type
+      });
+    }
+    function preload($__5) {
+      var name = $__5.name,
+          url = $__5.url,
+          kind = $__5.kind,
+          type = $__5.type,
+          test = $__5.test;
       var hide = View.setLoadingMessage('Loadind...');
       return new Promise((function(ok, ng) {
         if (Util.isNoneType(name))
           return ok(url);
-        loadImageTest(url).catch((function(_) {
-          var url = Util.forceImageURL(("データ/[[共通素材]]/" + kind + "/" + name), Util.Default, '');
-          return loadImageTest(url);
+        test(url).catch((function(_) {
+          var url = Util.forceURL(("データ/[[共通素材]]/" + kind + "/" + name), type, '');
+          return test(url);
         })).then(ok, ng);
       })).then((function(url) {
         hide();
@@ -341,7 +379,11 @@ System.register("ES6/モデル", [], function() {
         value: function(data, done, failed) {
           var name = data[0],
               url = Util.forceBGImageURL(name);
-          preloadImage(name, url, '背景').then((function(url) {
+          preloadImage({
+            name: name,
+            url: url,
+            kind: '背景'
+          }).then((function(url) {
             return View.setBGImage({url: url});
           })).then(done, failed);
         },
@@ -363,7 +405,11 @@ System.register("ES6/モデル", [], function() {
                 url = Util.forceFDImageURL(name);
             if (!type)
               failed('不正な位置検出');
-            base.push(preloadImage(name, url, '立ち絵').then((function(url) {
+            base.push(preloadImage({
+              name: name,
+              url: url,
+              kind: '立ち絵'
+            }).then((function(url) {
               var $__2;
               return (($__2 = {}, Object.defineProperty($__2, "url", {
                 value: url,
@@ -395,9 +441,12 @@ System.register("ES6/モデル", [], function() {
               name: ary[0],
               value: ary[1][0]
             };
-          }))).then((function(url) {
-            url = Util.forceScriptURL(url);
-            fetchScriptData(url).then(runScript).then(done, failed);
+          }))).then((function(name) {
+            var url = Util.forceScriptURL(name);
+            preloadScript({
+              name: name,
+              url: url
+            }).then(fetchScriptData).then(runScript).then(done, failed);
           }));
         },
         configurable: true,
@@ -444,9 +493,12 @@ System.register("ES6/モデル", [], function() {
         return data;
       }));
     }
-    function fetchScriptData(url) {
-      url = Util.forceScriptURL(url);
-      return loadText(url).then((function(text) {
+    function fetchScriptData(name) {
+      var url = Util.forceScriptURL(name);
+      return preloadScript({
+        name: name,
+        url: url
+      }).then(loadText).then((function(text) {
         return parseScript(text);
       }));
     }
@@ -463,6 +515,20 @@ System.register("ES6/モデル", [], function() {
         xhr.open('GET', url);
         if (type)
           xhr.responseType = type;
+        xhr.send();
+      });
+    }
+    function find(url) {
+      return new Promise(function(ok, ng) {
+        var xhr = new XMLHttpRequest();
+        xhr.onload = (function(_) {
+          if (xhr.status < 300)
+            ok();
+          else
+            ng(new Error('Not Found'));
+        });
+        xhr.onerror = ng;
+        xhr.open('HEAD', url);
         xhr.send();
       });
     }
@@ -499,10 +565,10 @@ System.register("ES6/ビュー", [], function() {
         return this;
       },
       setStyles: function(styles) {
-        var $__3 = this;
+        var $__6 = this;
         styles = styles || {};
         Object.keys(styles).forEach((function(key) {
-          $__3.style[key] = styles[key];
+          $__6.style[key] = styles[key];
         }), this);
         return this;
       }
@@ -774,16 +840,16 @@ System.register("ES6/ビュー", [], function() {
             var at = 0;
             var el = this.el_body;
             var weight = opt.weight;
-            var $__4 = [false, false],
-                aborted = $__4[0],
-                cancelled = $__4[1];
-            var $__4 = [(function(_) {
+            var $__7 = [false, false],
+                aborted = $__7[0],
+                cancelled = $__7[1];
+            var $__7 = [(function(_) {
               return aborted = true;
             }), (function(_) {
               return cancelled = true;
             })],
-                abort = $__4[0],
-                cancel = $__4[1];
+                abort = $__7[0],
+                cancel = $__7[1];
             View.on('go').then(cancel);
             var p = setAnimate((function(delay, complete) {
               if (aborted)

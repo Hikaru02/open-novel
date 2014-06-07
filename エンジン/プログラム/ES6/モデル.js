@@ -51,9 +51,9 @@ READY().then(function () {
 		return function () { return this[name].apply(this, arguments) }
 	}
 
-	function preloadImage(name, url, kind) {
+	function preloadImage({name, url, kind, type = 'png'}) {
 
-		function loadImageTest(url) {
+		function test(url) {
 			return new Promise( (ok, ng) => {
 				var img = new Image
 				img.onload = _ => ok(url)
@@ -62,14 +62,29 @@ READY().then(function () {
 			} )
 		}
 
+		return preload({name, url, kind, test, type})
+
+	}
+
+	function preloadScript({name, url, kind = 'シナリオ', type = 'txt'}) {
+
+		function test(url) {
+			return find(url).then( _ => url)
+		}
+
+		return preload({name, url, kind, test, type})
+
+	}
+
+	function preload({name, url, kind, type, test}) {
 		var hide = View.setLoadingMessage('Loadind...')
 		return new Promise((ok, ng) => {
 			//LOG(url, Util.isNoneType(url))
 			if (Util.isNoneType(name)) return ok(url)
 			//url = Util.forceImageURL(url)
-			loadImageTest(url).catch( _ => { 
-				var url = Util.forceImageURL(`データ/[[共通素材]]/${kind}/${name}`, Util.Default, '')
-				return loadImageTest(url)
+			test(url).catch( _ => { 
+				var url = Util.forceURL(`データ/[[共通素材]]/${kind}/${name}`, type, '')
+				return test(url)
 			} ).then(ok, ng)
 		}).then( url => {
 			//LOG(url)
@@ -113,7 +128,7 @@ READY().then(function () {
 			},
 			背景(data, done, failed) {
 				var name = data[0], url = Util.forceBGImageURL(name)
-				preloadImage(name, url, '背景').then( url => View.setBGImage({ url }) ).then(done, failed)
+				preloadImage({name, url, kind: '背景'}).then( url => View.setBGImage({ url }) ).then(done, failed)
 			},
 			立絵: otherName('立ち絵'),
 			立ち絵(data, done, failed) {
@@ -129,7 +144,7 @@ READY().then(function () {
 
 					//var ro = { url }
 					//ro[type] = '0px'
-					base.push(preloadImage(name, url, '立ち絵').then( url => ({ url, [type]: '0px' }) ))
+					base.push(preloadImage({name, url, kind: '立ち絵'}).then( url => ({ url, [type]: '0px' }) ))
 					return base
 				}, [])).then(View.setFDImages.bind(View)).then(done, failed)
 			},
@@ -138,10 +153,10 @@ READY().then(function () {
 
 				View.setChoiceWindow(data.map(ary => {
 					return { name: ary[0], value: ary[1][0] }
-				})).then(url => {
-					url = Util.forceScriptURL(url)
+				})).then(name => {
+					var url = Util.forceScriptURL(name)
 
-					fetchScriptData(url).then(runScript).then(done, failed)
+					preloadScript({name, url}).then(fetchScriptData).then(runScript).then(done, failed)
 					
 				})
 			},
@@ -196,9 +211,9 @@ READY().then(function () {
 	}
 
 
-	function fetchScriptData(url) {
-		url = Util.forceScriptURL(url)
-		return loadText(url).then( text => parseScript(text) )
+	function fetchScriptData(name) {
+		var url = Util.forceScriptURL(name)
+		return preloadScript({name, url}).then(loadText).then( text => parseScript(text) )
 	}
 
 
@@ -215,6 +230,20 @@ READY().then(function () {
 			if (type) xhr.responseType = type
 			xhr.send()
 		})
+	}
+
+	function find(url) {
+		return new Promise(function (ok, ng) {
+			var xhr = new XMLHttpRequest()
+			xhr.onload = _ => {
+				if (xhr.status < 300) ok()
+				else ng(new Error('Not Found')) 
+			}
+			xhr.onerror = ng
+			xhr.open('HEAD', url)
+			xhr.send()
+		})
+
 	}
 
 
