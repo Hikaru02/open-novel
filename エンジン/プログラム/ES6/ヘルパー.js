@@ -66,8 +66,23 @@
 
 		Default: undefined,
 
-	}
+		co(func) {
+			return function () {
+				var defer = Promise.defer()
+				var iter = func.apply(this, arguments)
+				var loop = val => {
+					var {value, done} = iter.next(val)
+					//LOG(value, done)
+					value = Promise.resolve(value)
+					if (done) defer.resolve(value)
+					else value.then(loop)
+				}
+				loop()
+				return defer.promise
+			}
+		},
 
+	}
 
 
 
@@ -94,6 +109,7 @@
 
 	Util.setProperties(Promise.prototype, {
 
+		/*
 		next: function next(kind, onFulfilled, onRejected) {
 			return this.then( result => {
 				Player.setRunPhase(kind)
@@ -104,6 +120,7 @@
 				return Promise.reject(err)
 			})
 		},
+		*/
 
 		on: function on(type, onFulfilled = result => result, onRejected) {
 			return this.then( result => View.on(type).then( _ => onFulfilled(result) ).catch(onRejected) )
@@ -172,7 +189,7 @@
 		race   : ary => Promise.race(ary).$ ,
 	})
 
-	Util.overrides = { Promise }
+	Util.overrides = { Promise: $Promise }
 
 	var READY = ( _ => {
 		function READY(type) {

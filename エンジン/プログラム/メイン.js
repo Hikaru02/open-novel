@@ -69,7 +69,25 @@ System.register("ES6/ヘルパー", [], function() {
       error: function(message) {
         alert(message);
       },
-      Default: undefined
+      Default: undefined,
+      co: function(func) {
+        return function() {
+          var defer = Promise.defer();
+          var iter = func.apply(this, arguments);
+          var loop = (function(val) {
+            var $__1 = $traceurRuntime.assertObject(iter.next(val)),
+                value = $__1.value,
+                done = $__1.done;
+            value = Promise.resolve(value);
+            if (done)
+              defer.resolve(value);
+            else
+              value.then(loop);
+          });
+          loop();
+          return defer.promise;
+        };
+      }
     };
     Util.setDefaults(String.prototype, {repeat: function repeat(num) {
         return new Array(num + 1).join(this);
@@ -87,16 +105,6 @@ System.register("ES6/ヘルパー", [], function() {
         };
       }});
     Util.setProperties(Promise.prototype, {
-      next: function next(kind, onFulfilled, onRejected) {
-        return this.then((function(result) {
-          Player.setRunPhase(kind);
-          return onFulfilled(result);
-        }), onRejected).catch((function(err) {
-          LOG(kind + 'エラー', err);
-          Player.setErrorPhase(kind);
-          return Promise.reject(err);
-        }));
-      },
       on: function on(type) {
         var onFulfilled = arguments[1] !== (void 0) ? arguments[1] : (function(result) {
           return result;
@@ -197,7 +205,7 @@ System.register("ES6/ヘルパー", [], function() {
         return Promise.race(ary).$;
       })
     });
-    Util.overrides = {Promise: Promise};
+    Util.overrides = {Promise: $Promise};
     var READY = ((function(_) {
       function READY(type) {
         var types = (arguments.length != 1) ? [].slice.call(arguments) : (Array.isArray(type)) ? type : [type];
@@ -1072,12 +1080,8 @@ System.get("ES6/ビュー" + '');
 System.register("ES6/コントローラー", [], function() {
   "use strict";
   var __moduleName = "ES6/コントローラー";
-  READY('Player', 'View').next('起動', (function(_) {
+  READY('Player', 'View').then((function(_) {
     'use strict';
-    Player.fetchSettingData(Data.URL.EngineSetting).then((function(setting) {
-      Data.SystemVersion = setting['システムバージョン'][0];
-      return message('openノベルプレイヤー by Hikaru02\n\nシステムバージョン：　' + Data.SystemVersion);
-    })).delay(1000).next('準備', setup);
     var message = ((function(_) {
       var abort = Util.NOP;
       return (function(text) {
@@ -1089,35 +1093,129 @@ System.register("ES6/コントローラー", [], function() {
         return p;
       });
     }))();
-    function setup() {
-      message('作品一覧を読み込んでいます...');
-      Player.fetchSettingData(Data.URL.ContentsSetting).then((function(setting) {
-        message('再生する作品を選んでください');
-        return View.setChoiceWindow(setting['作品'].reduce((function(opts, name) {
-          opts.push({name: name});
-          return opts;
-        }), []));
-      })).then(scenarioSetup);
-    }
-    function scenarioSetup(name) {
-      message('作品情報を読み込んでいます...');
-      Player.baseURL = '';
-      var url = Util.forceURL('設定', 'txt', name);
-      Player.baseURL = name;
-      function fetchFirstScriptData(setting) {
-        message('開始シナリオを読み込んでいます...');
-        var url = setting['開始シナリオ'][0];
-        return Player.fetchScriptData(url);
-      }
-      Player.fetchSettingData(url).then(fetchFirstScriptData).next('待機', (function(script) {
-        message('再生準備が完了しました。\nクリック、タップ、エンターキー、スペースキーで進みます。').delay(1000).next('実行', (function(_) {
-          return Player.runScript(script);
-        })).next('待機', (function(_) {
-          View.clean();
-          return message('再生が終了しました。\n作品選択メニューに戻ります。');
-        })).delay(1000).next('準備', setup);
-      }));
-    }
+    var setup = Util.co($traceurRuntime.initGeneratorFunction(function $__8() {
+      var setting,
+          scenario,
+          script;
+      return $traceurRuntime.createGeneratorInstance(function($ctx) {
+        while (true)
+          switch ($ctx.state) {
+            case 0:
+              Player.setRunPhase('準備');
+              $ctx.state = 28;
+              break;
+            case 28:
+              $ctx.state = 2;
+              return message('作品一覧を読み込んでいます...').then((function(_) {
+                return Player.fetchSettingData(Data.URL.ContentsSetting);
+              }));
+            case 2:
+              setting = $ctx.sent;
+              $ctx.state = 4;
+              break;
+            case 4:
+              $ctx.state = 6;
+              return message('再生する作品を選んでください').then((function(_) {
+                var opts = setting['作品'].reduce((function(opts, name) {
+                  opts.push({name: name});
+                  return opts;
+                }), []);
+                return View.setChoiceWindow(opts);
+              }));
+            case 6:
+              scenario = $ctx.sent;
+              $ctx.state = 8;
+              break;
+            case 8:
+              $ctx.state = 10;
+              return message('作品情報を読み込んでいます...').then((function(_) {
+                Player.baseURL = '';
+                var url = Util.forceURL('設定', 'txt', scenario);
+                Player.baseURL = scenario;
+                return Player.fetchSettingData(url);
+              }));
+            case 10:
+              setting = $ctx.sent;
+              $ctx.state = 12;
+              break;
+            case 12:
+              $ctx.state = 14;
+              return message('開始シナリオを読み込んでいます...').then((function(_) {
+                var url = setting['開始シナリオ'][0];
+                return Player.fetchScriptData(url);
+              }));
+            case 14:
+              script = $ctx.sent;
+              $ctx.state = 16;
+              break;
+            case 16:
+              $ctx.state = 18;
+              return message('再生準備が完了しました。\nクリック、タップ、エンターキー、スペースキーで進みます。').delay(1000).on('go').then((function(_) {
+                Player.setRunPhase('再生');
+                return Player.runScript(script);
+              }));
+            case 18:
+              $ctx.maybeThrow();
+              $ctx.state = 20;
+              break;
+            case 20:
+              View.clean();
+              Player.setRunPhase('準備');
+              $ctx.state = 30;
+              break;
+            case 30:
+              $ctx.state = 22;
+              return message('再生が終了しました。\n作品選択メニューに戻ります。').delay(1000).on('go');
+            case 22:
+              $ctx.maybeThrow();
+              $ctx.state = 24;
+              break;
+            case 24:
+              $ctx.returnValue = setup();
+              $ctx.state = -2;
+              break;
+            default:
+              return $ctx.end();
+          }
+      }, $__8, this);
+    }));
+    var start = Util.co($traceurRuntime.initGeneratorFunction(function $__9() {
+      var setting;
+      return $traceurRuntime.createGeneratorInstance(function($ctx) {
+        while (true)
+          switch ($ctx.state) {
+            case 0:
+              Player.setRunPhase('起動');
+              $ctx.state = 12;
+              break;
+            case 12:
+              $ctx.state = 2;
+              return Player.fetchSettingData(Data.URL.EngineSetting);
+            case 2:
+              setting = $ctx.sent;
+              $ctx.state = 4;
+              break;
+            case 4:
+              Data.SystemVersion = setting['システムバージョン'][0];
+              $ctx.state = 14;
+              break;
+            case 14:
+              $ctx.state = 6;
+              return message('openノベルプレイヤー by Hikaru02\n\nシステムバージョン：　' + Data.SystemVersion).delay(1000);
+            case 6:
+              $ctx.maybeThrow();
+              $ctx.state = 8;
+              break;
+            case 8:
+              $ctx.returnValue = setup();
+              $ctx.state = -2;
+              break;
+            default:
+              return $ctx.end();
+          }
+      }, $__9, this);
+    }));
+    start();
   }));
   return {};
 });
