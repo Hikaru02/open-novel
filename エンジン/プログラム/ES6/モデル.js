@@ -219,6 +219,7 @@ READY().then(function () {
 		var sub = Util.forceName(kind, name, type)
 		if (Util.isNoneType(name)) return Promise.resolve(null)
 		if (cacheBlobMap.has(sub)) return Promise.resolve(cacheBlobMap.get(sub))
+		var hide = View.setLoadingMessage('Loading...')
 		return new Promise( (ok, ng) => {		
 			var url = `データ/${Player.scenarioName}/${sub}`
 			find(url).catch( _ => { 
@@ -227,6 +228,7 @@ READY().then(function () {
 			} ).then( _ => ok(url), ng)
 		}).then(loadBlob).then(URL.createObjectURL).then(blobURL => {
 			cacheBlobMap.set(sub, blobURL)
+			hide()
 			return blobURL
 		})
 	}
@@ -293,7 +295,6 @@ READY().then(function () {
 	var cacheBlobMap = new Map
 
 	function cacheClear() {
-
 
 		cacheBlobMap.forEach( (subURL, blobURL) => {
 			URL.revokeObjectURL(blobURL)

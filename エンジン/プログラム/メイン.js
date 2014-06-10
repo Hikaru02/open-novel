@@ -418,6 +418,7 @@ System.register("ES6/モデル", [], function() {
         return Promise.resolve(null);
       if (cacheBlobMap.has(sub))
         return Promise.resolve(cacheBlobMap.get(sub));
+      var hide = View.setLoadingMessage('Loading...');
       return new Promise((function(ok, ng) {
         var url = ("データ/" + Player.scenarioName + "/" + sub);
         find(url).catch((function(_) {
@@ -428,6 +429,7 @@ System.register("ES6/モデル", [], function() {
         }), ng);
       })).then(loadBlob).then(URL.createObjectURL).then((function(blobURL) {
         cacheBlobMap.set(sub, blobURL);
+        hide();
         return blobURL;
       }));
     }
