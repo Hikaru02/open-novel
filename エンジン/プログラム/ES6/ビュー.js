@@ -128,6 +128,13 @@ READY('Player', 'DOM').then( _ => {
 		View.showNotice('この機能はブラウザにより\n表示の差があります', 3000)
 	})
 
+	var el = el_root.append(el_debug).append(new DOM('button'))
+	el.append(new DOM('text', 'キャシュ削除'))
+	el.on('click', _ => {
+		Player.cacheClear()
+		View.showNotice('キャッシュを削除しました')
+	})
+
 
 
 
@@ -410,11 +417,13 @@ READY('Player', 'DOM').then( _ => {
 					position		: 'absolute',
 					left			: 'calc((100% - 70%) / 2 - 5%)',
 					width			: '70%',
-					top				: '10%', 
+				//	height			: '70%',
+					top				: '5%', 
 					boxShadow		: 'rgba(100, 100, 255, 0.5) 0 0 2em',
 					borderRadius	: '3% / 5%',
 					background		: 'rgba(100, 100, 255, 0.3)',
-					padding			: '3% 5%',
+					padding			: '0% 5%',
+				//	verticalAlign	: 'middle',
 
 				})
 

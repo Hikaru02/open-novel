@@ -34,36 +34,12 @@ System.register("ES6/ヘルパー", [], function() {
       isNoneType: function(str) {
         return (typeof str === 'string') && /^(無し|なし)$/.test(str);
       },
-      forceImageURL: function(url) {
-        var type = arguments[1] !== (void 0) ? arguments[1] : 'png';
-        var kind = arguments[2];
-        return Util.isNoneType(url) ? null : Util.forceURL(url, type, kind);
-      },
-      forceFDImageURL: function(url) {
-        var type = arguments[1] !== (void 0) ? arguments[1] : 'png';
-        var kind = arguments[2] !== (void 0) ? arguments[2] : '立ち絵';
-        return Util.isNoneType(url) ? null : Util.forceURL(url, type, kind);
-      },
-      forceBGImageURL: function(url) {
-        var type = arguments[1] !== (void 0) ? arguments[1] : 'png';
-        var kind = arguments[2] !== (void 0) ? arguments[2] : '背景';
-        return Util.isNoneType(url) ? null : Util.forceURL(url, type, kind);
-      },
-      forceScriptURL: function(url) {
-        var type = arguments[1] !== (void 0) ? arguments[1] : 'txt';
-        var kind = arguments[2] !== (void 0) ? arguments[2] : 'シナリオ';
-        return Util.forceURL(url, type, kind);
-      },
-      forceURL: function(url, type, kind) {
-        if (!url || arguments.length != 3)
-          throw 'URL特定不能エラー';
-        if (!url.match(/\.[^\.]+$/))
-          url = (url + "." + type);
-        var base = Player.baseURL || '';
-        if (kind && (!url.match(kind)))
-          url = ("データ/" + base + "/" + kind + "/" + url);
-        url = url.replace(/\/+/g, '/');
-        return url;
+      forceName: function(kind, name, type) {
+        if (!name || !type)
+          throw 'name特定不能エラー';
+        if (!name.match(/\.[^\.]+$/))
+          name = (name + "." + type);
+        return (kind + "/" + name);
       },
       toHalfWidth: function(str) {
         return str.replace(/[\uff0d-\uff5a]/g, (function(char) {
@@ -87,7 +63,7 @@ System.register("ES6/ヘルパー", [], function() {
             if (done)
               defer.resolve(value);
             else
-              value.then(loop);
+              value.then(loop, defer.reject);
           });
           loop();
           return defer.promise;
@@ -249,8 +225,6 @@ System.register("ES6/モデル", [], function() {
   var __moduleName = "ES6/モデル";
   READY().then(function() {
     'use strict';
-    var $__4,
-        $__5;
     function setPhase(phase) {
       document.title = '【' + phase + '】';
     }
@@ -294,68 +268,6 @@ System.register("ES6/モデル", [], function() {
         return this[name].apply(this, arguments);
       };
     }
-    function preloadImage($__3) {
-      var name = $__3.name,
-          url = $__3.url,
-          kind = $__3.kind,
-          type = ($__4 = $__3.type) === void 0 ? 'png' : $__4;
-      function test(url) {
-        return new Promise((function(ok, ng) {
-          var img = new Image;
-          img.onload = (function(_) {
-            return ok(url);
-          });
-          img.onerror = (function(_) {
-            return ng(("画像『" + name + "』のキャッシュに失敗"));
-          });
-          img.src = url;
-        }));
-      }
-      return preload({
-        name: name,
-        url: url,
-        kind: kind,
-        test: test,
-        type: type
-      });
-    }
-    function preloadScript($__4) {
-      var name = $__4.name,
-          url = $__4.url,
-          kind = ($__5 = $__4.kind) === void 0 ? 'シナリオ' : $__5,
-          type = ($__5 = $__4.type) === void 0 ? 'txt' : $__5;
-      function test(url) {
-        return find(url).then((function(_) {
-          return url;
-        }));
-      }
-      return preload({
-        name: name,
-        url: url,
-        kind: kind,
-        test: test,
-        type: type
-      });
-    }
-    function preload($__5) {
-      var name = $__5.name,
-          url = $__5.url,
-          kind = $__5.kind,
-          type = $__5.type,
-          test = $__5.test;
-      var hide = View.setLoadingMessage('Loadind...');
-      return new Promise((function(ok, ng) {
-        if (Util.isNoneType(name))
-          return ok(url);
-        test(url).catch((function(_) {
-          var url = Util.forceURL(("データ/[[共通素材]]/" + kind + "/" + name), type, '');
-          return test(url);
-        })).then(ok, ng);
-      })).then((function(url) {
-        hide();
-        return url;
-      }));
-    }
     function runScript(script) {
       var $__2;
       View.changeMode('NOVEL');
@@ -390,13 +302,8 @@ System.register("ES6/モデル", [], function() {
         writable: true
       }), Object.defineProperty($__2, "背景", {
         value: function(data, done, failed) {
-          var name = data[0],
-              url = Util.forceBGImageURL(name);
-          preloadImage({
-            name: name,
-            url: url,
-            kind: '背景'
-          }).then((function(url) {
+          var name = data[0];
+          toBlobURL('背景', name, 'jpg').then((function(url) {
             return View.setBGImage({url: url});
           })).then(done, failed);
         },
@@ -415,9 +322,9 @@ System.register("ES6/モデル", [], function() {
               return;
             if (Util.isNoneType(ary))
               return base;
-            var $__6 = $traceurRuntime.assertObject(ary),
-                position = $__6[0],
-                names = $__6[1];
+            var $__3 = $traceurRuntime.assertObject(ary),
+                position = $__3[0],
+                names = $__3[1];
             if (!position)
               return failed('不正な位置検出');
             if (!names)
@@ -433,13 +340,8 @@ System.register("ES6/モデル", [], function() {
               per = Math.abs(+pos);
               type = pos.match('-') ? 'right' : 'left';
             }
-            var name = names[0],
-                url = Util.forceFDImageURL(name);
-            base.push(preloadImage({
-              name: name,
-              url: url,
-              kind: '立ち絵'
-            }).then((function(url) {
+            var name = names[0];
+            base.push(toBlobURL('立ち絵', name, 'png').then((function(url) {
               var $__2;
               return (($__2 = {}, Object.defineProperty($__2, "url", {
                 value: url,
@@ -471,13 +373,7 @@ System.register("ES6/モデル", [], function() {
               name: ary[0],
               value: ary[1][0]
             };
-          }))).then((function(name) {
-            var url = Util.forceScriptURL(name);
-            preloadScript({
-              name: name,
-              url: url
-            }).then(fetchScriptData).then(runScript).then(done, failed);
-          }));
+          }))).then(fetchScriptData).then(runScript).then(done, failed);
         },
         configurable: true,
         enumerable: true,
@@ -513,6 +409,28 @@ System.register("ES6/モデル", [], function() {
       main_loop();
       return run.promise;
     }
+    function toBlobScriptURL(name) {
+      return toBlobURL('シナリオ', name, 'txt');
+    }
+    function toBlobURL(kind, name, type) {
+      var sub = Util.forceName(kind, name, type);
+      if (Util.isNoneType(name))
+        return Promise.resolve(null);
+      if (cacheBlobMap.has(sub))
+        return Promise.resolve(cacheBlobMap.get(sub));
+      return new Promise((function(ok, ng) {
+        var url = ("データ/" + Player.scenarioName + "/" + sub);
+        find(url).catch((function(_) {
+          url = ("データ/[[共通素材]]/" + sub);
+          return find(url);
+        })).then((function(_) {
+          return ok(url);
+        }), ng);
+      })).then(loadBlob).then(URL.createObjectURL).then((function(blobURL) {
+        cacheBlobMap.set(sub, blobURL);
+        return blobURL;
+      }));
+    }
     function fetchSettingData(url) {
       return loadText(url).then((function(text) {
         var setting = parseScript(text);
@@ -524,16 +442,15 @@ System.register("ES6/モデル", [], function() {
       }));
     }
     function fetchScriptData(name) {
-      var url = Util.forceScriptURL(name);
-      return preloadScript({
-        name: name,
-        url: url
-      }).then(loadText).then((function(text) {
+      return toBlobScriptURL(name).then(loadText).then((function(text) {
         return parseScript(text);
       }));
     }
     function loadText(url) {
       return load(url, 'text');
+    }
+    function loadBlob(url) {
+      return load(url, 'blob');
     }
     function load(url, type) {
       return new Promise(function(ok, ng) {
@@ -567,13 +484,21 @@ System.register("ES6/モデル", [], function() {
         View.changeMode('TEST');
       View.print(message);
     }
+    var cacheBlobMap = new Map;
+    function cacheClear() {
+      cacheBlobMap.forEach((function(subURL, blobURL) {
+        URL.revokeObjectURL(blobURL);
+      }));
+      cacheBlobMap.clear();
+    }
     READY.Player.ready({
       setRunPhase: setRunPhase,
       setErrorPhase: setErrorPhase,
       fetchSettingData: fetchSettingData,
       fetchScriptData: fetchScriptData,
       runScript: runScript,
-      print: print
+      print: print,
+      cacheClear: cacheClear
     });
   });
   return {};
@@ -595,10 +520,10 @@ System.register("ES6/ビュー", [], function() {
         return this;
       },
       setStyles: function(styles) {
-        var $__7 = this;
+        var $__4 = this;
         styles = styles || {};
         Object.keys(styles).forEach((function(key) {
-          $__7.style[key] = styles[key];
+          $__4.style[key] = styles[key];
         }), this);
         return this;
       }
@@ -695,6 +620,12 @@ System.register("ES6/ビュー", [], function() {
       });
       fitScreen();
       View.showNotice('この機能はブラウザにより\n表示の差があります', 3000);
+    }));
+    var el = el_root.append(el_debug).append(new DOM('button'));
+    el.append(new DOM('text', 'キャシュ削除'));
+    el.on('click', (function(_) {
+      Player.cacheClear();
+      View.showNotice('キャッシュを削除しました');
     }));
     function setAnimate(func) {
       var start = performance.now();
@@ -870,16 +801,16 @@ System.register("ES6/ビュー", [], function() {
             var at = 0;
             var el = this.el_body;
             var weight = opt.weight;
-            var $__8 = [false, false],
-                aborted = $__8[0],
-                cancelled = $__8[1];
-            var $__8 = [(function(_) {
+            var $__5 = [false, false],
+                aborted = $__5[0],
+                cancelled = $__5[1];
+            var $__5 = [(function(_) {
               return aborted = true;
             }), (function(_) {
               return cancelled = true;
             })],
-                abort = $__8[0],
-                cancel = $__8[1];
+                abort = $__5[0],
+                cancel = $__5[1];
             View.on('go').then(cancel);
             var p = setAnimate((function(delay, complete) {
               if (aborted)
@@ -956,11 +887,11 @@ System.register("ES6/ビュー", [], function() {
             position: 'absolute',
             left: 'calc((100% - 70%) / 2 - 5%)',
             width: '70%',
-            top: '10%',
+            top: '5%',
             boxShadow: 'rgba(100, 100, 255, 0.5) 0 0 2em',
             borderRadius: '3% / 5%',
             background: 'rgba(100, 100, 255, 0.3)',
-            padding: '3% 5%'
+            padding: '0% 5%'
           });
           opts.forEach(function(opt) {
             if (!('value' in opt))
@@ -1115,7 +1046,7 @@ System.register("ES6/コントローラー", [], function() {
         return p;
       });
     }))();
-    var setup = Util.co($traceurRuntime.initGeneratorFunction(function $__9() {
+    var setup = Util.co($traceurRuntime.initGeneratorFunction(function $__6() {
       var setting,
           scenario,
           script;
@@ -1149,12 +1080,13 @@ System.register("ES6/コントローラー", [], function() {
               $ctx.state = 8;
               break;
             case 8:
+              Player.scenarioName = scenario;
+              $ctx.state = 30;
+              break;
+            case 30:
               $ctx.state = 10;
               return message('作品情報を読み込んでいます...').then((function(_) {
-                Player.baseURL = '';
-                var url = Util.forceURL('設定', 'txt', scenario);
-                Player.baseURL = scenario;
-                return Player.fetchSettingData(url);
+                return Player.fetchSettingData(("データ/" + scenario + "/設定.txt"));
               }));
             case 10:
               setting = $ctx.sent;
@@ -1163,8 +1095,7 @@ System.register("ES6/コントローラー", [], function() {
             case 12:
               $ctx.state = 14;
               return message('開始シナリオを読み込んでいます...').then((function(_) {
-                var url = setting['開始シナリオ'][0];
-                return Player.fetchScriptData(url);
+                return Player.fetchScriptData(setting['開始シナリオ'][0]);
               }));
             case 14:
               script = $ctx.sent;
@@ -1172,7 +1103,7 @@ System.register("ES6/コントローラー", [], function() {
               break;
             case 16:
               $ctx.state = 18;
-              return message('再生準備が完了しました。\nクリック、タップ、エンターキー、スペースキーで進みます。').delay(1000).on('go').then((function(_) {
+              return message('再生準備が完了しました。\nクリック、タップ、エンターキー、スペースキーで進みます。').on('go').then((function(_) {
                 Player.setRunPhase('再生');
                 return Player.runScript(script);
               }));
@@ -1183,25 +1114,51 @@ System.register("ES6/コントローラー", [], function() {
             case 20:
               View.clean();
               Player.setRunPhase('準備');
-              $ctx.state = 30;
+              $ctx.state = 32;
               break;
-            case 30:
+            case 32:
               $ctx.state = 22;
-              return message('再生が終了しました。\n作品選択メニューに戻ります。').delay(1000).on('go');
+              return message('再生が終了しました。\n作品選択メニューに戻ります。').delay(1000);
             case 22:
               $ctx.maybeThrow();
               $ctx.state = 24;
               break;
             case 24:
-              $ctx.returnValue = setup();
+              $ctx.returnValue = setup().catch(restart);
               $ctx.state = -2;
               break;
             default:
               return $ctx.end();
           }
-      }, $__9, this);
+      }, $__6, this);
     }));
-    var start = Util.co($traceurRuntime.initGeneratorFunction(function $__10() {
+    var restart = Util.co($traceurRuntime.initGeneratorFunction(function $__7(err) {
+      return $traceurRuntime.createGeneratorInstance(function($ctx) {
+        while (true)
+          switch ($ctx.state) {
+            case 0:
+              LOG(err);
+              View.clean();
+              Player.setRunPhase('エラー解決');
+              $ctx.state = 8;
+              break;
+            case 8:
+              $ctx.state = 2;
+              return message('致命的なエラーが発生したため再生を継続できません。\n作品選択メニューに戻ります。').delay(3000);
+            case 2:
+              $ctx.maybeThrow();
+              $ctx.state = 4;
+              break;
+            case 4:
+              $ctx.returnValue = setup().catch(restart);
+              $ctx.state = -2;
+              break;
+            default:
+              return $ctx.end();
+          }
+      }, $__7, this);
+    }));
+    var start = Util.co($traceurRuntime.initGeneratorFunction(function $__8() {
       var setting;
       return $traceurRuntime.createGeneratorInstance(function($ctx) {
         while (true)
@@ -1229,13 +1186,13 @@ System.register("ES6/コントローラー", [], function() {
               $ctx.state = 8;
               break;
             case 8:
-              $ctx.returnValue = setup();
+              $ctx.returnValue = setup().catch(restart);
               $ctx.state = -2;
               break;
             default:
               return $ctx.end();
           }
-      }, $__10, this);
+      }, $__8, this);
     }));
     start();
   }));

@@ -51,6 +51,7 @@ READY().then(function () {
 		return function () { return this[name].apply(this, arguments) }
 	}
 
+/*
 	function preloadImage({name, url, kind, type = 'png'}) {
 
 		function test(url) {
@@ -76,14 +77,14 @@ READY().then(function () {
 
 	}
 
-	function preload({name, url, kind, type, test}) {
+	function preload({name, kind, type, test}) {
 		var hide = View.setLoadingMessage('Loadind...')
 		return new Promise((ok, ng) => {
 			//LOG(url, Util.isNoneType(url))
 			if (Util.isNoneType(name)) return ok(url)
-			//url = Util.forceImageURL(url)
+			var url = `データ/${Player.scenarioName}/${Util.forceName(kind, name, type)}`
 			test(url).catch( _ => { 
-				var url = Util.forceURL(`データ/[[共通素材]]/${kind}/${name}`, type, '')
+				var url = `データ/[[共通素材]]/${Util.forceName(kind, name, type)}`
 				return test(url)
 			} ).then(ok, ng)
 		}).then( url => {
@@ -92,6 +93,7 @@ READY().then(function () {
 			return url
 		})
 	}
+*/
 
 
 	function runScript(script) {
@@ -127,8 +129,8 @@ READY().then(function () {
 				nextPage()
 			},
 			背景(data, done, failed) {
-				var name = data[0], url = Util.forceBGImageURL(name)
-				preloadImage({name, url, kind: '背景'}).then( url => View.setBGImage({ url }) ).then(done, failed)
+				var name = data[0]
+				toBlobURL('背景', name, 'jpg').then( url => View.setBGImage({ url }) ).then(done, failed)
 			},
 			立絵: otherName('立ち絵'),
 			立ち絵(data, done, failed) {
@@ -156,9 +158,9 @@ READY().then(function () {
 						type = pos.match('-') ? 'right' : 'left'
 					}
 
-					var name = names[0], url = Util.forceFDImageURL(name)
+					var name = names[0]
 
-					base.push(preloadImage({name, url, kind: '立ち絵'}).then( url => ({ url, [type]: `${per}%` }) ))
+					base.push(toBlobURL('立ち絵', name, 'png').then( url => ({ url, [type]: `${per}%` }) ))
 					return base
 				}, [])).then(View.setFDImages.bind(View)).then(done, failed)
 			},
@@ -167,12 +169,8 @@ READY().then(function () {
 
 				View.setChoiceWindow(data.map(ary => {
 					return { name: ary[0], value: ary[1][0] }
-				})).then(name => {
-					var url = Util.forceScriptURL(name)
-
-					preloadScript({name, url}).then(fetchScriptData).then(runScript).then(done, failed)
+				})).then(fetchScriptData).then(runScript).then(done, failed)
 					
-				})
 			},
 			コメント(data, done, failed) {
 				done()
@@ -211,6 +209,28 @@ READY().then(function () {
 
 
 
+	function toBlobScriptURL(name) {
+		return toBlobURL('シナリオ', name, 'txt')
+	}
+
+
+
+	function toBlobURL(kind, name, type) {
+		var sub = Util.forceName(kind, name, type)
+		if (Util.isNoneType(name)) return Promise.resolve(null)
+		if (cacheBlobMap.has(sub)) return Promise.resolve(cacheBlobMap.get(sub))
+		return new Promise( (ok, ng) => {		
+			var url = `データ/${Player.scenarioName}/${sub}`
+			find(url).catch( _ => { 
+				url = `データ/[[共通素材]]/${sub}`
+				return find(url)
+			} ).then( _ => ok(url), ng)
+		}).then(loadBlob).then(URL.createObjectURL).then(blobURL => {
+			cacheBlobMap.set(sub, blobURL)
+			return blobURL
+		})
+	}
+
 
 
 	function fetchSettingData(url) {
@@ -226,13 +246,16 @@ READY().then(function () {
 
 
 	function fetchScriptData(name) {
-		var url = Util.forceScriptURL(name)
-		return preloadScript({name, url}).then(loadText).then( text => parseScript(text) )
+		return toBlobScriptURL(name).then(loadText).then( text => parseScript(text) )
 	}
 
 
 	function loadText(url) {
 		return load(url, 'text')
+	}
+
+	function loadBlob(url) {
+		return load(url, 'blob')
 	}
 
 	function load(url, type) {
@@ -266,8 +289,22 @@ READY().then(function () {
 		View.print(message)
 	}
 
+
+	var cacheBlobMap = new Map
+
+	function cacheClear() {
+
+
+		cacheBlobMap.forEach( (subURL, blobURL) => {
+			URL.revokeObjectURL(blobURL)
+		} )
+
+		cacheBlobMap.clear()
+	}
+
+
 	READY.Player.ready({
-		setRunPhase, setErrorPhase, fetchSettingData, fetchScriptData, runScript, print
+		setRunPhase, setErrorPhase, fetchSettingData, fetchScriptData, runScript, print, cacheClear
 	})
 
 })

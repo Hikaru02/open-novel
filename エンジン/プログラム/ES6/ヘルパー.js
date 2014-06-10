@@ -37,6 +37,7 @@
 			return (typeof str === 'string') && /^(無し|なし)$/.test(str)
 		},
 
+	/*
 		forceImageURL(url, type = 'png', kind) {
 			return Util.isNoneType(url) ? null :  Util.forceURL(url, type, kind)
 		},
@@ -61,6 +62,13 @@
 			url = url.replace(/\/+/g, '/')
 			return url
 		},
+	*/
+
+		forceName(kind, name, type) {
+			if (!name || !type) throw 'name特定不能エラー'
+			if (!name.match(/\.[^\.]+$/)) name = `${name}.${type}`
+			return `${kind}/${name}`
+		},
 
 		toHalfWidth(str) {
 			return str.replace(/[\uff0d-\uff5a]/g, char => String.fromCharCode(char.charCodeAt(0)-65248) )
@@ -82,7 +90,7 @@
 					//LOG(value, done)
 					value = Promise.resolve(value)
 					if (done) defer.resolve(value)
-					else value.then(loop)
+					else value.then(loop, defer.reject)
 				}
 				loop()
 				return defer.promise
