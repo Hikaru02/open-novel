@@ -15,22 +15,22 @@ READY().then(function () {
 		function parseOne(base, text) {
 			var chanks = text.match(/[^\n]+?\n(\t+[\s\S]+?\n)+/g) || []
 			chanks.forEach(chank => {
-				
-					var blocks = chank.replace(/^\t/gm,'').replace(/\n$/, '').match(/.+/g)
-					//LOG(blocks)
-					var act = blocks.shift()
-					var data = '\n' +blocks.join('\n')+ '\n'
-					var ary = []
-					if (act[0] !== '・') {
-						base.push(['会話', [[act, blocks]]])
-						return
-					} else act = act.slice(1)
-	 
-					if (data.match(/\t/)) {
-						base.push([act, ary])
-						//LOG(data)
-						parseOne(ary, data)
-					} else base.push([act, blocks])
+			
+				var blocks = chank.replace(/^\t/gm,'').replace(/\n$/, '').match(/.+/g)
+				//LOG(blocks)
+				var act = blocks.shift()
+				var data = '\n' +blocks.join('\n')+ '\n'
+				var ary = []
+				if (act[0] !== '・') {
+					base.push(['会話', [[act, blocks]]])
+					return
+				} else act = act.slice(1)
+ 
+				if (data.match(/\t/)) {
+					base.push([act, ary])
+					//LOG(data)
+					parseOne(ary, data)
+				} else base.push([act, blocks])
 			})
 		}
 
@@ -135,16 +135,30 @@ READY().then(function () {
 				//LOG(data)
 				Promise.all(data.reduce((base, ary) => {
 
+					if (!base) return
+
 					if (Util.isNoneType(ary)) return base
 
-					var type = ['left','right']['左右'.indexOf(ary[0])]
-					var name = ary[1][0], url = Util.forceFDImageURL(name)
+					var [position, names] = ary
 
-					if (!type) failed('不正な位置検出')
+					if (!position) return failed('不正な位置検出')
+					if(!names) return failed('不正な画像名検出') 
 
-					//var ro = { url }
-					//ro[type] = '0px'
-					base.push(preloadImage({name, url, kind: '立ち絵'}).then( url => ({ url, [type]: '0px' }) ))
+					var type = ['left','right']['左右'.indexOf(position)]
+					var per = 0
+
+					if (!type) {
+						var pos = Util.toHalfWidth(position).match(/[+\-0-9.]+/)
+						if (!pos) return failed('不正な位置検出')
+						else pos = pos[0]
+
+						per = Math.abs(+pos)
+						type = pos.match('-') ? 'right' : 'left'
+					}
+
+					var name = names[0], url = Util.forceFDImageURL(name)
+
+					base.push(preloadImage({name, url, kind: '立ち絵'}).then( url => ({ url, [type]: `${per}%` }) ))
 					return base
 				}, [])).then(View.setFDImages.bind(View)).then(done, failed)
 			},

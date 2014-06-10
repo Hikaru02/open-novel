@@ -24,13 +24,10 @@ READY('Player', 'View').then( _ => {
 
 		Player.setRunPhase('準備')
 
-
 		var setting = yield message('作品一覧を読み込んでいます...').then( _ => {
 
 			return Player.fetchSettingData(Data.URL.ContentsSetting)
 		})
-
-
 
 		var scenario = yield message('再生する作品を選んでください').then( _ => {
 
@@ -41,8 +38,6 @@ READY('Player', 'View').then( _ => {
 
 			return View.setChoiceWindow(opts)
 		})
-
-
 
 		var setting = yield message('作品情報を読み込んでいます...').then( _ => {
 
@@ -55,16 +50,12 @@ READY('Player', 'View').then( _ => {
 			return Player.fetchSettingData(url)
 		})
 
-
-
 		var script = yield message('開始シナリオを読み込んでいます...').then( _ => {
 
 			var url = setting['開始シナリオ'][0]
 
 			return Player.fetchScriptData(url)
 		})
-
-
 
 		yield message('再生準備が完了しました。\nクリック、タップ、エンターキー、スペースキーで進みます。').delay(1000).on('go').then( _ => {
 
@@ -73,15 +64,11 @@ READY('Player', 'View').then( _ => {
 			return Player.runScript(script)
 		})
 
-
-
 		View.clean()
 
 		Player.setRunPhase('準備')
 
 		yield message('再生が終了しました。\n作品選択メニューに戻ります。').delay(1000).on('go')
-
-
 
 		return setup()
 	})

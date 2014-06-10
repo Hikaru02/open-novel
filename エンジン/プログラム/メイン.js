@@ -65,6 +65,11 @@ System.register("ES6/ヘルパー", [], function() {
         url = url.replace(/\/+/g, '/');
         return url;
       },
+      toHalfWidth: function(str) {
+        return str.replace(/[\uff0d-\uff5a]/g, (function(char) {
+          return String.fromCharCode(char.charCodeAt(0) - 65248);
+        })).replace(/。/g, '.').replace(/ー/g, '-');
+      },
       NOP: function() {},
       error: function(message) {
         alert(message);
@@ -406,13 +411,30 @@ System.register("ES6/モデル", [], function() {
       }), Object.defineProperty($__2, "立ち絵", {
         value: function(data, done, failed) {
           Promise.all(data.reduce((function(base, ary) {
+            if (!base)
+              return;
             if (Util.isNoneType(ary))
               return base;
-            var type = ['left', 'right']['左右'.indexOf(ary[0])];
-            var name = ary[1][0],
+            var $__6 = $traceurRuntime.assertObject(ary),
+                position = $__6[0],
+                names = $__6[1];
+            if (!position)
+              return failed('不正な位置検出');
+            if (!names)
+              return failed('不正な画像名検出');
+            var type = ['left', 'right']['左右'.indexOf(position)];
+            var per = 0;
+            if (!type) {
+              var pos = Util.toHalfWidth(position).match(/[+\-0-9.]+/);
+              if (!pos)
+                return failed('不正な位置検出');
+              else
+                pos = pos[0];
+              per = Math.abs(+pos);
+              type = pos.match('-') ? 'right' : 'left';
+            }
+            var name = names[0],
                 url = Util.forceFDImageURL(name);
-            if (!type)
-              failed('不正な位置検出');
             base.push(preloadImage({
               name: name,
               url: url,
@@ -425,7 +447,7 @@ System.register("ES6/モデル", [], function() {
                 enumerable: true,
                 writable: true
               }), Object.defineProperty($__2, type, {
-                value: '0px',
+                value: (per + "%"),
                 configurable: true,
                 enumerable: true,
                 writable: true
@@ -573,10 +595,10 @@ System.register("ES6/ビュー", [], function() {
         return this;
       },
       setStyles: function(styles) {
-        var $__6 = this;
+        var $__7 = this;
         styles = styles || {};
         Object.keys(styles).forEach((function(key) {
-          $__6.style[key] = styles[key];
+          $__7.style[key] = styles[key];
         }), this);
         return this;
       }
@@ -848,16 +870,16 @@ System.register("ES6/ビュー", [], function() {
             var at = 0;
             var el = this.el_body;
             var weight = opt.weight;
-            var $__7 = [false, false],
-                aborted = $__7[0],
-                cancelled = $__7[1];
-            var $__7 = [(function(_) {
+            var $__8 = [false, false],
+                aborted = $__8[0],
+                cancelled = $__8[1];
+            var $__8 = [(function(_) {
               return aborted = true;
             }), (function(_) {
               return cancelled = true;
             })],
-                abort = $__7[0],
-                cancel = $__7[1];
+                abort = $__8[0],
+                cancel = $__8[1];
             View.on('go').then(cancel);
             var p = setAnimate((function(delay, complete) {
               if (aborted)
@@ -1093,7 +1115,7 @@ System.register("ES6/コントローラー", [], function() {
         return p;
       });
     }))();
-    var setup = Util.co($traceurRuntime.initGeneratorFunction(function $__8() {
+    var setup = Util.co($traceurRuntime.initGeneratorFunction(function $__9() {
       var setting,
           scenario,
           script;
@@ -1177,9 +1199,9 @@ System.register("ES6/コントローラー", [], function() {
             default:
               return $ctx.end();
           }
-      }, $__8, this);
+      }, $__9, this);
     }));
-    var start = Util.co($traceurRuntime.initGeneratorFunction(function $__9() {
+    var start = Util.co($traceurRuntime.initGeneratorFunction(function $__10() {
       var setting;
       return $traceurRuntime.createGeneratorInstance(function($ctx) {
         while (true)
@@ -1213,7 +1235,7 @@ System.register("ES6/コントローラー", [], function() {
             default:
               return $ctx.end();
           }
-      }, $__9, this);
+      }, $__10, this);
     }));
     start();
   }));

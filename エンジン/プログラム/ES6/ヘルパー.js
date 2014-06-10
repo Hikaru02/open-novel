@@ -14,11 +14,13 @@
 
 	var Util = {
 
-		//setDefault(obj, name, value) {
-		//	if (arguments.length !== 3) throw 'illegal arguments length'
-		//	if (!(name in obj)) obj[name] = value
-		//	return obj
-		//},
+		/*
+		setDefault(obj, name, value) {
+			if (arguments.length !== 3) throw 'illegal arguments length'
+			if (!(name in obj)) obj[name] = value
+			return obj
+		},
+		*/
 
 		setDefaults(obj = {}, props) {
 			if (arguments.length !== 2) throw 'illegal arguments length'
@@ -58,6 +60,11 @@
 			if (kind && (!url.match(kind))) url = `データ/${base}/${kind}/${url}`
 			url = url.replace(/\/+/g, '/')
 			return url
+		},
+
+		toHalfWidth(str) {
+			return str.replace(/[\uff0d-\uff5a]/g, char => String.fromCharCode(char.charCodeAt(0)-65248) )
+			.replace(/。/g, '.').replace(/ー/g, '-')
 		},
 
 		NOP() {},
