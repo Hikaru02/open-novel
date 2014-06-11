@@ -105,7 +105,7 @@ READY('Player', 'DOM').then( _ => {
 	el_root.append(el_debug).append(new DOM('br'))
 	
 	var el = el_root.append(el_debug).append(new DOM('button', bs))
-	el.append(new DOM('text', 'フルウィンドウ（横）'))
+	el.append(new DOM('text', 'フルウィンドウ(横)'))
 	el.on('click', _ => {
 		fitScreen = _ => {
 			var ratio = 16 / 9
@@ -118,7 +118,7 @@ READY('Player', 'DOM').then( _ => {
 
 	var el_fullscreen
 	var el = el_root.append(el_debug).append(new DOM('button', bs))
-	el.append(new DOM('text', 'フルスクリーン（横）'))
+	el.append(new DOM('text', 'フルスクリーン(横)'))
 	el.on('click', _ => {
 		el_fullscreen = new DOM('div', {width: '100%', height: '100%', fontSize: '100%'})
 		el_player.remove()

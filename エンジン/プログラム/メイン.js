@@ -753,7 +753,7 @@ System.register("ES6/ビュー", [], function() {
     }));
     el_root.append(el_debug).append(new DOM('br'));
     var el = el_root.append(el_debug).append(new DOM('button', bs));
-    el.append(new DOM('text', 'フルウィンドウ（横）'));
+    el.append(new DOM('text', 'フルウィンドウ(横)'));
     el.on('click', (function(_) {
       fitScreen = (function(_) {
         var ratio = 16 / 9;
@@ -765,7 +765,7 @@ System.register("ES6/ビュー", [], function() {
     }));
     var el_fullscreen;
     var el = el_root.append(el_debug).append(new DOM('button', bs));
-    el.append(new DOM('text', 'フルスクリーン（横）'));
+    el.append(new DOM('text', 'フルスクリーン(横)'));
     el.on('click', (function(_) {
       el_fullscreen = new DOM('div', {
         width: '100%',
