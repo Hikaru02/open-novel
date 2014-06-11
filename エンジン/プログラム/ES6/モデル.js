@@ -10,7 +10,7 @@ READY().then(function () {
 
 
 	function parseScript(text) {
-		text = text.replace(/\r\n/g, '\n').replace(/\n+/g, '\n').replace(/\n/g, '\r\n')
+		text = text.replace(/\r\n/g, '\n').replace(/\n+/g, '\n').replace(/\n/g, '\r\n') + '\r\n'
 		text = text.replace(/^\#.*\n/gm, '')
 		function parseOne(base, text) {
 			var chanks = text.match(/[^\n]+?\n(\t+[\s\S]+?\n)+/g) || []
@@ -18,7 +18,7 @@ READY().then(function () {
 			
 				var blocks = chank.replace(/^\t/gm,'').replace(/\n$/, '').match(/.+/g)
 				//LOG(blocks)
-				var act = blocks.shift()
+				var act = blocks.shift().trim()
 				var data = '\n' +blocks.join('\n')+ '\n'
 				var ary = []
 				if (act[0] !== '・') {
@@ -98,7 +98,7 @@ READY().then(function () {
 
 	function runScript(script) {
 
-		View.changeMode('NOVEL')
+		View.changeModeIfNeeded('NOVEL')
 
 		var run = Promise.defer()
 		script = copyObject(script)	
@@ -146,21 +146,25 @@ READY().then(function () {
 					if (!position) return failed('不正な位置検出')
 					if(!names) return failed('不正な画像名検出') 
 
-					var type = ['left','right']['左右'.indexOf(position)]
-					var per = 0
+					var a_type = ['left','right']['左右'.indexOf(position)]
+					var v_type = 'top'
+					var [a_per, v_per] = [0, 0]
+					var height = null
 
-					if (!type) {
-						var pos = Util.toHalfWidth(position).match(/[+\-0-9.]+/)
+					if (!a_type) {
+						var pos = Util.toHalfWidth(position).match(/[+\-0-9.]+/g)
 						if (!pos) return failed('不正な位置検出')
-						else pos = pos[0]
-
-						per = Math.abs(+pos)
-						type = pos.match('-') ? 'right' : 'left'
+						var [a_pos, v_pos='0', height = null] = pos
+						a_per = Math.abs(+a_pos)
+						v_per = Math.abs(+v_pos)
+						a_type = a_pos.match('-') ? 'right' : 'left'
+						v_type = v_pos.match('-') ? 'bottom' : 'top'
+						height = height != null ? `${+height}%` : null
 					}
 
 					var name = names[0]
 
-					base.push(toBlobURL('立ち絵', name, 'png').then( url => ({ url, [type]: `${per}%` }) ))
+					base.push(toBlobURL('立ち絵', name, 'png').then( url => ({ url, height, [a_type]: `${a_per}%`, [v_type]: `${v_per}%` }) ))
 					return base
 				}, [])).then(View.setFDImages.bind(View)).then(done, failed)
 			},
@@ -168,9 +172,41 @@ READY().then(function () {
 			選択肢(data, done, failed) {
 
 				View.setChoiceWindow(data.map(ary => {
-					return { name: ary[0], value: ary[1][0] }
-				})).then(fetchScriptData).then(runScript).then(done, failed)
+					return { name: ary[0], value: ary[1] }
+				})).then( value => {
+					if (typeof value[0] == 'string') actHandlers.ジャンプ(value, done, failed)
+					else promise = runScript(value).then(done, failed)
+				} )
 					
+			},
+			ジャンプ(data, done, failed) {
+				var to = data[0]
+				fetchScriptData(to).then(runScript).then(done, failed)
+			},
+			パラメーター: otherName('パラメータ'),
+			パラメータ(data, done, failed) {
+				//LOG(data)
+				data.forEach(str => {
+					str = Util.toHalfWidth(str)
+					str = str.match(/(.+)\:(.+)/)
+					if (!str) return failed('不正なパラメータ指定検出') 
+					var name = str[1]
+					var effect = parseEffect(str[2])
+					if (!name) return failed('不正なパラメータ指定検出') 
+					paramMap.set(name, evalEffect(effect, failed))
+
+				})
+				done()
+			},
+			分岐(data, done, failed) {
+ 				if (!data.some(([str, acts]) => {
+ 					if (!str) return failed('不正なパラメータ指定検出') 
+					var effect = parseEffect(str)
+					if (Util.isNoneType(effect)) effect = '1'
+					var flag = !!evalEffect(effect, failed)
+					if (flag) runScript(acts).then(done, failed)
+					return flag
+				}) ) done()
 			},
 			コメント(data, done, failed) {
 				done()
@@ -180,13 +216,15 @@ READY().then(function () {
 
 		function main_loop() {
 
+			updateDebugWindow()
+
 			//var loop = Promise.defer()
 
 			var act, loop = new Promise( (resolve, reject) => {
 
 				var prog = script.shift()
 				if (!prog) return run.resolve() 
-				act = prog[0]
+				act = prog[0].trim()
 				var data = prog[1]
 
 				if (act in actHandlers) actHandlers[act](data, resolve, reject)
@@ -208,6 +246,43 @@ READY().then(function () {
 	}
 
 
+	function parseEffect(str) {
+		return Util.toHalfWidth(str).replace(/==/g, '=').replace(/[^!><=]=/g, str => str.replace('=', '==') )
+	}
+
+
+	function evalEffect(effect, failed) {
+		var get = key => {
+			if (!paramMap.has(key)) paramMap.set(key, 0)
+			return paramMap.get(key)
+		}
+		effect = effect.trim()
+		if (!effect) return failed('不正なパラメータ指定検出') 
+		if (/\"/.test(effect)) return failed('危険な記号の検出') 
+		effect = effect.replace(/[^+\-*/%><!=\s\d.]+/, str => `get("${str}")` )
+		//LOG(effect)
+		return eval(effect)
+	}
+
+
+	function updateDebugWindow() {
+
+		if (!Data.debug) return
+
+		var params = {}
+		paramMap.forEach( (value, key) => params[key] = value )
+
+		var caches = []
+		cacheBlobMap.forEach( (value, key) => caches.push(key) ) 
+
+		var obj = {
+			パラメータ: params,
+			キャッシュ: caches.sort(),
+		}
+
+		View.updateDebugWindow(obj)
+	}
+
 
 	function toBlobScriptURL(name) {
 		return toBlobURL('シナリオ', name, 'txt')
@@ -217,20 +292,20 @@ READY().then(function () {
 
 	function toBlobURL(kind, name, type) {
 		var sub = Util.forceName(kind, name, type)
+		var subkey = `${Player.scenarioName}/${sub}`
 		if (Util.isNoneType(name)) return Promise.resolve(null)
-		if (cacheBlobMap.has(sub)) return Promise.resolve(cacheBlobMap.get(sub))
+		if (cacheBlobMap.has(subkey)) return Promise.resolve(cacheBlobMap.get(subkey))
 		var hide = View.setLoadingMessage('Loading...')
 		return new Promise( (ok, ng) => {		
-			var url = `データ/${Player.scenarioName}/${sub}`
+			var url = `データ/${subkey}`
 			find(url).catch( _ => { 
 				url = `データ/[[共通素材]]/${sub}`
 				return find(url)
 			} ).then( _ => ok(url), ng)
-		}).then(loadBlob).then(URL.createObjectURL).then(blobURL => {
-			cacheBlobMap.set(sub, blobURL)
+		}).then(loadBlob).then(URL.createObjectURL).through(blobURL => {
+			cacheBlobMap.set(subkey, blobURL)
 			hide()
-			return blobURL
-		})
+		}, hide)
 	}
 
 
@@ -264,7 +339,7 @@ READY().then(function () {
 		return new Promise(function (ok, ng) {
 			var xhr = new XMLHttpRequest()
 			xhr.onload = _ => ok(xhr.response)
-			xhr.onerror = ng
+			xhr.onerror = _ => ng(new Error(`ファイルURL『${url}』のロードに失敗`))
 			xhr.open('GET', url)
 			if (type) xhr.responseType = type
 			xhr.send()
@@ -276,9 +351,9 @@ READY().then(function () {
 			var xhr = new XMLHttpRequest()
 			xhr.onload = _ => {
 				if (xhr.status < 300) ok()
-				else ng(new Error('Not Found')) 
+				else ng(new Error(`ファイルURL『${url}』が見つからない`)) 
 			}
-			xhr.onerror = ng
+			xhr.onerror = _ => ng(new Error(`ファイルURL『${url}』のロードに失敗`))
 			xhr.open('HEAD', url)
 			xhr.send()
 		})
@@ -293,19 +368,24 @@ READY().then(function () {
 
 
 	var cacheBlobMap = new Map
+	var paramMap = new Map
 
 	function cacheClear() {
-
 		cacheBlobMap.forEach( (subURL, blobURL) => {
 			URL.revokeObjectURL(blobURL)
 		} )
-
 		cacheBlobMap.clear()
+		updateDebugWindow()
+	}
+
+	function paramClear() {
+		paramMap.clear()
+		updateDebugWindow()
 	}
 
 
 	READY.Player.ready({
-		setRunPhase, setErrorPhase, fetchSettingData, fetchScriptData, runScript, print, cacheClear
+		setRunPhase, setErrorPhase, fetchSettingData, fetchScriptData, runScript, print, cacheClear, paramClear
 	})
 
-})
+}).catch(LOG)

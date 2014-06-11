@@ -6,6 +6,7 @@
 	var LOG = console.log.bind(console)
 
 	var Data = {
+		debug :true,
 		URL: {
 			ContentsSetting: 'データ/作品.txt',
 			EngineSetting: 'エンジン/エンジン定義.txt',
@@ -34,7 +35,7 @@
 		},
 
 		isNoneType(str) {
-			return (typeof str === 'string') && /^(無し|なし)$/.test(str)
+			return (typeof str === 'string') && (str == '' || /^(無し|なし)$/.test(str))
 		},
 
 	/*
@@ -71,8 +72,26 @@
 		},
 
 		toHalfWidth(str) {
-			return str.replace(/[\uff0d-\uff5a]/g, char => String.fromCharCode(char.charCodeAt(0)-65248) )
-			.replace(/。/g, '.').replace(/ー/g, '-')
+
+			var table = {
+				'。': '.',
+				'ー': '-',
+				'―': '-',
+				'！': '!', 
+				'≧': '>=',
+				'≦': '<=',
+				'≠': '!=',
+				'×': '*',
+				'✕': '*',
+				'✖': '*',
+				'☓': '*',
+				'＊': '*', 
+				'％': '%',
+				'／': '/',
+			}
+
+			return str.replace(/./g, char => (char in table ? table[char] : char) )
+			.replace(/[\uff0b-\uff5a]/g, char => String.fromCharCode(char.charCodeAt(0)-65248) )
 		},
 
 		NOP() {},
@@ -148,6 +167,16 @@
 		delay: function delay(time) {
 			if (!+time) throw 'illegal time number'
 			return this.then( _ => new Promise( resolve => setTimeout(resolve, time) ) )
+		},
+
+		through: function through(onFulfilled, onRejected) {
+			return this.then( val => {
+				onFulfilled(val)
+				return Promise.resolve(val)
+			}, err => {
+				onRejected(err)
+				return Promise.reject(err)
+			} )
 		},
 	})
 

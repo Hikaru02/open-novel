@@ -42,6 +42,8 @@ READY('Player', 'View').then( _ => {
 
 		var script = yield message('開始シナリオを読み込んでいます...').then( _ => Player.fetchScriptData(setting['開始シナリオ'][0]) )
 
+		Player.paramClear()
+
 		yield message('再生準備が完了しました。\nクリック、タップ、エンターキー、スペースキーで進みます。').on('go').then( _ => {
 
 			Player.setRunPhase('再生')
@@ -92,4 +94,16 @@ READY('Player', 'View').then( _ => {
 
 	start()
 
-})
+}).catch(LOG)
+
+
+
+
+/* TODO
+	・事前キャッシュ
+	・選択肢ウィンドウ調整
+	・パラメータ
+	・音声
+
+
+*/

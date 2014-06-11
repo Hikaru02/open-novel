@@ -13,7 +13,7 @@ READY('Player', 'DOM').then( _ => {
 		removeChildren		: function () { this.innerHTML = ''; return this },
 		setStyles			: function (styles) {
 			styles = styles || {}
-			Object.keys(styles).forEach( key => { this.style[key] = styles[key] }, this)
+			Object.keys(styles).forEach( key => { if (styles[key] != null) this.style[key] = styles[key] }, this)
 			return this
 		},
 	})
@@ -86,19 +86,25 @@ READY('Player', 'DOM').then( _ => {
 		width		: '300px',
 		textAlign	: 'center',
 		fontSize	: '1em',
+		padding		: '5px',
 	})
 
 
+	var bs = {
+		height: '2em',
+		margin: '5px',
+	}
+
 	;[360, 480, 720, 1080].forEach( size => {
 
-		var el = el_root.append(el_debug).append(new DOM('button'))
+		var el = el_root.append(el_debug).append(new DOM('button', bs))
 		el.append(new DOM('text', size + 'p'))
 		el.on('click', _ =>	adjustScale(size / devicePixelRatio) )
 	})
 	
 	el_root.append(el_debug).append(new DOM('br'))
 	
-	var el = el_root.append(el_debug).append(new DOM('button'))
+	var el = el_root.append(el_debug).append(new DOM('button', bs))
 	el.append(new DOM('text', 'フルウィンドウ（横）'))
 	el.on('click', _ => {
 		fitScreen = _ => {
@@ -111,7 +117,7 @@ READY('Player', 'DOM').then( _ => {
 	})
 
 	var el_fullscreen
-	var el = el_root.append(el_debug).append(new DOM('button'))
+	var el = el_root.append(el_debug).append(new DOM('button', bs))
 	el.append(new DOM('text', 'フルスクリーン（横）'))
 	el.on('click', _ => {
 		el_fullscreen = new DOM('div', {width: '100%', height: '100%', fontSize: '100%'})
@@ -128,13 +134,17 @@ READY('Player', 'DOM').then( _ => {
 		View.showNotice('この機能はブラウザにより\n表示の差があります', 3000)
 	})
 
-	var el = el_root.append(el_debug).append(new DOM('button'))
+	var el = el_root.append(el_debug).append(new DOM('button', bs))
 	el.append(new DOM('text', 'キャシュ削除'))
 	el.on('click', _ => {
 		Player.cacheClear()
-		View.showNotice('キャッシュを削除しました')
+		View.showNotice('キャッシュを削除しました', 500)
 	})
 
+
+	var el = new DOM('div')
+	var el_debugWindow = el_debug.append(el).append(new DOM('pre', { textAlign: 'left' }))
+	el_debugWindow.textContent = 'デバッグ情報\n（無し）'
 
 
 
@@ -203,7 +213,7 @@ READY('Player', 'DOM').then( _ => {
 				el_context.setStyles(opt)
 			},
 
-			showNotice: function (message, show_time = 3000, delay_time = 500) {
+			showNotice: function (message, show_time = 1000, delay_time = 250) {
 				if (!message) throw 'illegal message string'
 				message = '【！】\n' + message
 				var noticeWindow = new DOM('div', {
@@ -268,6 +278,10 @@ READY('Player', 'DOM').then( _ => {
 			},
 
 			adjustScale: adjustScale,
+
+			updateDebugWindow: function (obj) {
+				el_debugWindow.textContent = 'デバッグ情報\n' + JSON.stringify(obj, null, 4)
+			},
 		},
 	}
 
@@ -464,12 +478,22 @@ READY('Player', 'DOM').then( _ => {
 				var el = this.imageFrame
 				el.removeChildren()
 				opts.forEach( opt => {
+					Util.setDefaults(opt, {
+						left	: null,
+						right	: null,
+						top		: null,
+						bottom	: null,
+					})
+					var mar = parseInt(opt.top) || parseInt(opt.bottom) || 0
+					var height = opt.height ? opt.height : `${100-mar}%`
 					var img = new DOM('img', {
 						position		: 'absolute',
-						left			: opt.left  || '',
-						right			: opt.right || '',
-						maxWidth		: '50%',
-						height			: '100%',
+						left			: opt.left,
+						right			: opt.right,
+						top				: opt.top,
+						bottom			: opt.bottom,
+					//	maxWidth		: '50%',
+						height			: height,
 					})
 					img.src = opt.url
 					el.append(img)
@@ -586,4 +610,4 @@ READY('Player', 'DOM').then( _ => {
 
 	p.then( _ => READY.View.ready(View) )
 
-})
+}).catch(LOG)

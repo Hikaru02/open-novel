@@ -7,10 +7,13 @@ System.register("ES6/ヘルパー", [], function() {
     var global = (1, eval)('this');
     var Promise = global.Promise;
     var LOG = console.log.bind(console);
-    var Data = {URL: {
+    var Data = {
+      debug: true,
+      URL: {
         ContentsSetting: 'データ/作品.txt',
         EngineSetting: 'エンジン/エンジン定義.txt'
-      }};
+      }
+    };
     var Util = {
       setDefaults: function() {
         var obj = arguments[0] !== (void 0) ? arguments[0] : {};
@@ -32,7 +35,7 @@ System.register("ES6/ヘルパー", [], function() {
         return obj;
       },
       isNoneType: function(str) {
-        return (typeof str === 'string') && /^(無し|なし)$/.test(str);
+        return (typeof str === 'string') && (str == '' || /^(無し|なし)$/.test(str));
       },
       forceName: function(kind, name, type) {
         if (!name || !type)
@@ -42,9 +45,27 @@ System.register("ES6/ヘルパー", [], function() {
         return (kind + "/" + name);
       },
       toHalfWidth: function(str) {
-        return str.replace(/[\uff0d-\uff5a]/g, (function(char) {
+        var table = {
+          '。': '.',
+          'ー': '-',
+          '―': '-',
+          '！': '!',
+          '≧': '>=',
+          '≦': '<=',
+          '≠': '!=',
+          '×': '*',
+          '✕': '*',
+          '✖': '*',
+          '☓': '*',
+          '＊': '*',
+          '％': '%',
+          '／': '/'
+        };
+        return str.replace(/./g, (function(char) {
+          return (char in table ? table[char] : char);
+        })).replace(/[\uff0b-\uff5a]/g, (function(char) {
           return String.fromCharCode(char.charCodeAt(0) - 65248);
-        })).replace(/。/g, '.').replace(/ー/g, '-');
+        }));
       },
       NOP: function() {},
       error: function(message) {
@@ -109,6 +130,15 @@ System.register("ES6/ヘルパー", [], function() {
           return new Promise((function(resolve) {
             return setTimeout(resolve, time);
           }));
+        }));
+      },
+      through: function through(onFulfilled, onRejected) {
+        return this.then((function(val) {
+          onFulfilled(val);
+          return Promise.resolve(val);
+        }), (function(err) {
+          onRejected(err);
+          return Promise.reject(err);
         }));
       }
     });
@@ -235,13 +265,13 @@ System.register("ES6/モデル", [], function() {
       setPhase((kind + "エラー"));
     }
     function parseScript(text) {
-      text = text.replace(/\r\n/g, '\n').replace(/\n+/g, '\n').replace(/\n/g, '\r\n');
+      text = text.replace(/\r\n/g, '\n').replace(/\n+/g, '\n').replace(/\n/g, '\r\n') + '\r\n';
       text = text.replace(/^\#.*\n/gm, '');
       function parseOne(base, text) {
         var chanks = text.match(/[^\n]+?\n(\t+[\s\S]+?\n)+/g) || [];
         chanks.forEach((function(chank) {
           var blocks = chank.replace(/^\t/gm, '').replace(/\n$/, '').match(/.+/g);
-          var act = blocks.shift();
+          var act = blocks.shift().trim();
           var data = '\n' + blocks.join('\n') + '\n';
           var ary = [];
           if (act[0] !== '・') {
@@ -270,7 +300,7 @@ System.register("ES6/モデル", [], function() {
     }
     function runScript(script) {
       var $__2;
-      View.changeMode('NOVEL');
+      View.changeModeIfNeeded('NOVEL');
       var run = Promise.defer();
       script = copyObject(script);
       var actHandlers = ($__2 = {}, Object.defineProperty($__2, "会話", {
@@ -318,6 +348,8 @@ System.register("ES6/モデル", [], function() {
       }), Object.defineProperty($__2, "立ち絵", {
         value: function(data, done, failed) {
           Promise.all(data.reduce((function(base, ary) {
+            var $__4,
+                $__5;
             if (!base)
               return;
             if (Util.isNoneType(ary))
@@ -329,16 +361,25 @@ System.register("ES6/モデル", [], function() {
               return failed('不正な位置検出');
             if (!names)
               return failed('不正な画像名検出');
-            var type = ['left', 'right']['左右'.indexOf(position)];
-            var per = 0;
-            if (!type) {
-              var pos = Util.toHalfWidth(position).match(/[+\-0-9.]+/);
+            var a_type = ['left', 'right']['左右'.indexOf(position)];
+            var v_type = 'top';
+            var $__3 = [0, 0],
+                a_per = $__3[0],
+                v_per = $__3[1];
+            var height = null;
+            if (!a_type) {
+              var pos = Util.toHalfWidth(position).match(/[+\-0-9.]+/g);
               if (!pos)
                 return failed('不正な位置検出');
-              else
-                pos = pos[0];
-              per = Math.abs(+pos);
-              type = pos.match('-') ? 'right' : 'left';
+              var $__3 = $traceurRuntime.assertObject(pos),
+                  a_pos = $__3[0],
+                  v_pos = ($__4 = $__3[1]) === void 0 ? '0' : $__4,
+                  height = ($__5 = $__3[2]) === void 0 ? null : $__5;
+              a_per = Math.abs(+a_pos);
+              v_per = Math.abs(+v_pos);
+              a_type = a_pos.match('-') ? 'right' : 'left';
+              v_type = v_pos.match('-') ? 'bottom' : 'top';
+              height = height != null ? (+height + "%") : null;
             }
             var name = names[0];
             base.push(toBlobURL('立ち絵', name, 'png').then((function(url) {
@@ -348,8 +389,18 @@ System.register("ES6/モデル", [], function() {
                 configurable: true,
                 enumerable: true,
                 writable: true
-              }), Object.defineProperty($__2, type, {
-                value: (per + "%"),
+              }), Object.defineProperty($__2, "height", {
+                value: height,
+                configurable: true,
+                enumerable: true,
+                writable: true
+              }), Object.defineProperty($__2, a_type, {
+                value: (a_per + "%"),
+                configurable: true,
+                enumerable: true,
+                writable: true
+              }), Object.defineProperty($__2, v_type, {
+                value: (v_per + "%"),
                 configurable: true,
                 enumerable: true,
                 writable: true
@@ -371,9 +422,65 @@ System.register("ES6/モデル", [], function() {
           View.setChoiceWindow(data.map((function(ary) {
             return {
               name: ary[0],
-              value: ary[1][0]
+              value: ary[1]
             };
-          }))).then(fetchScriptData).then(runScript).then(done, failed);
+          }))).then((function(value) {
+            if (typeof value[0] == 'string')
+              actHandlers.ジャンプ(value, done, failed);
+            else
+              promise = runScript(value).then(done, failed);
+          }));
+        },
+        configurable: true,
+        enumerable: true,
+        writable: true
+      }), Object.defineProperty($__2, "ジャンプ", {
+        value: function(data, done, failed) {
+          var to = data[0];
+          fetchScriptData(to).then(runScript).then(done, failed);
+        },
+        configurable: true,
+        enumerable: true,
+        writable: true
+      }), Object.defineProperty($__2, "パラメーター", {
+        value: otherName('パラメータ'),
+        configurable: true,
+        enumerable: true,
+        writable: true
+      }), Object.defineProperty($__2, "パラメータ", {
+        value: function(data, done, failed) {
+          data.forEach((function(str) {
+            str = Util.toHalfWidth(str);
+            str = str.match(/(.+)\:(.+)/);
+            if (!str)
+              return failed('不正なパラメータ指定検出');
+            var name = str[1];
+            var effect = parseEffect(str[2]);
+            if (!name)
+              return failed('不正なパラメータ指定検出');
+            paramMap.set(name, evalEffect(effect, failed));
+          }));
+          done();
+        },
+        configurable: true,
+        enumerable: true,
+        writable: true
+      }), Object.defineProperty($__2, "分岐", {
+        value: function(data, done, failed) {
+          if (!data.some((function($__3) {
+            var str = $__3[0],
+                acts = $__3[1];
+            if (!str)
+              return failed('不正なパラメータ指定検出');
+            var effect = parseEffect(str);
+            if (Util.isNoneType(effect))
+              effect = '1';
+            var flag = !!evalEffect(effect, failed);
+            if (flag)
+              runScript(acts).then(done, failed);
+            return flag;
+          })))
+            done();
         },
         configurable: true,
         enumerable: true,
@@ -387,12 +494,13 @@ System.register("ES6/モデル", [], function() {
         writable: true
       }), $__2);
       function main_loop() {
+        updateDebugWindow();
         var act,
             loop = new Promise((function(resolve, reject) {
               var prog = script.shift();
               if (!prog)
                 return run.resolve();
-              act = prog[0];
+              act = prog[0].trim();
               var data = prog[1];
               if (act in actHandlers)
                 actHandlers[act](data, resolve, reject);
@@ -409,29 +517,67 @@ System.register("ES6/モデル", [], function() {
       main_loop();
       return run.promise;
     }
+    function parseEffect(str) {
+      return Util.toHalfWidth(str).replace(/==/g, '=').replace(/[^!><=]=/g, (function(str) {
+        return str.replace('=', '==');
+      }));
+    }
+    function evalEffect(effect, failed) {
+      var get = (function(key) {
+        if (!paramMap.has(key))
+          paramMap.set(key, 0);
+        return paramMap.get(key);
+      });
+      effect = effect.trim();
+      if (!effect)
+        return failed('不正なパラメータ指定検出');
+      if (/\"/.test(effect))
+        return failed('危険な記号の検出');
+      effect = effect.replace(/[^+\-*/%><!=\s\d.]+/, (function(str) {
+        return ("get(\"" + str + "\")");
+      }));
+      return eval(effect);
+    }
+    function updateDebugWindow() {
+      if (!Data.debug)
+        return;
+      var params = {};
+      paramMap.forEach((function(value, key) {
+        return params[key] = value;
+      }));
+      var caches = [];
+      cacheBlobMap.forEach((function(value, key) {
+        return caches.push(key);
+      }));
+      var obj = {
+        パラメータ: params,
+        キャッシュ: caches.sort()
+      };
+      View.updateDebugWindow(obj);
+    }
     function toBlobScriptURL(name) {
       return toBlobURL('シナリオ', name, 'txt');
     }
     function toBlobURL(kind, name, type) {
       var sub = Util.forceName(kind, name, type);
+      var subkey = (Player.scenarioName + "/" + sub);
       if (Util.isNoneType(name))
         return Promise.resolve(null);
-      if (cacheBlobMap.has(sub))
-        return Promise.resolve(cacheBlobMap.get(sub));
+      if (cacheBlobMap.has(subkey))
+        return Promise.resolve(cacheBlobMap.get(subkey));
       var hide = View.setLoadingMessage('Loading...');
       return new Promise((function(ok, ng) {
-        var url = ("データ/" + Player.scenarioName + "/" + sub);
+        var url = ("データ/" + subkey);
         find(url).catch((function(_) {
           url = ("データ/[[共通素材]]/" + sub);
           return find(url);
         })).then((function(_) {
           return ok(url);
         }), ng);
-      })).then(loadBlob).then(URL.createObjectURL).then((function(blobURL) {
-        cacheBlobMap.set(sub, blobURL);
+      })).then(loadBlob).then(URL.createObjectURL).through((function(blobURL) {
+        cacheBlobMap.set(subkey, blobURL);
         hide();
-        return blobURL;
-      }));
+      }), hide);
     }
     function fetchSettingData(url) {
       return loadText(url).then((function(text) {
@@ -460,7 +606,9 @@ System.register("ES6/モデル", [], function() {
         xhr.onload = (function(_) {
           return ok(xhr.response);
         });
-        xhr.onerror = ng;
+        xhr.onerror = (function(_) {
+          return ng(new Error(("ファイルURL『" + url + "』のロードに失敗")));
+        });
         xhr.open('GET', url);
         if (type)
           xhr.responseType = type;
@@ -474,9 +622,11 @@ System.register("ES6/モデル", [], function() {
           if (xhr.status < 300)
             ok();
           else
-            ng(new Error('Not Found'));
+            ng(new Error(("ファイルURL『" + url + "』が見つからない")));
         });
-        xhr.onerror = ng;
+        xhr.onerror = (function(_) {
+          return ng(new Error(("ファイルURL『" + url + "』のロードに失敗")));
+        });
         xhr.open('HEAD', url);
         xhr.send();
       });
@@ -487,11 +637,17 @@ System.register("ES6/モデル", [], function() {
       View.print(message);
     }
     var cacheBlobMap = new Map;
+    var paramMap = new Map;
     function cacheClear() {
       cacheBlobMap.forEach((function(subURL, blobURL) {
         URL.revokeObjectURL(blobURL);
       }));
       cacheBlobMap.clear();
+      updateDebugWindow();
+    }
+    function paramClear() {
+      paramMap.clear();
+      updateDebugWindow();
     }
     READY.Player.ready({
       setRunPhase: setRunPhase,
@@ -500,9 +656,10 @@ System.register("ES6/モデル", [], function() {
       fetchScriptData: fetchScriptData,
       runScript: runScript,
       print: print,
-      cacheClear: cacheClear
+      cacheClear: cacheClear,
+      paramClear: paramClear
     });
-  });
+  }).catch(LOG);
   return {};
 });
 System.get("ES6/モデル" + '');
@@ -522,10 +679,11 @@ System.register("ES6/ビュー", [], function() {
         return this;
       },
       setStyles: function(styles) {
-        var $__4 = this;
+        var $__6 = this;
         styles = styles || {};
         Object.keys(styles).forEach((function(key) {
-          $__4.style[key] = styles[key];
+          if (styles[key] != null)
+            $__6.style[key] = styles[key];
         }), this);
         return this;
       }
@@ -578,18 +736,23 @@ System.register("ES6/ビュー", [], function() {
     var el_debug = new DOM('div', {
       width: '300px',
       textAlign: 'center',
-      fontSize: '1em'
+      fontSize: '1em',
+      padding: '5px'
     });
+    var bs = {
+      height: '2em',
+      margin: '5px'
+    };
     ;
     [360, 480, 720, 1080].forEach((function(size) {
-      var el = el_root.append(el_debug).append(new DOM('button'));
+      var el = el_root.append(el_debug).append(new DOM('button', bs));
       el.append(new DOM('text', size + 'p'));
       el.on('click', (function(_) {
         return adjustScale(size / devicePixelRatio);
       }));
     }));
     el_root.append(el_debug).append(new DOM('br'));
-    var el = el_root.append(el_debug).append(new DOM('button'));
+    var el = el_root.append(el_debug).append(new DOM('button', bs));
     el.append(new DOM('text', 'フルウィンドウ（横）'));
     el.on('click', (function(_) {
       fitScreen = (function(_) {
@@ -601,7 +764,7 @@ System.register("ES6/ビュー", [], function() {
       fitScreen();
     }));
     var el_fullscreen;
-    var el = el_root.append(el_debug).append(new DOM('button'));
+    var el = el_root.append(el_debug).append(new DOM('button', bs));
     el.append(new DOM('text', 'フルスクリーン（横）'));
     el.on('click', (function(_) {
       el_fullscreen = new DOM('div', {
@@ -623,12 +786,15 @@ System.register("ES6/ビュー", [], function() {
       fitScreen();
       View.showNotice('この機能はブラウザにより\n表示の差があります', 3000);
     }));
-    var el = el_root.append(el_debug).append(new DOM('button'));
+    var el = el_root.append(el_debug).append(new DOM('button', bs));
     el.append(new DOM('text', 'キャシュ削除'));
     el.on('click', (function(_) {
       Player.cacheClear();
-      View.showNotice('キャッシュを削除しました');
+      View.showNotice('キャッシュを削除しました', 500);
     }));
+    var el = new DOM('div');
+    var el_debugWindow = el_debug.append(el).append(new DOM('pre', {textAlign: 'left'}));
+    el_debugWindow.textContent = 'デバッグ情報\n（無し）';
     function setAnimate(func) {
       var start = performance.now();
       var cancelled = false;
@@ -693,8 +859,8 @@ System.register("ES6/ビュー", [], function() {
           el_context.setStyles(opt);
         },
         showNotice: function(message) {
-          var show_time = arguments[1] !== (void 0) ? arguments[1] : 3000;
-          var delay_time = arguments[2] !== (void 0) ? arguments[2] : 500;
+          var show_time = arguments[1] !== (void 0) ? arguments[1] : 1000;
+          var delay_time = arguments[2] !== (void 0) ? arguments[2] : 250;
           if (!message)
             throw 'illegal message string';
           message = '【！】\n' + message;
@@ -758,7 +924,10 @@ System.register("ES6/ビュー", [], function() {
           }
           return hide;
         },
-        adjustScale: adjustScale
+        adjustScale: adjustScale,
+        updateDebugWindow: function(obj) {
+          el_debugWindow.textContent = 'デバッグ情報\n' + JSON.stringify(obj, null, 4);
+        }
       }};
     METHODS = {
       TEST: {
@@ -803,16 +972,16 @@ System.register("ES6/ビュー", [], function() {
             var at = 0;
             var el = this.el_body;
             var weight = opt.weight;
-            var $__5 = [false, false],
-                aborted = $__5[0],
-                cancelled = $__5[1];
-            var $__5 = [(function(_) {
+            var $__7 = [false, false],
+                aborted = $__7[0],
+                cancelled = $__7[1];
+            var $__7 = [(function(_) {
               return aborted = true;
             }), (function(_) {
               return cancelled = true;
             })],
-                abort = $__5[0],
-                cancel = $__5[1];
+                abort = $__7[0],
+                cancel = $__7[1];
             View.on('go').then(cancel);
             var p = setAnimate((function(delay, complete) {
               if (aborted)
@@ -928,12 +1097,21 @@ System.register("ES6/ビュー", [], function() {
           var el = this.imageFrame;
           el.removeChildren();
           opts.forEach((function(opt) {
+            Util.setDefaults(opt, {
+              left: null,
+              right: null,
+              top: null,
+              bottom: null
+            });
+            var mar = parseInt(opt.top) || parseInt(opt.bottom) || 0;
+            var height = opt.height ? opt.height : ((100 - mar) + "%");
             var img = new DOM('img', {
               position: 'absolute',
-              left: opt.left || '',
-              right: opt.right || '',
-              maxWidth: '50%',
-              height: '100%'
+              left: opt.left,
+              right: opt.right,
+              top: opt.top,
+              bottom: opt.bottom,
+              height: height
             });
             img.src = opt.url;
             el.append(img);
@@ -1028,7 +1206,7 @@ System.register("ES6/ビュー", [], function() {
     p.then((function(_) {
       return READY.View.ready(View);
     }));
-  }));
+  })).catch(LOG);
   return {};
 });
 System.get("ES6/ビュー" + '');
@@ -1048,7 +1226,7 @@ System.register("ES6/コントローラー", [], function() {
         return p;
       });
     }))();
-    var setup = Util.co($traceurRuntime.initGeneratorFunction(function $__6() {
+    var setup = Util.co($traceurRuntime.initGeneratorFunction(function $__8() {
       var setting,
           scenario,
           script;
@@ -1104,6 +1282,10 @@ System.register("ES6/コントローラー", [], function() {
               $ctx.state = 16;
               break;
             case 16:
+              Player.paramClear();
+              $ctx.state = 32;
+              break;
+            case 32:
               $ctx.state = 18;
               return message('再生準備が完了しました。\nクリック、タップ、エンターキー、スペースキーで進みます。').on('go').then((function(_) {
                 Player.setRunPhase('再生');
@@ -1116,9 +1298,9 @@ System.register("ES6/コントローラー", [], function() {
             case 20:
               View.clean();
               Player.setRunPhase('準備');
-              $ctx.state = 32;
+              $ctx.state = 34;
               break;
-            case 32:
+            case 34:
               $ctx.state = 22;
               return message('再生が終了しました。\n作品選択メニューに戻ります。').delay(1000);
             case 22:
@@ -1132,9 +1314,9 @@ System.register("ES6/コントローラー", [], function() {
             default:
               return $ctx.end();
           }
-      }, $__6, this);
+      }, $__8, this);
     }));
-    var restart = Util.co($traceurRuntime.initGeneratorFunction(function $__7(err) {
+    var restart = Util.co($traceurRuntime.initGeneratorFunction(function $__9(err) {
       return $traceurRuntime.createGeneratorInstance(function($ctx) {
         while (true)
           switch ($ctx.state) {
@@ -1158,9 +1340,9 @@ System.register("ES6/コントローラー", [], function() {
             default:
               return $ctx.end();
           }
-      }, $__7, this);
+      }, $__9, this);
     }));
-    var start = Util.co($traceurRuntime.initGeneratorFunction(function $__8() {
+    var start = Util.co($traceurRuntime.initGeneratorFunction(function $__10() {
       var setting;
       return $traceurRuntime.createGeneratorInstance(function($ctx) {
         while (true)
@@ -1194,10 +1376,10 @@ System.register("ES6/コントローラー", [], function() {
             default:
               return $ctx.end();
           }
-      }, $__8, this);
+      }, $__10, this);
     }));
     start();
-  }));
+  })).catch(LOG);
   return {};
 });
 System.get("ES6/コントローラー" + '');
