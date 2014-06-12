@@ -179,7 +179,7 @@ READY().then(function () {
 					return { name: replaceEffect(ary[0]), value: ary[1] }
 				})).then( value => {
 					if (typeof value[0] == 'string') actHandlers['ジャンプ'](value, done, failed)
-					else promise = runScript(value).then(done, failed)
+					else runScript(value).then(done, failed)
 				} )
 					
 			},
@@ -278,14 +278,15 @@ READY().then(function () {
 		effect = effect.trim()
 		if (Util.isNoneType(effect)) return true
 		effect = Util.toHalfWidth(effect)
+		.replace(/\\/g,'\\\\')
 		.replace(/\=\=/g, '=').replace(/[^!><=]\=/g, str => str.replace('=', '==') )
 		.replace(/\&\&/g, '&').replace(/[^!><&]\&/g, str => str.replace('&', '&&') )
 		.replace(/\|\|/g, '|').replace(/[^!><|]\|/g, str => str.replace('|', '||') )
 		.replace(/^ー/, '-').replace(/([\u1-\u1000\s])(ー)/g, '$1-').replace(/(ー)([\u1-\u1000\s])/g, '-$2')
 		if (!effect) return failed('不正なパラメータ指定検出') 
 		if (/\'/.test(effect)) return failed('危険な記号の検出') 
-		effect = effect.replace(/[^+\-*/%><!=?:()&|\s.]+/g, str => {
-			if (/^\d+$/.test(str)) return str
+		effect = effect.replace(/[^+\-*/%><!=?:()&|\s]+/g, str => {
+			if (/^[0-9.]+$/.test(str)) return str
 			if (/^"[^"]*"$/.test(str)) return str
 			return `paramGet('${str}')`
 		})
@@ -311,6 +312,10 @@ READY().then(function () {
 		View.updateDebugWindow(obj)
 	}
 
+
+	function toBlobEmogiURL(name) {
+		return toBlobURL('絵文字', name, 'svg')
+	}
 
 	function toBlobScriptURL(name) {
 		return toBlobURL('シナリオ', name, 'txt')
@@ -433,7 +438,8 @@ READY().then(function () {
 
 
 	READY.Player.ready({
-		setRunPhase, setErrorPhase, fetchSettingData, fetchScriptData, runScript, print, cacheClear, paramClear
+		setRunPhase, setErrorPhase, fetchSettingData, fetchScriptData, runScript, print, cacheClear, paramClear,
+		toBlobEmogiURL,
 	})
 
 }).catch(LOG)

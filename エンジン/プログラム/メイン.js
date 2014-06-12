@@ -533,7 +533,7 @@ System.register("ES6/モデル", [], function() {
             if (typeof value[0] == 'string')
               actHandlers['ジャンプ'](value, done, failed);
             else
-              promise = runScript(value).then(done, failed);
+              runScript(value).then(done, failed);
           }));
         },
         configurable: true,
@@ -668,7 +668,7 @@ System.register("ES6/モデル", [], function() {
       effect = effect.trim();
       if (Util.isNoneType(effect))
         return true;
-      effect = Util.toHalfWidth(effect).replace(/\=\=/g, '=').replace(/[^!><=]\=/g, (function(str) {
+      effect = Util.toHalfWidth(effect).replace(/\\/g, '\\\\').replace(/\=\=/g, '=').replace(/[^!><=]\=/g, (function(str) {
         return str.replace('=', '==');
       })).replace(/\&\&/g, '&').replace(/[^!><&]\&/g, (function(str) {
         return str.replace('&', '&&');
@@ -679,8 +679,8 @@ System.register("ES6/モデル", [], function() {
         return failed('不正なパラメータ指定検出');
       if (/\'/.test(effect))
         return failed('危険な記号の検出');
-      effect = effect.replace(/[^+\-*/%><!=?:()&|\s.]+/g, (function(str) {
-        if (/^\d+$/.test(str))
+      effect = effect.replace(/[^+\-*/%><!=?:()&|\s]+/g, (function(str) {
+        if (/^[0-9.]+$/.test(str))
           return str;
         if (/^"[^"]*"$/.test(str))
           return str;
@@ -701,6 +701,9 @@ System.register("ES6/モデル", [], function() {
         パラメータ: params
       };
       View.updateDebugWindow(obj);
+    }
+    function toBlobEmogiURL(name) {
+      return toBlobURL('絵文字', name, 'svg');
     }
     function toBlobScriptURL(name) {
       return toBlobURL('シナリオ', name, 'txt');
@@ -825,7 +828,8 @@ System.register("ES6/モデル", [], function() {
       runScript: runScript,
       print: print,
       cacheClear: cacheClear,
-      paramClear: paramClear
+      paramClear: paramClear,
+      toBlobEmogiURL: toBlobEmogiURL
     });
   }).catch(LOG);
   return {};
@@ -867,6 +871,7 @@ System.register("ES6/ビュー", [], function() {
       Object.defineProperty(document, 'fullscreenElement', {get: (function(_) {
           return document.webkitFullscreenElement || document.mozFullScreenElement;
         })});
+    var $isWebkit = !!EP.webkitRequestFullscreen;
     function DOM(tagName, styles) {
       if (tagName == 'text')
         return document.createTextNode(styles);
@@ -968,10 +973,17 @@ System.register("ES6/ビュー", [], function() {
     function setAnimate(func) {
       var start = performance.now();
       var cancelled = false;
+      var paused = false;
       return new Promise((function(ok) {
         var complete = (function(_) {
           cancelled = true;
           ok();
+        });
+        var pause = (function(_) {
+          paused = true;
+          return (function(_) {
+            return requestAnimationFrame(loop);
+          });
         });
         var loop = (function(now) {
           if (cancelled)
@@ -979,8 +991,9 @@ System.register("ES6/ビュー", [], function() {
           var delta = now - start;
           if (delta < 0)
             delta = 0;
-          requestAnimationFrame(loop);
-          func(delta, complete);
+          if (!paused)
+            requestAnimationFrame(loop);
+          func(delta, complete, pause);
         });
         requestAnimationFrame(loop);
       }));
@@ -1169,7 +1182,8 @@ System.register("ES6/ビュー", [], function() {
             text += '\n';
             opt = Util.setDefaults(opt, {weight: 25});
             var length = text.length;
-            var at = 0;
+            var at = 0,
+                nl = 0;
             var el = this.el_body;
             var weight = opt.weight;
             var $__8 = [false, false],
@@ -1183,16 +1197,34 @@ System.register("ES6/ビュー", [], function() {
                 abort = $__8[0],
                 cancel = $__8[1];
             View.on('go').then(cancel);
-            var p = setAnimate((function(delay, complete) {
+            var p = setAnimate((function(delay, complete, pause) {
               if (aborted)
                 return complete();
               if (cancelled) {
                 el.append(new DOM('text', text.slice(at).replace(/\u200B/g, '')));
                 return complete();
               }
-              while (delay / weight >= at) {
+              while (delay / weight >= at - nl) {
                 var str = text[at];
-                if (str != '\u200B')
+                if (str == '\\' && /\[.+\]/.test(text.slice(at))) {
+                  var nat = text.indexOf(']', at);
+                  var img = $isWebkit ? el.append(new DOM('img', {
+                    height: '0.75em',
+                    width: '0.75em'
+                  })) : el.append(new DOM('iframe', {
+                    height: '0.75em',
+                    width: '0.75em',
+                    border: 'none'
+                  }));
+                  ;
+                  ((function(img) {
+                    return Player.toBlobEmogiURL(text.slice(at + 2, nat).trim()).then((function(url) {
+                      img.src = url;
+                    })).catch(LOG);
+                  }))(img);
+                  nl += nat - at;
+                  at = nat;
+                } else if (str != '\u200B')
                   el.append(new DOM('text', str));
                 if (++at >= length)
                   return complete();

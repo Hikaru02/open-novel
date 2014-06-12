@@ -27,7 +27,7 @@ READY('Player', 'DOM').then( _ => {
 		get: _ => document.webkitFullscreenElement || document.mozFullScreenElement,
 	})
 
-
+	var $isWebkit = !!EP.webkitRequestFullscreen
 
 	function DOM(tagName, styles) {
 		if (tagName == 'text') return document.createTextNode(styles)
@@ -149,17 +149,22 @@ READY('Player', 'DOM').then( _ => {
 	function setAnimate(func) {
 		var start = performance.now()
 		var cancelled = false
+		var paused = false
 		return new Promise(ok => {
 			var complete = _ => {
 				cancelled = true
 				ok()
 			}
+			var pause = _ => {
+				paused = true
+				return _ => requestAnimationFrame(loop)
+			}
 			var loop = now => {
 				if (cancelled) return
 				var delta = now - start
 				if (delta < 0) delta = 0
-				requestAnimationFrame(loop)
-				func(delta, complete)
+				if (!paused) requestAnimationFrame(loop)
+				func(delta, complete, pause)
 			}
 			requestAnimationFrame(loop)
 		})
@@ -366,22 +371,31 @@ READY('Player', 'DOM').then( _ => {
 					})
 					
 					var length = text.length
-					var at = 0
+					var at = 0, nl = 0
 					var el = this.el_body
 					var weight = opt.weight
 					var [aborted, cancelled] = [false, false]
 					var [abort, cancel] = [_ => aborted = true, _ => cancelled = true]
 					View.on('go').then(cancel)
 
-					var p = setAnimate( (delay, complete) => {
+					var p = setAnimate( (delay, complete, pause) => {
 						if (aborted) return complete()
 						if (cancelled) {
 							el.append(new DOM('text', text.slice(at).replace(/\u200B/g, '') ))
 							return complete()
 						}
-						while (delay / weight >= at) {
+						while (delay / weight >= at - nl) {
 							var str = text[at]
-							if (str != '\u200B') el.append(new DOM('text', str))
+							if (str == '\\' && /\[.+\]/.test(text.slice(at))) {
+								var nat = text.indexOf(']', at)
+								//var resume = pause()
+								var img = $isWebkit
+									? el.append(new DOM('img', { height: '0.75em', width: '0.75em' }))
+									: el.append(new DOM('iframe', { height: '0.75em', width: '0.75em', border: 'none' }))
+								;(img =>	Player.toBlobEmogiURL(text.slice(at+2, nat).trim()).then( url => {img.src = url} ).catch(LOG))(img)
+								nl += nat - at
+								at = nat
+							} else if (str != '\u200B') el.append(new DOM('text', str))
 							if (++at >= length) return complete()
 						}
 					})
