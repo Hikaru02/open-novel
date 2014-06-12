@@ -330,11 +330,7 @@ READY().then(function () {
 		if (cacheBlobMap.has(subkey)) return Promise.resolve(cacheBlobMap.get(subkey))
 		var hide = View.setLoadingMessage('Loading...')
 		return new Promise( (ok, ng) => {		
-			var url = `データ/${subkey}`
-			find(url).catch( _ => { 
-				url = `データ/[[共通素材]]/${sub}`
-				return find(url)
-			} ).then( _ => ok(url), ng)
+			find(`データ/${subkey}`).catch( _ => `データ/[[共通素材]]/${sub}` ).then( url => ok(url), ng)
 		}).then(loadBlob).then( blob => {
 			var blobURL = URL.createObjectURL(blob)
 			cacheBlobMap.set(subkey, blobURL)
@@ -387,7 +383,7 @@ READY().then(function () {
 		return new Promise(function (ok, ng) {
 			var xhr = new XMLHttpRequest()
 			xhr.onload = _ => {
-				if (xhr.status < 300) ok()
+				if (xhr.status < 300) ok(url)
 				else ng(new Error(`ファイルURL『${url}』が見つからない`)) 
 			}
 			xhr.onerror = _ => ng(new Error(`ファイルURL『${url}』のロードに失敗`))
@@ -439,7 +435,7 @@ READY().then(function () {
 
 	READY.Player.ready({
 		setRunPhase, setErrorPhase, fetchSettingData, fetchScriptData, runScript, print, cacheClear, paramClear,
-		toBlobEmogiURL,
+		toBlobEmogiURL, find,
 	})
 
 }).catch(LOG)

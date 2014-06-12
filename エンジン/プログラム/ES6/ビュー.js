@@ -387,13 +387,20 @@ READY('Player', 'DOM').then( _ => {
 						}
 						while (delay / weight >= at - nl) {
 							var str = text[at]
+							if (!str) return complete()
 							if (str == '\\' && /\[.+\]/.test(text.slice(at))) {
 								var nat = text.indexOf(']', at)
-								//var resume = pause()
-								var img = $isWebkit
-									? el.append(new DOM('img', { height: '0.75em', width: '0.75em' }))
-									: el.append(new DOM('iframe', { height: '0.75em', width: '0.75em', border: 'none' }))
-								;(img =>	Player.toBlobEmogiURL(text.slice(at+2, nat).trim()).then( url => {img.src = url} ).catch(LOG))(img)
+								var img = el.append(new DOM('img', { height: '0.75em', width: '0.75em' }))
+								var name = text.slice(at+2, nat).trim()
+								if ($isWebkit) {
+									;((img, name) => Player.toBlobEmogiURL(name).then( url => {img.src = url} ).catch(LOG))(img, name)
+								} else {
+									;((img, name) => {
+										var sub = Util.forceName('絵文字', name, 'svg')
+										var subkey = `${Player.scenarioName}/${sub}`
+										Player.find(`データ/${subkey}`).catch( _ => `データ/[[共通素材]]/${sub}` ).then( url => {img.src = url} ).catch(LOG)
+									})(img, name)
+								}
 								nl += nat - at
 								at = nat
 							} else if (str != '\u200B') el.append(new DOM('text', str))

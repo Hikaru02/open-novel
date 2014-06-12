@@ -717,11 +717,9 @@ System.register("ES6/モデル", [], function() {
         return Promise.resolve(cacheBlobMap.get(subkey));
       var hide = View.setLoadingMessage('Loading...');
       return new Promise((function(ok, ng) {
-        var url = ("データ/" + subkey);
-        find(url).catch((function(_) {
-          url = ("データ/[[共通素材]]/" + sub);
-          return find(url);
-        })).then((function(_) {
+        find(("データ/" + subkey)).catch((function(_) {
+          return ("データ/[[共通素材]]/" + sub);
+        })).then((function(url) {
           return ok(url);
         }), ng);
       })).then(loadBlob).then((function(blob) {
@@ -773,7 +771,7 @@ System.register("ES6/モデル", [], function() {
         var xhr = new XMLHttpRequest();
         xhr.onload = (function(_) {
           if (xhr.status < 300)
-            ok();
+            ok(url);
           else
             ng(new Error(("ファイルURL『" + url + "』が見つからない")));
         });
@@ -829,7 +827,8 @@ System.register("ES6/モデル", [], function() {
       print: print,
       cacheClear: cacheClear,
       paramClear: paramClear,
-      toBlobEmogiURL: toBlobEmogiURL
+      toBlobEmogiURL: toBlobEmogiURL,
+      find: find
     });
   }).catch(LOG);
   return {};
@@ -1208,22 +1207,34 @@ System.register("ES6/ビュー", [], function() {
               }
               while (delay / weight >= at - nl) {
                 var str = text[at];
+                if (!str)
+                  return complete();
                 if (str == '\\' && /\[.+\]/.test(text.slice(at))) {
                   var nat = text.indexOf(']', at);
-                  var img = $isWebkit ? el.append(new DOM('img', {
+                  var img = el.append(new DOM('img', {
                     height: '0.75em',
                     width: '0.75em'
-                  })) : el.append(new DOM('iframe', {
-                    height: '0.75em',
-                    width: '0.75em',
-                    border: 'none'
                   }));
-                  ;
-                  ((function(img) {
-                    return Player.toBlobEmogiURL(text.slice(at + 2, nat).trim()).then((function(url) {
-                      img.src = url;
-                    })).catch(LOG);
-                  }))(img);
+                  var name = text.slice(at + 2, nat).trim();
+                  if ($isWebkit) {
+                    ;
+                    ((function(img, name) {
+                      return Player.toBlobEmogiURL(name).then((function(url) {
+                        img.src = url;
+                      })).catch(LOG);
+                    }))(img, name);
+                  } else {
+                    ;
+                    ((function(img, name) {
+                      var sub = Util.forceName('絵文字', name, 'svg');
+                      var subkey = (Player.scenarioName + "/" + sub);
+                      Player.find(("データ/" + subkey)).catch((function(_) {
+                        return ("データ/[[共通素材]]/" + sub);
+                      })).then((function(url) {
+                        img.src = url;
+                      })).catch(LOG);
+                    }))(img, name);
+                  }
                   nl += nat - at;
                   at = nat;
                 } else if (str != '\u200B')
