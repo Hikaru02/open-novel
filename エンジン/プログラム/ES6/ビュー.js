@@ -141,7 +141,7 @@ READY('Player', 'DOM').then( _ => {
 
 
 	var el = new DOM('div')
-	var el_debugWindow = el_debug.append(el).append(new DOM('pre', { textAlign: 'left' }))
+	var el_debugWindow = el_debug.append(el).append(new DOM('pre', { textAlign: 'left', whiteSpace: 'pre-wrap' }))
 	el_debugWindow.textContent = 'デバッグ情報\n（無し）'
 
 
