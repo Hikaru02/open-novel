@@ -381,8 +381,9 @@ READY('Player', 'DOM').then( _ => {
 					var p = setAnimate( (delay, complete, pause) => {
 						if (aborted) return complete()
 						if (cancelled) {
-							el.append(new DOM('text', text.slice(at).replace(/\u200B/g, '') ))
-							return complete()
+							//el.append(new DOM('text', text.slice(at).replace(/\u200B/g, '') ))
+							//return complete()
+							nl = length
 						}
 						while (delay / weight >= at - nl) {
 							var str = text[at]
