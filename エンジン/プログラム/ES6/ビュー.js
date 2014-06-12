@@ -2,7 +2,6 @@
 READY('Player', 'DOM').then( _ => {
 	'use strict'
 
-	//var {Promise} = Util.overrides
 	var View = null
 
 	var EP = Element.prototype
@@ -82,12 +81,12 @@ READY('Player', 'DOM').then( _ => {
 	
 
 
-	var el_debug = new DOM('div', {
-		width		: '300px',
+	var el_debug = el_root.append(new DOM('div', {
+		width		: '320px',
 		textAlign	: 'center',
 		fontSize	: '1em',
 		padding		: '5px',
-	})
+	}))
 
 
 	var bs = {
@@ -95,16 +94,15 @@ READY('Player', 'DOM').then( _ => {
 		margin: '5px',
 	}
 
+	var el_debugSub = el_debug.append(new DOM('div'))
 	;[360, 480, 720, 1080].forEach( size => {
-
-		var el = el_root.append(el_debug).append(new DOM('button', bs))
+		var el = el_debugSub.append(new DOM('button', bs))
 		el.append(new DOM('text', size + 'p'))
 		el.on('click', _ =>	adjustScale(size / devicePixelRatio) )
 	})
 	
-	el_root.append(el_debug).append(new DOM('br'))
-	
-	var el = el_root.append(el_debug).append(new DOM('button', bs))
+	var el_debugSub = el_debug.append(new DOM('div'))
+	var el = el_debugSub.append(new DOM('button', bs))
 	el.append(new DOM('text', 'フルウィンドウ(横)'))
 	el.on('click', _ => {
 		fitScreen = _ => {
@@ -115,9 +113,8 @@ READY('Player', 'DOM').then( _ => {
 		}
 		fitScreen()
 	})
-
 	var el_fullscreen
-	var el = el_root.append(el_debug).append(new DOM('button', bs))
+	var el = el_debugSub.append(new DOM('button', bs))
 	el.append(new DOM('text', 'フルスクリーン(横)'))
 	el.on('click', _ => {
 		el_fullscreen = new DOM('div', {width: '100%', height: '100%', fontSize: '100%'})
@@ -131,10 +128,11 @@ READY('Player', 'DOM').then( _ => {
 			adjustScale(height, 0, true)
 		}
 		fitScreen()
-		View.showNotice('この機能はブラウザにより\n表示の差があります', 3000)
+		View.showNotice('この機能はブラウザにより\n表示の差があります', 1000)
 	})
 
-	var el = el_root.append(el_debug).append(new DOM('button', bs))
+	var el_debugSub = el_debug.append(new DOM('div'))
+	var el = el_debugSub.append(new DOM('button', bs))
 	el.append(new DOM('text', 'キャシュ削除'))
 	el.on('click', _ => {
 		Player.cacheClear()
@@ -190,6 +188,35 @@ READY('Player', 'DOM').then( _ => {
 
 	METHODS = {
 		COMMON: {
+
+			clean: function () {
+				this.changeMode($mode)
+			},
+
+			init: function (opt) {
+				this.initDisplay(opt.style || {})
+			},
+
+			changeMode: function (type, opt) {
+				var type = type.toUpperCase()
+				opt = opt || {}
+
+				if (!(type in METHODS)) throw 'illegal ViewContext mode type'
+
+				$mode = type
+				global.View = View = { __proto__: METHODS[type] }
+				View.init(opt)
+
+			},
+
+			changeModeIfNeeded: function (type, opt) {
+				if ($mode != type) this.changeMode(type, opt)
+			},
+
+			on: function (kind, onFulfilled, onRejected) {
+				 return new Promise( resolve => hookInput(kind, resolve) ).then(onFulfilled).catch(onRejected)
+			},
+
 			initDisplay: function (opt) {
 				Util.setDefaults(opt, {
 					background		: 'black',
@@ -201,8 +228,11 @@ READY('Player', 'DOM').then( _ => {
 				//	$height			: 360,
 				//	$raito			: 16 / 9,
 				})
-				var height = opt.HEIGHT || 480
 
+				hookClear()
+				this.windows = {}
+
+				var height = opt.HEIGHT || 480
 				opt.height = opt.width = '100%'
 
 				el_context = new DOM('div')
@@ -292,7 +322,7 @@ READY('Player', 'DOM').then( _ => {
 					fontSize		: 'calc(100% * 2 / 3)',
 					color			: 'white',
 				})
-				this.__proto__.initDisplay(opt)
+				this.__proto__.__proto__.initDisplay(opt)
 				var el = new DOM('div', {
 					padding: '10px',
 				})
@@ -307,17 +337,19 @@ READY('Player', 'DOM').then( _ => {
 
 		NOVEL: { __proto__: METHODS.COMMON,
 			initDisplay: function (opt) {
+				//LOG('initDisplay')
 				Util.setDefaults(opt, {
 					color			: 'rgba(255,255,255,0.9)',
 				//	fontSize		: 'calc(480px / 20)',
 					textShadow		: 'rgba(0,0,0,0.9) 0.1em 0.1em 0.1em',
 					overflow		: 'hidden',
 				})
-				this.__proto__.initDisplay(opt)
+				this.__proto__.__proto__.initDisplay(opt)
 
 				this.mainMessageWindow = this.addMessageWindow({z:10})
 				this.imageFrame = this.addImageFrame({z:20})
 
+				View.on('Rclick').then(_ => this.showMenu())
 			},
 
 			messageWindowProto: {
@@ -330,7 +362,7 @@ READY('Player', 'DOM').then( _ => {
 				addSentence: function (text, opt) {
 					text += '\n'
 					opt = Util.setDefaults(opt, {
-						weight: 33
+						weight: 25
 					})
 					
 					var length = text.length
@@ -363,22 +395,23 @@ READY('Player', 'DOM').then( _ => {
 			addMessageWindow: function (opt) {
 				Util.setDefaults(opt, {
 					background		: 'rgba(0,0,100,0.5)',
-					boxShadow		: 'rgba(0,0,100,0.5) 0px 0px 5px 5px',
+					boxShadow		: 'rgba(0,0,100,0.5) 0 0 0.5em 0.5em',
 					borderRadius	: '1% / 1%',
-					width			: 'calc(100% - 10px - (2% + 2%))',
-					height			: 'calc( 25% - 10px - (4% + 2%))',
+					width			: 'calc(100% - 0.5em - (2% + 2%))',
+					height			: 'calc( 25% - 0.5em - (4% + 2%))',
 					fontSize		: '100%',
 					lineHeight		: '1.5em',
 					fontWeight		: 'bold',
 					padding			: '4% 2% 2% 2%',
 					whiteSpace		: 'nowrap',
 					position		: 'absolute',
-					bottom			: '5px',
-					left			: '5px',
+					bottom			: '0.25em',
+					left			: '0.25em',
 					zIndex			: opt.z || 1400,
 
 				})
 				var el = new DOM('div', opt)
+				this.windows.message = el
 				el_context.append(el)
 
 				var el_title = el.append(new DOM('div', {
@@ -438,8 +471,8 @@ READY('Player', 'DOM').then( _ => {
 					background		: 'rgba(100, 100, 255, 0.3)',
 					padding			: '0% 5%',
 				//	verticalAlign	: 'middle',
-
 				})
+				this.windows.choice = cw
 
 				opts.forEach(function (opt) {
 					if (!('value' in opt)) opt.value = opt.name
@@ -457,10 +490,11 @@ READY('Player', 'DOM').then( _ => {
 					bt.append(new DOM('text', opt.name))
 					bt.onclick = _ => {
 						defer.resolve(opt.value)
+						delete this.windows.choice
 						cw.remove()
 					}
 					cw.append(bt)
-				})
+				}, this)
 
 				el_context.append(cw)
 
@@ -508,62 +542,29 @@ READY('Player', 'DOM').then( _ => {
 				return this.mainMessageWindow.addSentence(text, opt)
 			},
 
+			showMenu: function (opt) {
+				blockEvent('go')
+				View.on('Rclick').then(_ => this.hideMenu())
+				Object.keys(this.windows).forEach( key => {
+					var el = this.windows[key].hidden = true
+				} )
+			},
+
+			hideMenu: function (opt) {
+				allowEvent('go')
+				View.on('Rclick').then(_ => this.showMenu())
+				Object.keys(this.windows).forEach( key => {
+					var el = this.windows[key].hidden = false
+				} )
+			},
+
 		},
 
 	}
 
 
 
-	var ViewProto = { __proto__: METHODS.COMMON,
-		//get el_wrapper() { return el_wrapper },
-		fresh: function () {
-			View = { __proto__: ViewProto }
-		},
-		clean: function () {
-			this.changeMode($mode)
-		},
-		init: function (opt) {
-			this.initDisplay(opt.style || {})
-		},
-		initDisplay: function (opt) {
-			this.__proto__.initDisplay(opt)
-		},
-		changeMode: function (type, opt) {
-			var type = type.toUpperCase()
-			opt = opt || {}
-
-			if (!type in METHODS) throw 'illegal ViewContext mode type'
-
-			$mode = type
-			ViewProto.__proto__ = METHODS[type]
-			View.init(opt)
-
-		},
-		changeModeIfNeeded: function (type, opt) {
-			if ($mode != type) this.changeMode(type, opt)
-		},
-		on: function (type, onFulfilled, onRejected) {
-
-			 return new Promise( resolve => {
-				
-				switch (type) {
-
-					case 'go':
-						hookInput(['Lclick', 'enter', 'space'], resolve)
-					break
-
-					default: throw 'illegal hook event type'		
-				}
-			}).then(onFulfilled).catch(onRejected)
-
-		},
-	}
-
-	ViewProto.fresh()
-
-
-
-	var hookInput = (_ => {
+	var [hookInput, hookClear, blockEvent, allowEvent] = (_ => {
 
 		var keyboardTable = {
 			13: 'enter',
@@ -571,19 +572,26 @@ READY('Player', 'DOM').then( _ => {
 		}
 
 		var hooks = []
+		var blocks = new Set
 
 		document.addEventListener('keydown', evt => {
 			var type = keyboardTable[evt.keyCode]
 			if (type) onEvent(type, evt)
-		})
+		}, true)
 
 		el_wrapper.addEventListener('mousedown', evt => {
 			var type = 'LMR'[evt.button]
 			if (type) onEvent(type + 'click', evt)
-		})
+		}, true)
+
+		el_wrapper.addEventListener('contextmenu', evt => {
+			onEvent('contextmenu', evt)
+		}, true)
 
 		function onEvent(type, evt) {
 			evt.preventDefault()
+			evt.stopImmediatePropagation()
+			if (blocks.has(type)) return
 			hooks = hooks.reduce( (ary, hook, i) => {
 				if (hook.indexOf(type) === -1) ary.push(hook)
 				else hook.resolve()
@@ -591,10 +599,30 @@ READY('Player', 'DOM').then( _ => {
 			}, [])
 		}
 
-		return function hookInput(hook, resolve) {
+		function toHook(kind) {
+			switch (kind) {
+				case 'go':
+					return ['Lclick', 'enter', 'space']
+				break;
+				case 'Rclick':
+					return [kind]
+				break
+				default: throw 'illegal hook event type'		
+			}
+		}
+
+		return [function hookInput(kind, resolve) {
+			var hook = toHook(kind)
 			hook.resolve = resolve
 			hooks.push(hook)
-		}
+		}, function hookClear() {
+			hooks.length = 0
+		}, function blockEvent(kind) {
+			toHook(kind).forEach( type => blocks.add(type) )
+		}, function allowEvent(kind) {
+			toHook(kind).forEach( type => blocks.delete(type) )
+		},
+		]
 	})()
 
 
@@ -605,9 +633,9 @@ READY('Player', 'DOM').then( _ => {
 	var $scale = width / $ratio >= 480 ? 480 : width / $ratio
 	//document.body.style.width = '100%'
 
-	View.changeMode('TEST')
+	METHODS.TEST.changeMode('TEST')
 	var p = adjustScale($scale, $ratio)
 
-	p.then( _ => READY.View.ready(View) )
+	p.then( _ => READY.View.ready(null) )
 
 }).catch(LOG)

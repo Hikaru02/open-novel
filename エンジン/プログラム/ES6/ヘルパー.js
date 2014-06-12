@@ -75,7 +75,7 @@
 
 			var table = {
 				'。': '.',
-				'ー': '-',
+			//	'ー': '-',
 				'―': '-',
 				'！': '!', 
 				'≧': '>=',
@@ -88,6 +88,9 @@
 				'＊': '*', 
 				'％': '%',
 				'／': '/',
+				'｜': '|',
+				'”': '"',
+				'’': "'",
 			}
 
 			return str.replace(/./g, char => (char in table ? table[char] : char) )
@@ -243,12 +246,12 @@
 				return READY[type]
 			}))
 		}
-		;['DOM', 'Player', 'View'].forEach(type => {
+		;['DOM', 'Player', 'View', 'Storage'].forEach(type => {
 			global[type] = null
 			var defer = $Promise.defer()
 			READY[type] = defer.promise
 			READY[type].ready = obj => {
-				global[type] = obj
+				if (obj) global[type] = obj
 				defer.resolve()
 			} 
 		})

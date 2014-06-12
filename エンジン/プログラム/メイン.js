@@ -47,7 +47,6 @@ System.register("ES6/ヘルパー", [], function() {
       toHalfWidth: function(str) {
         var table = {
           '。': '.',
-          'ー': '-',
           '―': '-',
           '！': '!',
           '≧': '>=',
@@ -59,7 +58,10 @@ System.register("ES6/ヘルパー", [], function() {
           '☓': '*',
           '＊': '*',
           '％': '%',
-          '／': '/'
+          '／': '/',
+          '｜': '|',
+          '”': '"',
+          '’': "'"
         };
         return str.replace(/./g, (function(char) {
           return (char in table ? table[char] : char);
@@ -227,12 +229,13 @@ System.register("ES6/ヘルパー", [], function() {
         })));
       }
       ;
-      ['DOM', 'Player', 'View'].forEach((function(type) {
+      ['DOM', 'Player', 'View', 'Storage'].forEach((function(type) {
         global[type] = null;
         var defer = $Promise.defer();
         READY[type] = defer.promise;
         READY[type].ready = (function(obj) {
-          global[type] = obj;
+          if (obj)
+            global[type] = obj;
           defer.resolve();
         });
       }));
@@ -250,6 +253,105 @@ System.register("ES6/ヘルパー", [], function() {
   return {};
 });
 System.get("ES6/ヘルパー" + '');
+System.register("ES6/ストレージ", [], function() {
+  "use strict";
+  var __moduleName = "ES6/ストレージ";
+  READY().then((function(_) {
+    'use strict';
+    Util.co($traceurRuntime.initGeneratorFunction(function $__2() {
+      var db,
+          Storage;
+      return $traceurRuntime.createGeneratorInstance(function($ctx) {
+        while (true)
+          switch ($ctx.state) {
+            case 0:
+              $ctx.state = 2;
+              return new Promise((function(ok, ng) {
+                var rq = indexedDB.open('open-novel', 1);
+                rq.onupgradeneeded = (function(evt) {
+                  var db = rq.result;
+                  var ov = evt.oldVersion;
+                  if (ov < 1)
+                    db.createObjectStore('test', {autoIncrement: true});
+                });
+                rq.onsuccess = (function(_) {
+                  return ok(rq.result);
+                });
+                rq.onerror = (function(err) {
+                  return ng(("ストレージが開けない（" + err.message + ")"));
+                });
+              }));
+            case 2:
+              db = $ctx.sent;
+              $ctx.state = 4;
+              break;
+            case 4:
+              Storage = {
+                testAdd: function(key, val) {
+                  return new Promise((function(ok, ng) {
+                    var ts = db.transaction('test', 'readwrite');
+                    var os = ts.objectStore('test');
+                    var rq = os.add(val, key);
+                    ts.oncomplete = (function(_) {
+                      return ok();
+                    });
+                    ts.onabort = (function(_) {
+                      return ng(("ストレージのkey『" + key + "』の書込に失敗（" + ts.error.message + ")"));
+                    });
+                  }));
+                },
+                testPut: function(key, val) {
+                  return new Promise((function(ok, ng) {
+                    var ts = db.transaction('test', 'readwrite');
+                    var os = ts.objectStore('test');
+                    var rq = os.put(val, key);
+                    ts.oncomplete = (function(_) {
+                      return ok();
+                    });
+                    ts.onabort = (function(_) {
+                      return ng(("ストレージのkey『" + key + "』の書込に失敗（" + ts.error.message + ")"));
+                    });
+                  }));
+                },
+                testGet: function(key) {
+                  return new Promise((function(ok, ng) {
+                    var ts = db.transaction('test', 'readwrite');
+                    var os = ts.objectStore('test');
+                    var rq = os.get(key);
+                    ts.oncomplete = (function(_) {
+                      return ok();
+                    });
+                    ts.onabort = (function(_) {
+                      return ng(("ストレージのkey『" + key + "』の読込に失敗（" + ts.error.message + ")"));
+                    });
+                  }));
+                },
+                testDelete: function(key) {
+                  return new Promise((function(ok, ng) {
+                    var ts = db.transaction('test', 'readwrite');
+                    var os = ts.objectStore('test');
+                    var rq = os.delete(key);
+                    ts.oncomplete = (function(_) {
+                      return ok();
+                    });
+                    ts.onabort = (function(_) {
+                      return ng(("ストレージのkey『" + key + "』の削除に失敗（" + ts.error.message + ")"));
+                    });
+                  }));
+                }
+              };
+              READY.Storage.ready(Storage);
+              $ctx.state = -2;
+              break;
+            default:
+              return $ctx.end();
+          }
+      }, $__2, this);
+    }))().catch(LOG);
+  })).catch(LOG);
+  return {};
+});
+System.get("ES6/ストレージ" + '');
 System.register("ES6/モデル", [], function() {
   "use strict";
   var __moduleName = "ES6/モデル";
@@ -299,11 +401,11 @@ System.register("ES6/モデル", [], function() {
       };
     }
     function runScript(script) {
-      var $__2;
+      var $__3;
       View.changeModeIfNeeded('NOVEL');
       var run = Promise.defer();
       script = copyObject(script);
-      var actHandlers = ($__2 = {}, Object.defineProperty($__2, "会話", {
+      var actHandlers = ($__3 = {}, Object.defineProperty($__3, "会話", {
         value: function(data, done, failed) {
           function nextPage() {
             var ary = data.shift();
@@ -313,6 +415,7 @@ System.register("ES6/モデル", [], function() {
                 texts = ary[1];
             if (Util.isNoneType(name))
               name = '';
+            name = replaceEffect(name);
             View.nextPage(name);
             function nextSentence() {
               var text = texts.shift();
@@ -321,6 +424,7 @@ System.register("ES6/モデル", [], function() {
               text = text.replace(/\\w(\d+)/g, (function(_, num) {
                 return '\u200B'.repeat(num);
               })).replace(/\\n/g, '\n');
+              text = replaceEffect(text);
               View.addSentence(text).on('go', nextSentence, failed);
             }
             nextSentence();
@@ -330,9 +434,9 @@ System.register("ES6/モデル", [], function() {
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__2, "背景", {
+      }), Object.defineProperty($__3, "背景", {
         value: function(data, done, failed) {
-          var name = data[0];
+          var name = replaceEffect(data[0]);
           toBlobURL('背景', name, 'jpg').then((function(url) {
             return View.setBGImage({url: url});
           })).then(done, failed);
@@ -340,71 +444,72 @@ System.register("ES6/モデル", [], function() {
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__2, "立絵", {
+      }), Object.defineProperty($__3, "立絵", {
         value: otherName('立ち絵'),
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__2, "立ち絵", {
+      }), Object.defineProperty($__3, "立ち絵", {
         value: function(data, done, failed) {
           Promise.all(data.reduce((function(base, ary) {
-            var $__4,
-                $__5;
+            var $__5,
+                $__6;
             if (!base)
               return;
             if (Util.isNoneType(ary))
               return base;
-            var $__3 = $traceurRuntime.assertObject(ary),
-                position = $__3[0],
-                names = $__3[1];
+            var $__4 = $traceurRuntime.assertObject(ary),
+                position = $__4[0],
+                names = $__4[1];
             if (!position)
               return failed('不正な位置検出');
             if (!names)
               return failed('不正な画像名検出');
+            position = replaceEffect(position);
+            var name = replaceEffect(names[0]);
             var a_type = ['left', 'right']['左右'.indexOf(position)];
             var v_type = 'top';
-            var $__3 = [0, 0],
-                a_per = $__3[0],
-                v_per = $__3[1];
+            var $__4 = [0, 0],
+                a_per = $__4[0],
+                v_per = $__4[1];
             var height = null;
             if (!a_type) {
               var pos = Util.toHalfWidth(position).match(/[+\-0-9.]+/g);
               if (!pos)
                 return failed('不正な位置検出');
-              var $__3 = $traceurRuntime.assertObject(pos),
-                  a_pos = $__3[0],
-                  v_pos = ($__4 = $__3[1]) === void 0 ? '0' : $__4,
-                  height = ($__5 = $__3[2]) === void 0 ? null : $__5;
+              var $__4 = $traceurRuntime.assertObject(pos),
+                  a_pos = $__4[0],
+                  v_pos = ($__5 = $__4[1]) === void 0 ? '0' : $__5,
+                  height = ($__6 = $__4[2]) === void 0 ? null : $__6;
               a_per = Math.abs(+a_pos);
               v_per = Math.abs(+v_pos);
               a_type = a_pos.match('-') ? 'right' : 'left';
               v_type = v_pos.match('-') ? 'bottom' : 'top';
               height = height != null ? (+height + "%") : null;
             }
-            var name = names[0];
             base.push(toBlobURL('立ち絵', name, 'png').then((function(url) {
-              var $__2;
-              return (($__2 = {}, Object.defineProperty($__2, "url", {
+              var $__3;
+              return (($__3 = {}, Object.defineProperty($__3, "url", {
                 value: url,
                 configurable: true,
                 enumerable: true,
                 writable: true
-              }), Object.defineProperty($__2, "height", {
+              }), Object.defineProperty($__3, "height", {
                 value: height,
                 configurable: true,
                 enumerable: true,
                 writable: true
-              }), Object.defineProperty($__2, a_type, {
+              }), Object.defineProperty($__3, a_type, {
                 value: (a_per + "%"),
                 configurable: true,
                 enumerable: true,
                 writable: true
-              }), Object.defineProperty($__2, v_type, {
+              }), Object.defineProperty($__3, v_type, {
                 value: (v_per + "%"),
                 configurable: true,
                 enumerable: true,
                 writable: true
-              }), $__2));
+              }), $__3));
             })));
             return base;
           }), [])).then(View.setFDImages.bind(View)).then(done, failed);
@@ -412,21 +517,21 @@ System.register("ES6/モデル", [], function() {
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__2, "選択", {
+      }), Object.defineProperty($__3, "選択", {
         value: otherName('選択肢'),
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__2, "選択肢", {
+      }), Object.defineProperty($__3, "選択肢", {
         value: function(data, done, failed) {
           View.setChoiceWindow(data.map((function(ary) {
             return {
-              name: ary[0],
+              name: replaceEffect(ary[0]),
               value: ary[1]
             };
           }))).then((function(value) {
             if (typeof value[0] == 'string')
-              actHandlers.ジャンプ(value, done, failed);
+              actHandlers['ジャンプ'](value, done, failed);
             else
               promise = runScript(value).then(done, failed);
           }));
@@ -434,47 +539,84 @@ System.register("ES6/モデル", [], function() {
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__2, "ジャンプ", {
+      }), Object.defineProperty($__3, "ジャンプ", {
         value: function(data, done, failed) {
-          var to = data[0];
+          var to = replaceEffect(data[0]);
           fetchScriptData(to).then(runScript).then(done, failed);
         },
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__2, "パラメーター", {
+      }), Object.defineProperty($__3, "変数", {
         value: otherName('パラメータ'),
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__2, "パラメータ", {
+      }), Object.defineProperty($__3, "パラメーター", {
+        value: otherName('パラメータ'),
+        configurable: true,
+        enumerable: true,
+        writable: true
+      }), Object.defineProperty($__3, "パラメータ", {
         value: function(data, done, failed) {
           data.forEach((function(str) {
             str = Util.toHalfWidth(str);
             str = str.match(/(.+)\:(.+)/);
             if (!str)
               return failed('不正なパラメータ指定検出');
-            var name = str[1];
-            var effect = parseEffect(str[2]);
+            var name = replaceEffect(str[1]);
+            var effect = str[2];
             if (!name)
               return failed('不正なパラメータ指定検出');
-            paramMap.set(name, evalEffect(effect, failed));
+            paramSet(name, evalEffect(effect, failed));
           }));
           done();
         },
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__2, "分岐", {
+      }), Object.defineProperty($__3, "繰返", {
+        value: otherName('繰り返し'),
+        configurable: true,
+        enumerable: true,
+        writable: true
+      }), Object.defineProperty($__3, "繰返し", {
+        value: otherName('繰り返し'),
+        configurable: true,
+        enumerable: true,
+        writable: true
+      }), Object.defineProperty($__3, "繰り返し", {
         value: function(data, done, failed) {
-          if (!data.some((function($__3) {
-            var str = $__3[0],
-                acts = $__3[1];
-            if (!str)
+          var i = arguments[3] !== (void 0) ? arguments[3] : 0;
+          i++;
+          if (i > 1000)
+            return failed('繰返し回数が多すぎる(1000回超え)');
+          new Promise((function(ok, ng) {
+            if (!data.some((function($__4) {
+              var effect = $__4[0],
+                  acts = $__4[1];
+              if (!effect)
+                return failed('不正なパラメータ指定検出');
+              var flag = !!evalEffect(effect, ng);
+              if (flag)
+                runScript(acts).then(ok, ng);
+              return flag;
+            })))
+              done();
+          })).then((function(_) {
+            return actHandlers['繰り返し'](data, done, failed, i);
+          })).catch(failed);
+        },
+        configurable: true,
+        enumerable: true,
+        writable: true
+      }), Object.defineProperty($__3, "分岐", {
+        value: function(data, done, failed) {
+          if (!data.some((function($__4) {
+            var effect = $__4[0],
+                acts = $__4[1];
+            if (!effect)
               return failed('不正なパラメータ指定検出');
-            var effect = parseEffect(str);
-            if (Util.isNoneType(effect))
-              effect = '1';
             var flag = !!evalEffect(effect, failed);
             if (flag)
               runScript(acts).then(done, failed);
@@ -485,14 +627,14 @@ System.register("ES6/モデル", [], function() {
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__2, "コメント", {
+      }), Object.defineProperty($__3, "コメント", {
         value: function(data, done, failed) {
           done();
         },
         configurable: true,
         enumerable: true,
         writable: true
-      }), $__2);
+      }), $__3);
       function main_loop() {
         updateDebugWindow();
         var act,
@@ -517,24 +659,32 @@ System.register("ES6/モデル", [], function() {
       main_loop();
       return run.promise;
     }
-    function parseEffect(str) {
-      return Util.toHalfWidth(str).replace(/==/g, '=').replace(/[^!><=]=/g, (function(str) {
-        return str.replace('=', '==');
+    function replaceEffect(str) {
+      return str.replace(/\\{(.+?)}/g, (function(_, efect) {
+        return evalEffect(efect);
       }));
     }
     function evalEffect(effect, failed) {
-      var get = (function(key) {
-        if (!paramMap.has(key))
-          paramMap.set(key, 0);
-        return paramMap.get(key);
-      });
       effect = effect.trim();
+      if (Util.isNoneType(effect))
+        return true;
+      effect = Util.toHalfWidth(effect).replace(/\=\=/g, '=').replace(/[^!><=]\=/g, (function(str) {
+        return str.replace('=', '==');
+      })).replace(/\&\&/g, '&').replace(/[^!><&]\&/g, (function(str) {
+        return str.replace('&', '&&');
+      })).replace(/\|\|/g, '|').replace(/[^!><|]\|/g, (function(str) {
+        return str.replace('|', '||');
+      })).replace(/^ー/, '-').replace(/([\u1-\u1000\s])(ー)/g, '$1-').replace(/(ー)([\u1-\u1000\s])/g, '-$2');
       if (!effect)
         return failed('不正なパラメータ指定検出');
-      if (/\"/.test(effect))
+      if (/\'/.test(effect))
         return failed('危険な記号の検出');
-      effect = effect.replace(/[^+\-*/%><!=\s\d.]+/, (function(str) {
-        return ("get(\"" + str + "\")");
+      effect = effect.replace(/[^+\-*/%><!=?:()&|\s.]+/g, (function(str) {
+        if (/^\d+$/.test(str))
+          return str;
+        if (/^"[^"]*"$/.test(str))
+          return str;
+        return ("paramGet('" + str + "')");
       }));
       return eval(effect);
     }
@@ -542,16 +692,13 @@ System.register("ES6/モデル", [], function() {
       if (!Data.debug)
         return;
       var params = {};
-      paramMap.forEach((function(value, key) {
+      paramForEach((function(value, key) {
         return params[key] = value;
       }));
-      var caches = [];
-      cacheBlobMap.forEach((function(value, key) {
-        return caches.push(key);
-      }));
+      var cacheSizeMB = ((cacheBlobMap.get('$size') || 0) / 1024 / 1024).toFixed(1);
       var obj = {
-        パラメータ: params,
-        キャッシュ: caches.sort()
+        キャッシュサイズ: cacheSizeMB + 'MB',
+        パラメータ: params
       };
       View.updateDebugWindow(obj);
     }
@@ -574,9 +721,12 @@ System.register("ES6/モデル", [], function() {
         })).then((function(_) {
           return ok(url);
         }), ng);
-      })).then(loadBlob).then(URL.createObjectURL).through((function(blobURL) {
+      })).then(loadBlob).then((function(blob) {
+        var blobURL = URL.createObjectURL(blob);
         cacheBlobMap.set(subkey, blobURL);
+        cacheBlobMap.set('$size', (cacheBlobMap.get('$size') || 0) + blob.size);
         hide();
+        return blobURL;
       }), hide);
     }
     function fetchSettingData(url) {
@@ -637,18 +787,36 @@ System.register("ES6/モデル", [], function() {
       View.print(message);
     }
     var cacheBlobMap = new Map;
-    var paramMap = new Map;
     function cacheClear() {
       cacheBlobMap.forEach((function(subURL, blobURL) {
         URL.revokeObjectURL(blobURL);
       }));
       cacheBlobMap.clear();
+      cacheBlobMap.set('$size', 0);
       updateDebugWindow();
     }
-    function paramClear() {
-      paramMap.clear();
-      updateDebugWindow();
-    }
+    var $__4 = $traceurRuntime.assertObject(((function(_) {
+      var paramMap = new Map;
+      return [(function(key, val) {
+        paramMap.set(key, val);
+        updateDebugWindow();
+      }), (function(key) {
+        if (!paramMap.has(key)) {
+          paramMap.set(key, 0);
+          updateDebugWindow();
+        }
+        return paramMap.get(key);
+      }), (function(_) {
+        paramMap.clear();
+        updateDebugWindow();
+      }), (function(func) {
+        paramMap.forEach(func);
+      })];
+    }))()),
+        paramSet = $__4[0],
+        paramGet = $__4[1],
+        paramClear = $__4[2],
+        paramForEach = $__4[3];
     READY.Player.ready({
       setRunPhase: setRunPhase,
       setErrorPhase: setErrorPhase,
@@ -679,11 +847,11 @@ System.register("ES6/ビュー", [], function() {
         return this;
       },
       setStyles: function(styles) {
-        var $__6 = this;
+        var $__7 = this;
         styles = styles || {};
         Object.keys(styles).forEach((function(key) {
           if (styles[key] != null)
-            $__6.style[key] = styles[key];
+            $__7.style[key] = styles[key];
         }), this);
         return this;
       }
@@ -733,26 +901,27 @@ System.register("ES6/ビュー", [], function() {
         fitScreen = Util.NOP;
       return p;
     }
-    var el_debug = new DOM('div', {
-      width: '300px',
+    var el_debug = el_root.append(new DOM('div', {
+      width: '320px',
       textAlign: 'center',
       fontSize: '1em',
       padding: '5px'
-    });
+    }));
     var bs = {
       height: '2em',
       margin: '5px'
     };
+    var el_debugSub = el_debug.append(new DOM('div'));
     ;
     [360, 480, 720, 1080].forEach((function(size) {
-      var el = el_root.append(el_debug).append(new DOM('button', bs));
+      var el = el_debugSub.append(new DOM('button', bs));
       el.append(new DOM('text', size + 'p'));
       el.on('click', (function(_) {
         return adjustScale(size / devicePixelRatio);
       }));
     }));
-    el_root.append(el_debug).append(new DOM('br'));
-    var el = el_root.append(el_debug).append(new DOM('button', bs));
+    var el_debugSub = el_debug.append(new DOM('div'));
+    var el = el_debugSub.append(new DOM('button', bs));
     el.append(new DOM('text', 'フルウィンドウ(横)'));
     el.on('click', (function(_) {
       fitScreen = (function(_) {
@@ -764,7 +933,7 @@ System.register("ES6/ビュー", [], function() {
       fitScreen();
     }));
     var el_fullscreen;
-    var el = el_root.append(el_debug).append(new DOM('button', bs));
+    var el = el_debugSub.append(new DOM('button', bs));
     el.append(new DOM('text', 'フルスクリーン(横)'));
     el.on('click', (function(_) {
       el_fullscreen = new DOM('div', {
@@ -784,9 +953,10 @@ System.register("ES6/ビュー", [], function() {
         adjustScale(height, 0, true);
       });
       fitScreen();
-      View.showNotice('この機能はブラウザにより\n表示の差があります', 3000);
+      View.showNotice('この機能はブラウザにより\n表示の差があります', 1000);
     }));
-    var el = el_root.append(el_debug).append(new DOM('button', bs));
+    var el_debugSub = el_debug.append(new DOM('div'));
+    var el = el_debugSub.append(new DOM('button', bs));
     el.append(new DOM('text', 'キャシュ削除'));
     el.on('click', (function(_) {
       Player.cacheClear();
@@ -830,6 +1000,30 @@ System.register("ES6/ビュー", [], function() {
     });
     var METHODS = {};
     METHODS = {COMMON: {
+        clean: function() {
+          this.changeMode($mode);
+        },
+        init: function(opt) {
+          this.initDisplay(opt.style || {});
+        },
+        changeMode: function(type, opt) {
+          var type = type.toUpperCase();
+          opt = opt || {};
+          if (!(type in METHODS))
+            throw 'illegal ViewContext mode type';
+          $mode = type;
+          global.View = View = {__proto__: METHODS[type]};
+          View.init(opt);
+        },
+        changeModeIfNeeded: function(type, opt) {
+          if ($mode != type)
+            this.changeMode(type, opt);
+        },
+        on: function(kind, onFulfilled, onRejected) {
+          return new Promise((function(resolve) {
+            return hookInput(kind, resolve);
+          })).then(onFulfilled).catch(onRejected);
+        },
         initDisplay: function(opt) {
           Util.setDefaults(opt, {
             background: 'black',
@@ -839,6 +1033,8 @@ System.register("ES6/ビュー", [], function() {
             height: '100%',
             overflow: 'hidden'
           });
+          hookClear();
+          this.windows = {};
           var height = opt.HEIGHT || 480;
           opt.height = opt.width = '100%';
           el_context = new DOM('div');
@@ -937,7 +1133,7 @@ System.register("ES6/ビュー", [], function() {
             fontSize: 'calc(100% * 2 / 3)',
             color: 'white'
           });
-          this.__proto__.initDisplay(opt);
+          this.__proto__.__proto__.initDisplay(opt);
           var el = new DOM('div', {padding: '10px'});
           var el_body = new DOM('pre');
           this.el_test = el_body;
@@ -950,14 +1146,18 @@ System.register("ES6/ビュー", [], function() {
       NOVEL: {
         __proto__: METHODS.COMMON,
         initDisplay: function(opt) {
+          var $__7 = this;
           Util.setDefaults(opt, {
             color: 'rgba(255,255,255,0.9)',
             textShadow: 'rgba(0,0,0,0.9) 0.1em 0.1em 0.1em',
             overflow: 'hidden'
           });
-          this.__proto__.initDisplay(opt);
+          this.__proto__.__proto__.initDisplay(opt);
           this.mainMessageWindow = this.addMessageWindow({z: 10});
           this.imageFrame = this.addImageFrame({z: 20});
+          View.on('Rclick').then((function(_) {
+            return $__7.showMenu();
+          }));
         },
         messageWindowProto: {
           nextPage: function(name, opt) {
@@ -967,21 +1167,21 @@ System.register("ES6/ビュー", [], function() {
           },
           addSentence: function(text, opt) {
             text += '\n';
-            opt = Util.setDefaults(opt, {weight: 33});
+            opt = Util.setDefaults(opt, {weight: 25});
             var length = text.length;
             var at = 0;
             var el = this.el_body;
             var weight = opt.weight;
-            var $__7 = [false, false],
-                aborted = $__7[0],
-                cancelled = $__7[1];
-            var $__7 = [(function(_) {
+            var $__8 = [false, false],
+                aborted = $__8[0],
+                cancelled = $__8[1];
+            var $__8 = [(function(_) {
               return aborted = true;
             }), (function(_) {
               return cancelled = true;
             })],
-                abort = $__7[0],
-                cancel = $__7[1];
+                abort = $__8[0],
+                cancel = $__8[1];
             View.on('go').then(cancel);
             var p = setAnimate((function(delay, complete) {
               if (aborted)
@@ -1006,21 +1206,22 @@ System.register("ES6/ビュー", [], function() {
         addMessageWindow: function(opt) {
           Util.setDefaults(opt, {
             background: 'rgba(0,0,100,0.5)',
-            boxShadow: 'rgba(0,0,100,0.5) 0px 0px 5px 5px',
+            boxShadow: 'rgba(0,0,100,0.5) 0 0 0.5em 0.5em',
             borderRadius: '1% / 1%',
-            width: 'calc(100% - 10px - (2% + 2%))',
-            height: 'calc( 25% - 10px - (4% + 2%))',
+            width: 'calc(100% - 0.5em - (2% + 2%))',
+            height: 'calc( 25% - 0.5em - (4% + 2%))',
             fontSize: '100%',
             lineHeight: '1.5em',
             fontWeight: 'bold',
             padding: '4% 2% 2% 2%',
             whiteSpace: 'nowrap',
             position: 'absolute',
-            bottom: '5px',
-            left: '5px',
+            bottom: '0.25em',
+            left: '0.25em',
             zIndex: opt.z || 1400
           });
           var el = new DOM('div', opt);
+          this.windows.message = el;
           el_context.append(el);
           var el_title = el.append(new DOM('div', {
             display: 'inline-block',
@@ -1064,7 +1265,9 @@ System.register("ES6/ビュー", [], function() {
             background: 'rgba(100, 100, 255, 0.3)',
             padding: '0% 5%'
           });
+          this.windows.choice = cw;
           opts.forEach(function(opt) {
+            var $__7 = this;
             if (!('value' in opt))
               opt.value = opt.name;
             var bt = new DOM('button', {
@@ -1081,10 +1284,11 @@ System.register("ES6/ビュー", [], function() {
             bt.append(new DOM('text', opt.name));
             bt.onclick = (function(_) {
               defer.resolve(opt.value);
+              delete $__7.windows.choice;
               cw.remove();
             });
             cw.append(bt);
-          });
+          }, this);
           el_context.append(cw);
           return defer.promise;
         },
@@ -1122,67 +1326,54 @@ System.register("ES6/ビュー", [], function() {
         },
         addSentence: function(text, opt) {
           return this.mainMessageWindow.addSentence(text, opt);
+        },
+        showMenu: function(opt) {
+          var $__7 = this;
+          blockEvent('go');
+          View.on('Rclick').then((function(_) {
+            return $__7.hideMenu();
+          }));
+          Object.keys(this.windows).forEach((function(key) {
+            var el = $__7.windows[key].hidden = true;
+          }));
+        },
+        hideMenu: function(opt) {
+          var $__7 = this;
+          allowEvent('go');
+          View.on('Rclick').then((function(_) {
+            return $__7.showMenu();
+          }));
+          Object.keys(this.windows).forEach((function(key) {
+            var el = $__7.windows[key].hidden = false;
+          }));
         }
       }
     };
-    var ViewProto = {
-      __proto__: METHODS.COMMON,
-      fresh: function() {
-        View = {__proto__: ViewProto};
-      },
-      clean: function() {
-        this.changeMode($mode);
-      },
-      init: function(opt) {
-        this.initDisplay(opt.style || {});
-      },
-      initDisplay: function(opt) {
-        this.__proto__.initDisplay(opt);
-      },
-      changeMode: function(type, opt) {
-        var type = type.toUpperCase();
-        opt = opt || {};
-        if (!type in METHODS)
-          throw 'illegal ViewContext mode type';
-        $mode = type;
-        ViewProto.__proto__ = METHODS[type];
-        View.init(opt);
-      },
-      changeModeIfNeeded: function(type, opt) {
-        if ($mode != type)
-          this.changeMode(type, opt);
-      },
-      on: function(type, onFulfilled, onRejected) {
-        return new Promise((function(resolve) {
-          switch (type) {
-            case 'go':
-              hookInput(['Lclick', 'enter', 'space'], resolve);
-              break;
-            default:
-              throw 'illegal hook event type';
-          }
-        })).then(onFulfilled).catch(onRejected);
-      }
-    };
-    ViewProto.fresh();
-    var hookInput = ((function(_) {
+    var $__8 = $traceurRuntime.assertObject(((function(_) {
       var keyboardTable = {
         13: 'enter',
         32: 'space'
       };
       var hooks = [];
+      var blocks = new Set;
       document.addEventListener('keydown', (function(evt) {
         var type = keyboardTable[evt.keyCode];
         if (type)
           onEvent(type, evt);
-      }));
+      }), true);
       el_wrapper.addEventListener('mousedown', (function(evt) {
         var type = 'LMR'[evt.button];
         if (type)
           onEvent(type + 'click', evt);
-      }));
+      }), true);
+      el_wrapper.addEventListener('contextmenu', (function(evt) {
+        onEvent('contextmenu', evt);
+      }), true);
       function onEvent(type, evt) {
         evt.preventDefault();
+        evt.stopImmediatePropagation();
+        if (blocks.has(type))
+          return;
         hooks = hooks.reduce((function(ary, hook, i) {
           if (hook.indexOf(type) === -1)
             ary.push(hook);
@@ -1191,20 +1382,47 @@ System.register("ES6/ビュー", [], function() {
           return ary;
         }), []);
       }
-      return function hookInput(hook, resolve) {
+      function toHook(kind) {
+        switch (kind) {
+          case 'go':
+            return ['Lclick', 'enter', 'space'];
+            break;
+          case 'Rclick':
+            return [kind];
+            break;
+          default:
+            throw 'illegal hook event type';
+        }
+      }
+      return [function hookInput(kind, resolve) {
+        var hook = toHook(kind);
         hook.resolve = resolve;
         hooks.push(hook);
-      };
-    }))();
+      }, function hookClear() {
+        hooks.length = 0;
+      }, function blockEvent(kind) {
+        toHook(kind).forEach((function(type) {
+          return blocks.add(type);
+        }));
+      }, function allowEvent(kind) {
+        toHook(kind).forEach((function(type) {
+          return blocks.delete(type);
+        }));
+      }];
+    }))()),
+        hookInput = $__8[0],
+        hookClear = $__8[1],
+        blockEvent = $__8[2],
+        allowEvent = $__8[3];
     var $full = false;
     var $ratio = 16 / 9;
     var $mode = '';
     var width = document.body.clientWidth;
     var $scale = width / $ratio >= 480 ? 480 : width / $ratio;
-    View.changeMode('TEST');
+    METHODS.TEST.changeMode('TEST');
     var p = adjustScale($scale, $ratio);
     p.then((function(_) {
-      return READY.View.ready(View);
+      return READY.View.ready(null);
     }));
   })).catch(LOG);
   return {};
@@ -1221,12 +1439,12 @@ System.register("ES6/コントローラー", [], function() {
         abort();
         View.changeModeIfNeeded('NOVEL');
         View.nextPage('システム');
-        var p = View.addSentence(text, {weight: 20});
+        var p = View.addSentence(text, {weight: 10});
         abort = p.abort;
         return p;
       });
     }))();
-    var setup = Util.co($traceurRuntime.initGeneratorFunction(function $__8() {
+    var setup = Util.co($traceurRuntime.initGeneratorFunction(function $__9() {
       var setting,
           scenario,
           script;
@@ -1314,9 +1532,9 @@ System.register("ES6/コントローラー", [], function() {
             default:
               return $ctx.end();
           }
-      }, $__8, this);
+      }, $__9, this);
     }));
-    var restart = Util.co($traceurRuntime.initGeneratorFunction(function $__9(err) {
+    var restart = Util.co($traceurRuntime.initGeneratorFunction(function $__10(err) {
       return $traceurRuntime.createGeneratorInstance(function($ctx) {
         while (true)
           switch ($ctx.state) {
@@ -1340,9 +1558,9 @@ System.register("ES6/コントローラー", [], function() {
             default:
               return $ctx.end();
           }
-      }, $__9, this);
+      }, $__10, this);
     }));
-    var start = Util.co($traceurRuntime.initGeneratorFunction(function $__10() {
+    var start = Util.co($traceurRuntime.initGeneratorFunction(function $__11() {
       var setting;
       return $traceurRuntime.createGeneratorInstance(function($ctx) {
         while (true)
@@ -1376,7 +1594,7 @@ System.register("ES6/コントローラー", [], function() {
             default:
               return $ctx.end();
           }
-      }, $__10, this);
+      }, $__11, this);
     }));
     start();
   })).catch(LOG);

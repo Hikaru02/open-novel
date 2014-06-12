@@ -2,17 +2,13 @@
 READY('Player', 'View').then( _ => {
 	'use strict'
 
-
-
-	//var {Promise} = Util.overrides
-
 	var message = (_ => {
 		var abort = Util.NOP
 		return text => {
 			abort()
 			View.changeModeIfNeeded('NOVEL')
 			View.nextPage('システム')
-			var p = View.addSentence(text, { weight: 20 })
+			var p = View.addSentence(text, { weight: 10 })
 			abort = p.abort
 			return p
 		}
@@ -100,6 +96,7 @@ READY('Player', 'View').then( _ => {
 
 
 /* TODO
+	・画像面のCanvas化
 	・事前キャッシュ
 	・選択肢ウィンドウ調整
 	・音声
