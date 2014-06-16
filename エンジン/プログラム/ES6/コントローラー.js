@@ -89,7 +89,10 @@ READY('Player', 'View').then( _ => {
 		})
 	*/
 
-		yield message('').then( _ => Player.runScript(script) )
+		yield message('').then( _ => {
+			View.nextPage('')
+			return Player.runScript(script)
+		})
 
 		View.clean()
 		//Player.cacheClear()
