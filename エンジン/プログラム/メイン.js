@@ -240,7 +240,7 @@ System.register("ES6/ヘルパー", [], function() {
         })));
       }
       ;
-      ['DOM', 'Player', 'View', 'Storage'].forEach((function(type) {
+      ['DOM', 'Player', 'View', 'Storage', 'Game'].forEach((function(type) {
         global[type] = null;
         var defer = $Promise.defer();
         READY[type] = defer.promise;
@@ -824,7 +824,7 @@ System.register("ES6/モデル", [], function() {
         return params[key] = value;
       }));
       var cacheSizeMB = ((cacheBlobMap.get('$size') || 0) / 1024 / 1024).toFixed(1);
-      var mark = Player.data.currentPoint && Player.data.currentPoint.mark || '（冒頭）';
+      var mark = Player.data.currentPoint && Player.data.currentPoint.mark || '（無し）';
       var obj = {
         キャッシュサイズ: cacheSizeMB + 'MB',
         直近のマーク: mark,
@@ -1280,6 +1280,12 @@ System.register("ES6/ビュー", [], function() {
     }));
     var el_debugSub = createDdebugSub();
     var el = el_debugSub.append(new DOM('button', bs));
+    el.append(new DOM('text', 'メニュー開閉'));
+    el.on('click', (function(_) {
+      fireEvent('Rclick');
+    }));
+    var el_debugSub = createDdebugSub();
+    var el = el_debugSub.append(new DOM('button', bs));
     el.append(new DOM('text', 'キャシュ削除'));
     el.on('click', (function(_) {
       Player.cacheClear();
@@ -1287,9 +1293,9 @@ System.register("ES6/ビュー", [], function() {
     }));
     var el_debugSub = createDdebugSub();
     var el = el_debugSub.append(new DOM('button', bs));
-    el.append(new DOM('text', 'メニュー開閉'));
+    el.append(new DOM('text', 'リセット'));
     el.on('click', (function(_) {
-      fireEvent('Rclick');
+      Game.reset();
     }));
     var el = new DOM('div');
     var el_debugWindow = el_debug.append(el).append(new DOM('pre', {
@@ -1962,6 +1968,7 @@ System.register("ES6/コントローラー", [], function() {
             case 16:
               $ctx.state = 18;
               return message('').then((function(_) {
+                View.nextPage('');
                 return Player.runScript(script);
               }));
             case 18:
@@ -2043,6 +2050,10 @@ System.register("ES6/コントローラー", [], function() {
               $ctx.state = 8;
               break;
             case 8:
+              Player.init();
+              $ctx.state = 16;
+              break;
+            case 16:
               $ctx.returnValue = setup().catch(restart);
               $ctx.state = -2;
               break;
@@ -2052,6 +2063,10 @@ System.register("ES6/コントローラー", [], function() {
       }, $__21, this);
     }));
     start();
+    READY.Game.ready({reset: function() {
+        Player.init();
+        setup();
+      }});
   })).catch(LOG);
   return {};
 });

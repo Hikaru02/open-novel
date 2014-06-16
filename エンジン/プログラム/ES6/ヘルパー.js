@@ -255,7 +255,7 @@
 				return READY[type]
 			}))
 		}
-		;['DOM', 'Player', 'View', 'Storage'].forEach(type => {
+		;['DOM', 'Player', 'View', 'Storage', 'Game'].forEach(type => {
 			global[type] = null
 			var defer = $Promise.defer()
 			READY[type] = defer.promise

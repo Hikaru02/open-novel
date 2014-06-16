@@ -135,6 +135,14 @@ READY('Player', 'DOM').then( _ => {
 		View.showNotice('この機能はブラウザにより\n表示の差があります', 1000)
 	})
 
+
+	var el_debugSub = createDdebugSub()
+	var el = el_debugSub.append(new DOM('button', bs))
+	el.append(new DOM('text', 'メニュー開閉'))
+	el.on('click', _ => {
+		fireEvent('Rclick')
+	})
+
 	var el_debugSub = createDdebugSub()
 	var el = el_debugSub.append(new DOM('button', bs))
 	el.append(new DOM('text', 'キャシュ削除'))
@@ -145,10 +153,11 @@ READY('Player', 'DOM').then( _ => {
 
 	var el_debugSub = createDdebugSub()
 	var el = el_debugSub.append(new DOM('button', bs))
-	el.append(new DOM('text', 'メニュー開閉'))
+	el.append(new DOM('text', 'リセット'))
 	el.on('click', _ => {
-		fireEvent('Rclick')
+		Game.reset()
 	})
+
 
 	var el = new DOM('div')
 	var el_debugWindow = el_debug.append(el).append(new DOM('pre', { textAlign: 'left', whiteSpace: 'pre-wrap' }))

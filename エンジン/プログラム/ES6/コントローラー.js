@@ -130,12 +130,20 @@ READY('Player', 'View').then( _ => {
 
 		yield message( 'openノベルプレイヤー by Hikaru02\n\nシステムバージョン：　' + Data.SystemVersion).delay(1000)
 
+		Player.init()
 		return setup().catch(restart)
 	})
 
 
 
 	start()
+
+	READY.Game.ready({
+		reset() {
+			Player.init()
+			setup()
+		},
+	})
 
 }).catch(LOG)
 

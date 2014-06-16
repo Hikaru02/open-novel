@@ -376,7 +376,7 @@ READY().then(function () {
 		paramForEach( (value, key) => params[key] = value )
 
 		var cacheSizeMB = ((cacheBlobMap.get('$size') || 0) / 1024 / 1024).toFixed(1)
-		var mark = Player.data.currentPoint && Player.data.currentPoint.mark || '（冒頭）'
+		var mark = Player.data.currentPoint && Player.data.currentPoint.mark || '（無し）'
 
 		var obj = {
 			キャッシュサイズ: cacheSizeMB + 'MB',
