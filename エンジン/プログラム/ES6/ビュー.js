@@ -70,6 +70,9 @@ READY('Player', 'DOM').then( _ => {
 
 		el_wrapper.style.height = height + 'px'
 		el_wrapper.style.width  = width  + 'px'
+
+		el_debug.style.width = width - 10 + 'px'
+
 		if (full) {
 			el_player.style.height = height + 'px'
 			if (el_fullscreen) el_fullscreen.style.height = height + 'px'
@@ -94,14 +97,15 @@ READY('Player', 'DOM').then( _ => {
 		margin: '5px',
 	}
 
-	var el_debugSub = el_debug.append(new DOM('div'))
+	var createDdebugSub = _ => el_debug.append(new DOM('div', { display: 'inline-block' }))
+	var el_debugSub = createDdebugSub()
 	;[360, 480, 720, 1080].forEach( size => {
 		var el = el_debugSub.append(new DOM('button', bs))
 		el.append(new DOM('text', size + 'p'))
 		el.on('click', _ =>	adjustScale(size / devicePixelRatio) )
 	})
 	
-	var el_debugSub = el_debug.append(new DOM('div'))
+	var el_debugSub = createDdebugSub()
 	var el = el_debugSub.append(new DOM('button', bs))
 	el.append(new DOM('text', 'フルウィンドウ(横)'))
 	el.on('click', _ => {
@@ -131,7 +135,7 @@ READY('Player', 'DOM').then( _ => {
 		View.showNotice('この機能はブラウザにより\n表示の差があります', 1000)
 	})
 
-	var el_debugSub = el_debug.append(new DOM('div'))
+	var el_debugSub = createDdebugSub()
 	var el = el_debugSub.append(new DOM('button', bs))
 	el.append(new DOM('text', 'キャシュ削除'))
 	el.on('click', _ => {
@@ -139,6 +143,12 @@ READY('Player', 'DOM').then( _ => {
 		View.showNotice('キャッシュを削除しました', 500)
 	})
 
+	var el_debugSub = createDdebugSub()
+	var el = el_debugSub.append(new DOM('button', bs))
+	el.append(new DOM('text', 'メニュー開閉'))
+	el.on('click', _ => {
+		fireEvent('Rclick')
+	})
 
 	var el = new DOM('div')
 	var el_debugWindow = el_debug.append(el).append(new DOM('pre', { textAlign: 'left', whiteSpace: 'pre-wrap' }))
@@ -219,7 +229,7 @@ READY('Player', 'DOM').then( _ => {
 			},
 
 			on: function (kind, onFulfilled, onRejected) {
-				 return new Promise( resolve => hookInput(kind, resolve) ).then(onFulfilled).catch(onRejected)
+				return new Promise( resolve => hookInput(kind, resolve) ).then(onFulfilled).check().catch(onRejected)
 			},
 
 			initDisplay: function (opt) {
@@ -354,16 +364,21 @@ READY('Player', 'DOM').then( _ => {
 				this.mainMessageWindow = this.addMessageWindow({z:10})
 				this.imageFrame = this.addImageFrame({z:20})
 
-				View.on('Rclick').then(_ => this.showMenu())
+				View.on('Rclick').then(_ => this.showMenu()).check()
 			},
 
 			messageWindowProto: {
-				nextPage: function (name, opt) {
+				nextPage: function (name, {sys = false} = {}) {		
+					View.windows.message.setStyles({
+						background		:  sys ? 'rgba(0,100,50,0.5)' : 'rgba(0,0,100,0.5)',
+						boxShadow		: (sys ? 'rgba(0,100,50,0.5)' : 'rgba(0,0,100,0.5)') + ' 0 0 0.5em 0.5em',
+					})
 					name = !name || name.match(/^\s+$/) ? '' : '【' +name+ '】' 
 					this.el_title.textContent = name
 					this.el_body.removeChildren()
 
 				},
+
 				addSentence: function (text, opt) {
 					text += '\n'
 					opt = Util.setDefaults(opt, {
@@ -390,16 +405,21 @@ READY('Player', 'DOM').then( _ => {
 							if (!str) return complete()
 							if (str == '\\' && /\[.+\]/.test(text.slice(at))) {
 								var nat = text.indexOf(']', at)
-								var img = el.append(new DOM('img', { height: '0.75em', width: '0.75em' }))
 								var name = text.slice(at+2, nat).trim()
 								if ($isWebkit) {
+									var img = el.append(new DOM('img', { height: '0.75em', width: '0.75em' }))
 									;((img, name) => Player.toBlobEmogiURL(name).then( url => {img.src = url} ).catch(LOG))(img, name)
 								} else {
+									var img = el.append(new DOM('object', { height: '0.75em', width: '0.75em' }))
+									img.type = 'image/svg+xml'
+									;((img, name) => Player.toBlobEmogiURL(name).then( url => {img.data = url} ).catch(LOG))(img, name)
+								/*
 									;((img, name) => {
 										var sub = Util.forceName('絵文字', name, 'svg')
 										var subkey = `${Player.scenarioName}/${sub}`
 										Player.find(`データ/${subkey}`).catch( _ => `データ/[[共通素材]]/${sub}` ).then( url => {img.src = url} ).catch(LOG)
 									})(img, name)
+								*/
 								}
 								nl += nat - at
 								at = nat
@@ -416,8 +436,8 @@ READY('Player', 'DOM').then( _ => {
 
 			addMessageWindow: function (opt) {
 				Util.setDefaults(opt, {
-					background		: 'rgba(0,0,100,0.5)',
-					boxShadow		: 'rgba(0,0,100,0.5) 0 0 0.5em 0.5em',
+					background		: 'rgba(50,50,50,0.5)',
+					boxShadow		: 'rgba(50,50,50,0.5) 0 0 0.5em 0.5em',
 					borderRadius	: '1% / 1%',
 					width			: 'calc(100% - 0.5em - (2% + 2%))',
 					height			: 'calc( 25% - 0.5em - (4% + 2%))',
@@ -478,7 +498,7 @@ READY('Player', 'DOM').then( _ => {
 
 			},
 
-			setChoiceWindow: function (opts) {
+			setChoiceWindow: function (opts, {sys = false} = {}) {
 
 				var defer = Promise.defer()
 
@@ -488,31 +508,41 @@ READY('Player', 'DOM').then( _ => {
 					width			: '70%',
 				//	height			: '70%',
 					top				: '5%', 
-					boxShadow		: 'rgba(100, 100, 255, 0.5) 0 0 2em',
+					boxShadow		: sys ? 'rgba(100, 255, 150, 0.3) 0 0 5em' : 'rgba(100, 100, 255, 0.3) 0 0 5em',
 					borderRadius	: '3% / 5%',
-					background		: 'rgba(100, 100, 255, 0.3)',
+					background		: sys ? 'rgba(100, 255, 150, 0.3)' : 'rgba(100, 100, 255, 0.3)',
 					padding			: '0% 5%',
+					overflowY		: opts.length > 3 ? 'scroll' : 'hidden',
+					maxHeight		: '70%',
 				//	verticalAlign	: 'middle',
 				})
-				this.windows.choice = cw
+				if (!sys) {
+					if (this.windows.choice) this.windows.choice.remove()
+					this.windows.choice = cw
+				} else {
+					if (this.windows.choiceBack) this.windows.choiceBack.remove()
+					this.windows.choiceBack = cw
+				}
 
 				opts.forEach(function (opt) {
 					if (!('value' in opt)) opt.value = opt.name
 					var bt = new DOM('button', {
 						display			: 'block',
 						fontSize		: '1.5em',
-						boxShadow		: 'inset 0 1px 3px #F1F1F1, inset 0 -15px rgba(0,0,223,0.2), 1px 1px 2px #E7E7E7',
-						background		: 'rgba(0,0,100,0.8)',
+						boxShadow		: 'inset 0 1px 3px #F1F1F1, inset 0 -15px ' + (sys ? 'rgba(0,116,116,0.2)' : 'rgba(0,0,223,0.2)') + ', 1px 1px 2px #E7E7E7',
+						background		: sys ? 'rgba(0,100,50,0.8)' : 'rgba(0,0,100,0.8)',
 						color			: 'white',
 						borderRadius	: '5% / 50%',
 						width			: '100%',
 						height			: '2.5em',
 						margin			: '5% 0%',
 					})
+					bt.disabled = !!opt.disabled
 					bt.append(new DOM('text', opt.name))
 					bt.onclick = _ => {
 						defer.resolve(opt.value)
-						delete this.windows.choice
+						if (!sys) delete this.windows.choice
+						else delete this.windows.choiceBack
 						cw.remove()
 					}
 					cw.append(bt)
@@ -520,9 +550,11 @@ READY('Player', 'DOM').then( _ => {
 
 				el_context.append(cw)
 
+
 				return defer.promise
 
 			},
+
 
 			setBGImage: function (opt) {
 				var url = opt.url ? `url(${opt.url})` : 'none'
@@ -564,19 +596,51 @@ READY('Player', 'DOM').then( _ => {
 				return this.mainMessageWindow.addSentence(text, opt)
 			},
 
-			showMenu: function (opt) {
-				blockEvent('go')
-				View.on('Rclick').then(_ => this.hideMenu())
-				Object.keys(this.windows).forEach( key => {
-					var el = this.windows[key].hidden = true
+			showMenu: function () {
+				if (Player.data.phase != 'play' || View.menuIndex > 0) return View.on('Rclick').then(_ => View.showMenu())
+				//LOG('show')
+				View.menuIndex = (View.menuIndex||0)+1
+				blockEvent()
+				View.on('Rclick').then( _ => {
+					if (this.windows.choiceBack) this.windows.choiceBack.remove()
+					View.hideMenu()
+				} ).check()
+				Object.keys(View.windows).forEach( key => {
+					var el = View.windows[key]
+					el.hidden = !el.hidden
 				} )
+				View.setChoiceWindow([
+					{name: 'セーブ'}, {name: 'ロード'}
+				], {sys: true}).then( kind => {
+
+					switch (kind) {
+						case 'セーブ':
+							Player.saveSaveData().check().through(View.hideMenu).then( _ => View.showNotice('セーブしました。'),
+								err => View.showNotice('セーブに失敗しました。') )
+
+						break
+						case 'ロード':
+							Player.loadSaveData().through( _ => {
+								View.hideMenu()
+								Player.init()
+							} ).then(Player.runScript)
+
+						break
+						default: throw 'illegal choice type'
+					}
+				})
+
 			},
 
-			hideMenu: function (opt) {
-				allowEvent('go')
-				View.on('Rclick').then(_ => this.showMenu())
-				Object.keys(this.windows).forEach( key => {
-					var el = this.windows[key].hidden = false
+			hideMenu: function () {
+				//LOG('hide')
+				if (!View.menuIndex) return
+				--View.menuIndex
+				allowEvent()
+				View.on('Rclick').then(_ => View.showMenu())
+				Object.keys(View.windows).forEach( key => {
+					var el = View.windows[key]
+					el.hidden = !el.hidden
 				} )
 			},
 
@@ -586,7 +650,7 @@ READY('Player', 'DOM').then( _ => {
 
 
 
-	var [hookInput, hookClear, blockEvent, allowEvent] = (_ => {
+	var [hookInput, hookClear, blockEvent, allowEvent, fireEvent] = (_ => {
 
 		var keyboardTable = {
 			13: 'enter',
@@ -594,7 +658,7 @@ READY('Player', 'DOM').then( _ => {
 		}
 
 		var hooks = []
-		var blocks = new Set
+		//var blocks = new Set
 
 		document.addEventListener('keydown', evt => {
 			var type = keyboardTable[evt.keyCode]
@@ -611,11 +675,12 @@ READY('Player', 'DOM').then( _ => {
 		}, true)
 
 		function onEvent(type, evt) {
-			evt.preventDefault()
-			evt.stopImmediatePropagation()
-			if (blocks.has(type)) return
-			hooks = hooks.reduce( (ary, hook, i) => {
-				if (hook.indexOf(type) === -1) ary.push(hook)
+			if (evt) {
+				evt.preventDefault()
+				evt.stopImmediatePropagation()
+			}
+			hooks = hooks.reduce( (ary, hook) => {
+				if (hook.indexOf(type) === -1 || hook.blocked > 0) ary.push(hook)
 				else hook.resolve()
 				return ary
 			}, [])
@@ -636,14 +701,17 @@ READY('Player', 'DOM').then( _ => {
 		return [function hookInput(kind, resolve) {
 			var hook = toHook(kind)
 			hook.resolve = resolve
+			hook.blocked = 0
 			hooks.push(hook)
 		}, function hookClear() {
 			hooks.length = 0
-		}, function blockEvent(kind) {
-			toHook(kind).forEach( type => blocks.add(type) )
-		}, function allowEvent(kind) {
-			toHook(kind).forEach( type => blocks.delete(type) )
-		},
+		}, function blockEvent() {
+			hooks.forEach( hook => ++hook.blocked )
+		}, function allowEvent() {
+			hooks.forEach( hook => --hook.blocked )
+		}, function fireEvent(type) {
+			onEvent(type)
+		}
 		]
 	})()
 

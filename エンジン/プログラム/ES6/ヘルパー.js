@@ -181,6 +181,15 @@
 				return Promise.reject(err)
 			} )
 		},
+		check: function check() {
+			return this.catch( err => {
+				LOG(err)
+				return Promise.reject(err)
+			} )
+		},
+		'throw': function (err) {
+			return this.then( _ => Promise.reject(err) )
+		},
 	})
 
 	Object.defineProperty(Promise.prototype, '$', {

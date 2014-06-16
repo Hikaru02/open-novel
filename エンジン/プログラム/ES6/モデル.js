@@ -9,7 +9,10 @@ READY().then(function () {
 
 	function parseScript(text) {
 		text = text.replace(/\r\n/g, '\n').replace(/\n+/g, '\n').replace(/\n/g, '\r\n') + '\r\n'
-		text = text.replace(/^\#.*\n/gm, '')
+		text = text.replace(/^\/\/.*/gm, '')
+		text = text.replace(/^\#(.*)/gm, (_, str) => `・マーク\r\n\t${str}`)
+		//LOG(text)
+		//global.text = text
 		function parseOne(base, text) {
 			var chanks = text.match(/[^\n]+?\n(\t+[\s\S]+?\n)+/g) || []
 			chanks.forEach(chank => {
@@ -80,7 +83,7 @@ READY().then(function () {
 		return new Promise((ok, ng) => {
 			//LOG(url, Util.isNoneType(url))
 			if (Util.isNoneType(name)) return ok(url)
-			var url = `データ/${Player.scenarioName}/${Util.forceName(kind, name, type)}`
+			var url = `データ/${Player.data.scenarioName}/${Util.forceName(kind, name, type)}`
 			test(url).catch( _ => { 
 				var url = `データ/[[共通素材]]/${Util.forceName(kind, name, type)}`
 				return test(url)
@@ -94,12 +97,25 @@ READY().then(function () {
 */
 
 
-	function runScript(script) {
+	function runScript(script, scenario, parentComp, masterComp) {
 
 		View.changeModeIfNeeded('NOVEL')
+		Player.data.phase = 'play'
+		document.title = `【${Player.data.scenarioName}】`
 
 		var run = Promise.defer()
+		if (!parentComp) parentComp = run.resolve
+		if (!masterComp) masterComp = run.resolve
+		var hashmark = script.mark
+		var searching = !!hashmark
 		script = copyObject(script)	
+
+		if (scenario) {
+			var [name, mark = ''] = scenario.replace(/＃/g,'#').split('#')
+			if (!name) name = Player.data.currentScriptName.replace(/＃/g,'#').split('#')[0]
+			scenario = mark ? name + '#' + mark : name 
+			Player.data.currentScriptName = scenario
+		}
 
 		var actHandlers = {
 			会話(data, done, failed) {
@@ -113,6 +129,7 @@ READY().then(function () {
 					if (Util.isNoneType(name)) name = ''
 					name = replaceEffect(name)
 					View.nextPage(name)
+					Player.data.currentSpeakerName = name
 
 					function nextSentence() {
 						var text = texts.shift()
@@ -121,6 +138,7 @@ READY().then(function () {
 							return '\u200B'.repeat(num)
 						}).replace(/\\n/g, '\n')
 						text = replaceEffect(text)
+						Player.data.currentSentence = text
 						View.addSentence(text).on('go', nextSentence, failed)
 					}
 					nextSentence()
@@ -179,14 +197,14 @@ READY().then(function () {
 					return { name: replaceEffect(ary[0]), value: ary[1] }
 				})).then( value => {
 					if (typeof value[0] == 'string') actHandlers['ジャンプ'](value, done, failed)
-					else runScript(value).then(done, failed)
+					else runScript(value, null, parentComp, masterComp).then(done, failed)
 				} )
 					
 			},
 
 			ジャンプ(data, done, failed) {
 				var to = replaceEffect(data[0])
-				fetchScriptData(to).then(runScript).then(done, failed)
+				fetchScriptData(to).then( script => runScript(script, to, null, masterComp) ).then(done, failed)
 			},
 
 			変数: otherName('パラメータ'),
@@ -200,7 +218,9 @@ READY().then(function () {
 					var name = replaceEffect(str[1])
 					var effect = str[2]
 					if (!name) return failed('不正なパラメータ指定検出') 
-					paramSet(name, evalEffect(effect, failed))
+					var eff = evalEffect(effect, failed)
+					//LOG(name, effect, eff)
+					paramSet(name, eff)
 
 				})
 				done()
@@ -210,12 +230,12 @@ READY().then(function () {
 			繰返し: otherName('繰り返し'),
 			繰り返し(data, done, failed, i = 0) {
 				i++
-				if (i > 1000) return failed('繰返し回数が多すぎる(1000回超え)')
+				if (i > 10000) return failed('繰り返し回数が多すぎる(10000回超え)')
 				new Promise( (ok, ng) => {
 	 				if (!data.some(([effect, acts]) => {
 	 					if (!effect) return failed('不正なパラメータ指定検出') 
 						var flag = !!evalEffect(effect, ng)
-						if (flag) runScript(acts).then(ok, ng)
+						if (flag) runScript(acts, null, parentComp, masterComp).then(ok, ng)
 						return flag
 					}) ) done()
 				}).then( _ => actHandlers['繰り返し'](data, done, failed, i) ).catch(failed)
@@ -225,9 +245,50 @@ READY().then(function () {
  				if (!data.some(([effect, acts]) => {
  					if (!effect) return failed('不正なパラメータ指定検出') 
 					var flag = !!evalEffect(effect, failed)
-					if (flag) runScript(acts).then(done, failed)
+					if (flag) runScript(acts, null, parentComp, masterComp).then(done, failed)
 					return flag
 				}) ) done()
+			},
+
+			マーク(data, done, failed) {
+
+				var params = {}
+				paramForEach( (value, key) => params[key] = value )
+				var cp = {
+					script: Player.data.currentScriptName, 
+					speakerName: Player.currentSpeakerName,
+					sentence: Player.currentSentence,
+					mark: data[0],
+					params,
+				}
+				//LOG(cp)
+				Player.data.currentPoint = cp
+				done()
+			},
+
+			スクリプト(data, done, failed) {
+				var act = data[0]
+				if (Util.isNoneType(act)) return done()
+				switch (act) {
+					case '抜ける':
+					case 'ぬける':
+						run.resolve()
+					break
+					case '戻る':
+					case 'もどる':
+					case '帰る':
+					case 'かえる':
+						parentComp()
+					break
+					case '終わる':
+					case '終る':
+					case 'おわる':
+						masterComp()
+					break
+					default:
+					failed(`制御コマンド『${act}』`)
+
+				}
 			},
 
 			コメント(data, done, failed) {
@@ -245,12 +306,24 @@ READY().then(function () {
 			var act, loop = new Promise( (resolve, reject) => {
 
 				var prog = script.shift()
-				if (!prog) return run.resolve() 
+				if (!prog) {
+					return searching ? run.reject(`マーク『${hashmark}』が見つかりません。`) : run.resolve() 
+				}
 				act = prog[0].trim()
 				var data = prog[1]
 
-				if (act in actHandlers) actHandlers[act](data, resolve, reject)
-				else {
+				if (searching) {
+					if (act == 'マーク') {
+						var mark = data[0]
+						if (mark == hashmark) {
+							searching = false
+							return actHandlers['マーク']([mark], resolve, reject)
+						}
+					}
+					resolve()
+				} else if (act in actHandlers) {
+					actHandlers[act](data, resolve, reject)
+				} else {
 					Util.error('サポートされていないコマンド『' +act+ '』を検出しました。\n\nこのコマンドを飛ばして再生が継続されます。')
 					resolve()
 				}
@@ -303,9 +376,11 @@ READY().then(function () {
 		paramForEach( (value, key) => params[key] = value )
 
 		var cacheSizeMB = ((cacheBlobMap.get('$size') || 0) / 1024 / 1024).toFixed(1)
+		var mark = Player.data.currentPoint && Player.data.currentPoint.mark || '（冒頭）'
 
 		var obj = {
 			キャッシュサイズ: cacheSizeMB + 'MB',
+			直近のマーク:  mark,
 			パラメータ: params,
 		}
 
@@ -325,7 +400,7 @@ READY().then(function () {
 
 	function toBlobURL(kind, name, type) {
 		var sub = Util.forceName(kind, name, type)
-		var subkey = `${Player.scenarioName}/${sub}`
+		var subkey = `${Player.data.scenarioName}/${sub}`
 		if (Util.isNoneType(name)) return Promise.resolve(null)
 		if (cacheBlobMap.has(subkey)) return Promise.resolve(cacheBlobMap.get(subkey))
 		var hide = View.setLoadingMessage('Loading...')
@@ -355,8 +430,16 @@ READY().then(function () {
 	}
 
 
-	function fetchScriptData(name) {
-		return toBlobScriptURL(name).then(loadText).then( text => parseScript(text) )
+	function fetchScriptData(name, scenarioBind) {
+		if (!name) return Promise.reject('スクリプト名が不正')
+		var [name, mark = ''] = name.replace(/＃/g,'#').split('#')
+		if (!name) name = Player.data.currentScriptName.replace(/＃/g,'#').split('#')[0]
+		if (scenarioBind) Player.data.currentScriptName = name
+		return toBlobScriptURL(name).then(loadText).then( text => parseScript(text) ).then(script => {
+			script.unshift(['マーク',['']])
+			script.mark = mark
+			return script
+		})
 	}
 
 
@@ -400,6 +483,59 @@ READY().then(function () {
 	}
 
 
+	function save(no) {
+		var cp = Player.data.currentPoint
+		if (!cp) return Promise.reject('直近のセーブポイントが見つかりません。')
+		return Storage.setSaveData(no, cp)
+
+	}
+
+
+	function loadSaveData() {
+		return Util.co(function* () {
+			var saves = yield Storage.getSaveDatas(0, 100)
+			var opts = saves.map( (save, i) => {
+				var mark = save ? save.mark : '----------'
+				var name = i === 0 ? 'Q' : i
+				return {name: `${name}．${mark}`, value: save, disabled: !save }
+			})
+			var save = yield View.setChoiceWindow(opts, {sys: true})
+			var {mark, params, script} = save
+			Object.keys(params).forEach(name => Player.paramSet(name, params[name]))
+			return yield Player.fetchScriptData(`${script}#${mark}`, true)
+		})()
+	}
+
+	function saveSaveData() {
+		return Util.co(function* () {
+			var saves = yield Storage.getSaveDatas(0, 100)
+			var opts = saves.map( (save, i) => {
+				var mark = save ? save.mark : '----------'
+				var name = i === 0 ? 'Q' : i
+				return {name: `${name}．${mark}`, value: i}
+			})
+			// 注意
+			var no = (yield View.setChoiceWindow(opts, {sys: true})) + 0
+
+			var params = {}
+			paramForEach( (value, key) => params[key] = value )
+			var save = Player.data.currentPoint
+
+			return yield Storage.setSaveData(no, save)
+			
+		})()
+	}
+
+
+	function init(scenario) {
+		var _scenario = Player.data.scenarioName
+		Player.data = {}
+		Player.data.scenarioName = scenario ? scenario : _scenario
+		Player.paramClear()
+		View.clean()
+	}
+
+
 	var cacheBlobMap = new Map
 
 	function cacheClear() {
@@ -432,10 +568,9 @@ READY().then(function () {
 
 	})()
 
-
 	READY.Player.ready({
 		setRunPhase, setErrorPhase, fetchSettingData, fetchScriptData, runScript, print, cacheClear, paramClear,
-		toBlobEmogiURL, find,
+		toBlobEmogiURL, find, save, data: {}, loadSaveData, saveSaveData, paramSet, paramGet, evalEffect, init
 	})
 
 }).catch(LOG)
