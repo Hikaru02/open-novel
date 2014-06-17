@@ -787,7 +787,7 @@ READY('Storage', 'Player', 'DOM').then( _ => {
 	//document.body.style.width = '100%'
 
 	METHODS.TEST.changeMode('TEST')
-	var p = adjustScale($scale, $ratio)
+	var p = adjustScale($scale / devicePixelRatio, $ratio)
 
 	p.then( _ => READY.View.ready(null) )
 
