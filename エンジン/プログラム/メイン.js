@@ -2023,15 +2023,13 @@ System.register("ES6/サウンド", [], function() {
                 var defer = Promise.defer();
                 var a = sysSEMap.get(name);
                 if (!a) {
-                  Player.fetchSEData(name, true).then((function(url) {
-                    a = new Audio(url);
-                    a.load();
-                    sysSEMap.set(name, a);
-                    a.oncanplaythrough = (function(_) {
-                      a.oncanplaythrough = null;
-                      Sound.playSysSE(name, opt).then(defer.resolve);
-                    });
-                  }));
+                  a = new Audio(("エンジン/効果音/" + name + ".ogg"));
+                  a.load();
+                  sysSEMap.set(name, a);
+                  a.oncanplaythrough = (function(_) {
+                    a.oncanplaythrough = null;
+                    Sound.playSysSE(name, opt).then(defer.resolve);
+                  });
                 } else {
                   a.currentTime = 0;
                   a.volume = 0.5;

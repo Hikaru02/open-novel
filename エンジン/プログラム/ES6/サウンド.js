@@ -12,15 +12,13 @@ READY('Storage', 'Player', 'View').then(Util.co(function* () {
 			var defer = Promise.defer()
 			var a = sysSEMap.get(name)
 			if (!a) {
-				Player.fetchSEData(name, true).then( url => {
-					a = new Audio(url)
-					a.load()
-					sysSEMap.set(name, a)
-					a.oncanplaythrough = _ => {
-						a.oncanplaythrough = null
-						Sound.playSysSE(name, opt).then(defer.resolve)
-					}
-				})
+				a = new Audio(`エンジン/効果音/${name}.ogg`)
+				a.load()
+				sysSEMap.set(name, a)
+				a.oncanplaythrough = _ => {
+					a.oncanplaythrough = null
+					Sound.playSysSE(name, opt).then(defer.resolve)
+				}
 			} else {
 				//a.pause()
 				a.currentTime = 0
