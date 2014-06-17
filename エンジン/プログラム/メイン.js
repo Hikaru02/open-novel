@@ -938,7 +938,7 @@ System.register("ES6/プレーヤー", [], function() {
       }));
     }
     function fetchSEData(name, sys) {
-      return toBlobURL('効果音', name, 'wav', sys);
+      return toBlobURL('効果音', name, 'ogg', sys);
     }
     function loadText(url) {
       return load(url, 'text');
@@ -1999,7 +1999,7 @@ System.get("ES6/ビュー" + '');
 System.register("ES6/サウンド", [], function() {
   "use strict";
   var __moduleName = "ES6/サウンド";
-  READY('Storage', 'View').then(Util.co($traceurRuntime.initGeneratorFunction(function $__21() {
+  READY('Storage', 'Player', 'View').then(Util.co($traceurRuntime.initGeneratorFunction(function $__21() {
     var soundEnabled,
         sysSEMap,
         R;
@@ -2023,12 +2023,15 @@ System.register("ES6/サウンド", [], function() {
                 var defer = Promise.defer();
                 var a = sysSEMap.get(name);
                 if (!a) {
-                  a = new Audio(("エンジン/効果音/" + name + ".ogg"));
-                  sysSEMap.set(name, a);
-                  a.oncanplaythrough = (function(_) {
-                    a.oncanplaythrough = null;
-                    Sound.playSysSE(name, opt).then(defer.resolve);
-                  });
+                  Player.fetchSEData(name, true).then((function(url) {
+                    a = new Audio(url);
+                    a.load();
+                    sysSEMap.set(name, a);
+                    a.oncanplaythrough = (function(_) {
+                      a.oncanplaythrough = null;
+                      Sound.playSysSE(name, opt).then(defer.resolve);
+                    });
+                  }));
                 } else {
                   a.currentTime = 0;
                   a.volume = 0.5;

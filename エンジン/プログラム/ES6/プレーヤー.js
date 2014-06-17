@@ -463,7 +463,7 @@ READY().then( _ => {
 
 
 	function fetchSEData(name, sys) {
-		return toBlobURL('効果音', name, 'wav', sys)
+		return toBlobURL('効果音', name, 'ogg', sys)
 	}
 
 
