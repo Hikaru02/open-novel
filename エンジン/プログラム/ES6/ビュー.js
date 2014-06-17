@@ -138,7 +138,7 @@ READY('Storage', 'Player', 'DOM').then( _ => {
 
 	var el_debugSub = createDdebugSub()
 	var el = el_debugSub.append(new DOM('button', bs))
-	el.append(new DOM('text', 'メニュー開閉'))
+	el.append(new DOM('text', '右クリック'))
 	el.on('click', _ => {
 		fireEvent('Rclick')
 	})
