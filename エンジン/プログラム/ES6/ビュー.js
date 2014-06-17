@@ -782,12 +782,12 @@ READY('Storage', 'Player', 'DOM').then( _ => {
 	var $full = false
 	var $ratio = 16 / 9
 	var $mode = ''
-	var width = document.body.clientWidth
-	var $scale = (width * devicePixelRatio) / $ratio >= 480 ? 480 : (width * devicePixelRatio) / $ratio
+	var width = document.body.clientWidth * devicePixelRatio
+	var $scale = (width / $ratio >= 480 ? 480 : width / $ratio) / devicePixelRatio
 	//document.body.style.width = '100%'
 
 	METHODS.TEST.changeMode('TEST')
-	var p = adjustScale($scale / devicePixelRatio, $ratio)
+	var p = adjustScale($scale, $ratio)
 
 	p.then( _ => READY.View.ready(null) )
 
