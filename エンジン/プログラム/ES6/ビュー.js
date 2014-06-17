@@ -1,5 +1,5 @@
 
-READY('Player', 'DOM').then( _ => {
+READY('Storage', 'Player', 'DOM').then( _ => {
 	'use strict'
 
 	var View = null
@@ -132,7 +132,7 @@ READY('Player', 'DOM').then( _ => {
 			adjustScale(height, 0, true)
 		}
 		fitScreen()
-		View.showNotice('この機能はブラウザにより\n表示の差があります', 1000)
+		View.showNotice('この機能はブラウザにより\n表示の差があります')
 	})
 
 
@@ -142,16 +142,22 @@ READY('Player', 'DOM').then( _ => {
 	el.on('click', _ => {
 		fireEvent('Rclick')
 	})
+	var el = el_debugSub.append(new DOM('button', bs))
+	el.append(new DOM('text', 'サウンド有無'))
+	el.on('click', _ => {
+		var e = !Sound.soundEnabled
+		Sound.soundEnabled = e
+		Storage.setSetting('soundEnabled', e).check()
+		View.showNotice(`サウンドを${e?'有':'無'}効にしました`)
+	})
 
 	var el_debugSub = createDdebugSub()
 	var el = el_debugSub.append(new DOM('button', bs))
 	el.append(new DOM('text', 'キャシュ削除'))
 	el.on('click', _ => {
 		Player.cacheClear()
-		View.showNotice('キャッシュを削除しました', 500)
+		View.showNotice('キャッシュを削除しました')
 	})
-
-	var el_debugSub = createDdebugSub()
 	var el = el_debugSub.append(new DOM('button', bs))
 	el.append(new DOM('text', 'リセット'))
 	el.on('click', _ => {
@@ -238,7 +244,8 @@ READY('Player', 'DOM').then( _ => {
 			},
 
 			on: function (kind, onFulfilled, onRejected) {
-				return new Promise( resolve => hookInput(kind, resolve) ).then(onFulfilled).check().catch(onRejected)
+				var rehook = _ => View.on(kind, onFulfilled, onRejected)
+				return new Promise( resolve => hookInput(kind, resolve) ).then( _ => rehook ).then(onFulfilled).check().catch(onRejected)
 			},
 
 			initDisplay: function (opt) {
@@ -267,8 +274,9 @@ READY('Player', 'DOM').then( _ => {
 				el_context.setStyles(opt)
 			},
 
-			showNotice: function (message, show_time = 1000, delay_time = 250) {
+			showNotice: function (message, show_time, delay_time = 250) {
 				if (!message) throw 'illegal message string'
+				if (!show_time) show_time = message.split('\n').length * 500
 				message = '【！】\n' + message
 				var noticeWindow = new DOM('div', {
 					fontSize		: '2em',
@@ -331,7 +339,7 @@ READY('Player', 'DOM').then( _ => {
 
 			},
 
-			adjustScale: adjustScale,
+			adjustScale, setAnimate,
 
 			updateDebugWindow: function (obj) {
 				el_debugWindow.textContent = 'デバッグ情報\n' + JSON.stringify(obj, null, 4)
@@ -373,7 +381,7 @@ READY('Player', 'DOM').then( _ => {
 				this.mainMessageWindow = this.addMessageWindow({z:10})
 				this.imageFrame = this.addImageFrame({z:20})
 
-				View.on('Rclick').then(_ => this.showMenu()).check()
+				View.on('menu').then(_ => this.showMenu()).check()
 			},
 
 			messageWindowProto: {
@@ -510,6 +518,11 @@ READY('Player', 'DOM').then( _ => {
 			setChoiceWindow: function (opts, {sys = false} = {}) {
 
 				var defer = Promise.defer()
+				var removed = false
+				var focusbt
+				var focusindex = -10000
+				var bts = []
+
 
 				var cw = new DOM('div', {
 					position		: 'absolute',
@@ -517,9 +530,9 @@ READY('Player', 'DOM').then( _ => {
 					width			: '70%',
 				//	height			: '70%',
 					top				: '5%', 
-					boxShadow		: sys ? 'rgba(100, 255, 150, 0.3) 0 0 5em' : 'rgba(100, 100, 255, 0.3) 0 0 5em',
+					boxShadow		: sys ? 'rgba(100, 255, 150, 0.5) 0 0 5em' : 'rgba(100, 100, 255, 0.3) 0 0 5em',
 					borderRadius	: '3% / 5%',
-					background		: sys ? 'rgba(100, 255, 150, 0.3)' : 'rgba(100, 100, 255, 0.3)',
+					background		: sys ? 'rgba(100, 255, 150, 0.5)' : 'rgba(100, 100, 255, 0.3)',
 					padding			: '0% 5%',
 					overflowY		: opts.length > 3 ? 'scroll' : 'hidden',
 					maxHeight		: '70%',
@@ -545,17 +558,53 @@ READY('Player', 'DOM').then( _ => {
 						width			: '100%',
 						height			: '2.5em',
 						margin			: '5% 0%',
+						textShadow		: 'rgba(0,0,0,0.9) 0em 0em 0.5em',
 					})
 					bt.disabled = !!opt.disabled
 					bt.append(new DOM('text', opt.name))
+					bt.onfocus = bt.onmouseover = _ => {
+						Sound.playSysSE('フォーカス')
+						focusindex = index
+						bt.setStyles({ background: sys ? 'rgba(100,200,150,0.8)' : 'rgba(100,100,200,0.8)' })
+					}
+					bt.onblur = bt.onmouseout = _ => {
+						bt.setStyles({ background: sys ? 'rgba(0,100,50,0.8)' : 'rgba(0,0,100,0.8)' })
+					}
 					bt.onclick = _ => {
+						removed = true
+						Sound.playSysSE('選択')
 						defer.resolve(opt.value)
 						if (!sys) delete this.windows.choice
 						else delete this.windows.choiceBack
 						cw.remove()
 					}
 					cw.append(bt)
+					if (!opt.disabled) var index = bts.push(bt) - 1
 				}, this)
+
+				View.on('up', rehook => focusmove(rehook, -1) )
+				View.on('down', rehook => focusmove(rehook, +1) )
+				View.on('left', rehook => focusmove(rehook, -10) )
+				View.on('right', rehook => focusmove(rehook, +10) )
+				View.on('enter', focusenter)
+
+				function focusmove(rehook, n) {
+					if (removed) return
+					var fi = focusindex
+					var si = fi + n
+					var last = bts.length - 1
+					
+					if (fi < 0) si = n > 0 ? 0 : last
+					else if (si < 0) si = fi == 0 ? last : 0
+					else if (si > last) si = fi == last ? 0 : last
+					bts[si].focus()
+					Promise.delay(200).then(rehook)
+				}
+				function focusenter(rehook) {
+					if (removed) return
+					if (focusindex >= 0) return bts[focusindex].click()
+					Promise.delay(200).then(rehook)
+				}
 
 				el_context.append(cw)
 
@@ -610,7 +659,7 @@ READY('Player', 'DOM').then( _ => {
 				//LOG('show')
 				View.menuIndex = (View.menuIndex||0)+1
 				blockEvent()
-				View.on('Rclick').then( _ => {
+				View.on('menu').then( _ => {
 					if (this.windows.choiceBack) this.windows.choiceBack.remove()
 					View.hideMenu()
 				} ).check()
@@ -646,7 +695,7 @@ READY('Player', 'DOM').then( _ => {
 				if (!View.menuIndex) return
 				--View.menuIndex
 				allowEvent()
-				View.on('Rclick').then(_ => View.showMenu())
+				View.on('menu').then(_ => View.showMenu())
 				Object.keys(View.windows).forEach( key => {
 					var el = View.windows[key]
 					el.hidden = !el.hidden
@@ -662,8 +711,13 @@ READY('Player', 'DOM').then( _ => {
 	var [hookInput, hookClear, blockEvent, allowEvent, fireEvent] = (_ => {
 
 		var keyboardTable = {
+			 8: 'backspace',
 			13: 'enter',
 			32: 'space',
+			37: 'left',
+			38: 'up',
+			39: 'right',
+			40: 'down',
 		}
 
 		var hooks = []
@@ -699,10 +753,10 @@ READY('Player', 'DOM').then( _ => {
 			switch (kind) {
 				case 'go':
 					return ['Lclick', 'enter', 'space']
-				break;
-				case 'Rclick':
+				case 'menu':
+					return ['Rclick', 'backspace']
+				case 'Rclick': case 'left': case 'up': case 'right': case 'down': case 'enter':
 					return [kind]
-				break
 				default: throw 'illegal hook event type'		
 			}
 		}
@@ -737,4 +791,4 @@ READY('Player', 'DOM').then( _ => {
 
 	p.then( _ => READY.View.ready(null) )
 
-}).catch(LOG)
+}).check()

@@ -96,7 +96,8 @@ System.register("ES6/ヘルパー", [], function() {
     Util.setDefaults(String.prototype, {repeat: function repeat(num) {
         return new Array(num + 1).join(this);
       }});
-    Util.setDefaults(Promise, {defer: function() {
+    Util.setDefaults(Promise, {
+      defer: function() {
         var resolve,
             reject;
         var promise = new Promise((function(ok, ng) {
@@ -107,7 +108,11 @@ System.register("ES6/ヘルパー", [], function() {
           resolve: resolve,
           reject: reject
         };
-      }});
+      },
+      delay: function(time) {
+        return Promise.resolve().delay(time);
+      }
+    });
     Util.setProperties(Promise.prototype, {
       on: function on(type) {
         var onFulfilled = arguments[1] !== (void 0) ? arguments[1] : (function(result) {
@@ -136,10 +141,12 @@ System.register("ES6/ヘルパー", [], function() {
       },
       through: function through(onFulfilled, onRejected) {
         return this.then((function(val) {
-          onFulfilled(val);
+          if (onFulfilled)
+            onFulfilled(val);
           return Promise.resolve(val);
         }), (function(err) {
-          onRejected(err);
+          if (onRejected)
+            onRejected(err);
           return Promise.reject(err);
         }));
       },
@@ -229,7 +236,10 @@ System.register("ES6/ヘルパー", [], function() {
         return Promise.race(ary).$;
       })
     });
-    Util.overrides = {Promise: $Promise};
+    Util.overrides = {
+      Promise: $Promise,
+      R: Promise.resolve()
+    };
     var READY = ((function(_) {
       function READY(type) {
         var types = (arguments.length != 1) ? [].slice.call(arguments) : (Array.isArray(type)) ? type : [type];
@@ -240,7 +250,7 @@ System.register("ES6/ヘルパー", [], function() {
         })));
       }
       ;
-      ['DOM', 'Player', 'View', 'Storage', 'Game'].forEach((function(type) {
+      ['DOM', 'Player', 'View', 'Storage', 'Sound', 'Game'].forEach((function(type) {
         global[type] = null;
         var defer = $Promise.defer();
         READY[type] = defer.promise;
@@ -311,20 +321,21 @@ System.register("ES6/ストレージ", [], function() {
           });
         }));
       },
-      getSaveData: function(no) {
+      delete: function(key) {
         return new Promise((function(ok, ng) {
-          var ts = db.transaction('savedata', 'readonly');
+          var ts = db.transaction('savedata', 'readwrite');
           var os = ts.objectStore('savedata');
-          var rq = os.get(no);
+          var rq = os.delete(key);
           ts.oncomplete = (function(_) {
-            return ok(rq.result || []);
+            return ok();
           });
           ts.onabort = (function(_) {
-            return ng(("ストレージのkey『" + key + "』の読込に失敗（" + ts.error.message + ")"));
+            return ng(("ストレージのkey『" + key + "』の削除に失敗（" + ts.error.message + ")"));
           });
         }));
       },
       getSaveDatas: function(from, to) {
+        var scenario = Player.data.scenarioName;
         return new Promise((function(ok, ng) {
           var saves = new Array(to - from + 1);
           var ts = db.transaction('savedata', 'readonly');
@@ -346,6 +357,7 @@ System.register("ES6/ストレージ", [], function() {
         }));
       },
       setSaveData: function(no, data) {
+        var scenario = Player.data.scenarioName;
         return new Promise((function(ok, ng) {
           var ts = db.transaction('savedata', 'readwrite');
           var os = ts.objectStore('savedata');
@@ -354,53 +366,67 @@ System.register("ES6/ストレージ", [], function() {
             return ok();
           });
           ts.onabort = (function(_) {
-            return ng(("ストレージのkey『" + key + "』の読込に失敗（" + ts.error.message + ")"));
+            return ng(("ストレージの書込に失敗（" + ts.error.message + ")"));
           });
         }));
       },
-      delete: function(key) {
+      getSetting: function(key, def) {
         return new Promise((function(ok, ng) {
-          var ts = db.transaction('savedata', 'readwrite');
-          var os = ts.objectStore('savedata');
-          var rq = os.delete(key);
+          var ts = db.transaction('setting', 'readonly');
+          var os = ts.objectStore('setting');
+          var rq = os.get(key);
           ts.oncomplete = (function(_) {
-            return ok();
-          });
-          ts.onabort = (function(_) {
-            return ng(("ストレージのkey『" + key + "』の削除に失敗（" + ts.error.message + ")"));
-          });
-        }));
-      },
-      init: function() {
-        scenario = Player.data.scenarioName;
-        return new Promise((function(ok, ng) {
-          var rq = indexedDB.open("open-novel", 4);
-          rq.onupgradeneeded = (function(evt) {
-            var db = rq.result;
-            var ov = evt.oldVersion;
-            if (ov < 3)
-              db.createObjectStore('savedata');
-          });
-          rq.onsuccess = (function(_) {
             return ok(rq.result);
           });
-          rq.onerror = (function(err) {
-            return ng(("ストレージが開けない（" + err.message + ")"));
+          ts.onabort = (function(_) {
+            return ng(("ストレージのkey『" + key + "』の書込に失敗（" + ts.error.message + ")"));
           });
         })).then((function(val) {
-          return db = val;
+          return (val === undefined) ? Storage.setSetting(key, def) : val;
+        }));
+      },
+      setSetting: function(key, val) {
+        return new Promise((function(ok, ng) {
+          var ts = db.transaction('setting', 'readwrite');
+          var os = ts.objectStore('setting');
+          var rq = os.put(val, key);
+          ts.oncomplete = (function(_) {
+            return ok(val);
+          });
+          ts.onabort = (function(_) {
+            return ng(("ストレージのkey『" + key + "』の書込に失敗（" + ts.error.message + ")"));
+          });
         }));
       }
     };
-    READY.Storage.ready(Storage);
-  })).catch(LOG);
+    new Promise((function(ok, ng) {
+      var rq = indexedDB.open("open-novel", 5);
+      rq.onupgradeneeded = (function(evt) {
+        var db = rq.result;
+        var ov = evt.oldVersion;
+        if (ov < 3)
+          db.createObjectStore('savedata');
+        if (ov < 5)
+          db.createObjectStore('setting');
+      });
+      rq.onsuccess = (function(_) {
+        return ok(rq.result);
+      });
+      rq.onerror = (function(err) {
+        return ng(("ストレージが開けない（" + err.message + ")"));
+      });
+    })).then((function(val) {
+      db = val;
+      READY.Storage.ready(Storage);
+    }));
+  })).check();
   return {};
 });
 System.get("ES6/ストレージ" + '');
-System.register("ES6/モデル", [], function() {
+System.register("ES6/プレーヤー", [], function() {
   "use strict";
-  var __moduleName = "ES6/モデル";
-  READY().then(function() {
+  var __moduleName = "ES6/プレーヤー";
+  READY().then((function(_) {
     'use strict';
     function setPhase(phase) {
       document.title = '【' + phase + '】';
@@ -646,6 +672,24 @@ System.register("ES6/モデル", [], function() {
         configurable: true,
         enumerable: true,
         writable: true
+      }), Object.defineProperty($__2, "入力", {
+        value: function(data, done, failed) {
+          LOG(data);
+          str = Util.toHalfWidth(data[0]);
+          if (!str)
+            return failed('不正なパラメータ指定検出');
+          var str = /.+\:/.test(str) ? str.match(/(.+)\:(.*)/) : [, str, '""'];
+          var name = replaceEffect(str[1]);
+          var effect = str[2];
+          var eff = evalEffect(effect, failed);
+          LOG(name, effect, eff);
+          var rv = prompt('', eff) || eff;
+          paramSet(name, rv);
+          done();
+        },
+        configurable: true,
+        enumerable: true,
+        writable: true
       }), Object.defineProperty($__2, "繰返", {
         value: otherName('繰り返し'),
         configurable: true,
@@ -700,6 +744,8 @@ System.register("ES6/モデル", [], function() {
         writable: true
       }), Object.defineProperty($__2, "マーク", {
         value: function(data, done, failed) {
+          if (parentComp != run.resolve)
+            return failed('このコマンドはトップレベルにおいてください');
           var params = {};
           paramForEach((function(value, key) {
             return params[key] = value;
@@ -839,16 +885,18 @@ System.register("ES6/モデル", [], function() {
       return toBlobURL('シナリオ', name, 'txt');
     }
     function toBlobURL(kind, name, type) {
+      var sys = arguments[3] !== (void 0) ? arguments[3] : false;
+      var root = sys ? 'エンジン' : 'データ';
       var sub = Util.forceName(kind, name, type);
-      var subkey = (Player.data.scenarioName + "/" + sub);
+      var subkey = sys ? ("" + sub) : (Player.data.scenarioName + "/" + sub);
       if (Util.isNoneType(name))
         return Promise.resolve(null);
       if (cacheBlobMap.has(subkey))
         return Promise.resolve(cacheBlobMap.get(subkey));
       var hide = View.setLoadingMessage('Loading...');
       return new Promise((function(ok, ng) {
-        find(("データ/" + subkey)).catch((function(_) {
-          return ("データ/[[共通素材]]/" + sub);
+        find((root + "/" + subkey)).catch((function(_) {
+          return (root + "/[[共通素材]]/" + sub);
         })).then((function(url) {
           return ok(url);
         }), ng);
@@ -858,7 +906,7 @@ System.register("ES6/モデル", [], function() {
         cacheBlobMap.set('$size', (cacheBlobMap.get('$size') || 0) + blob.size);
         hide();
         return blobURL;
-      }), hide);
+      })).through(hide);
     }
     function fetchSettingData(url) {
       return loadText(url).then((function(text) {
@@ -888,6 +936,9 @@ System.register("ES6/モデル", [], function() {
         script.mark = mark;
         return script;
       }));
+    }
+    function fetchSEData(name, sys) {
+      return toBlobURL('効果音', name, 'wav', sys);
     }
     function loadText(url) {
       return load(url, 'text');
@@ -1087,12 +1138,16 @@ System.register("ES6/モデル", [], function() {
         }, $__6, this);
       }))();
     }
-    function init(scenario) {
-      var _scenario = Player.data.scenarioName;
+    function init() {
       Player.data = {};
-      Player.data.scenarioName = scenario ? scenario : _scenario;
+      Player.data.phase = 'pause';
+      Player.setRunPhase('準備');
       Player.paramClear();
       View.clean();
+    }
+    function setScenario(scenario) {
+      var _scenario = Player.data.scenarioName;
+      Player.data.scenarioName = scenario ? scenario : _scenario;
     }
     var cacheBlobMap = new Map;
     function cacheClear() {
@@ -1130,10 +1185,12 @@ System.register("ES6/モデル", [], function() {
       setErrorPhase: setErrorPhase,
       fetchSettingData: fetchSettingData,
       fetchScriptData: fetchScriptData,
+      fetchSEData: fetchSEData,
       runScript: runScript,
       print: print,
       cacheClear: cacheClear,
       paramClear: paramClear,
+      toBlobURL: toBlobURL,
       toBlobEmogiURL: toBlobEmogiURL,
       find: find,
       save: save,
@@ -1143,16 +1200,17 @@ System.register("ES6/モデル", [], function() {
       paramSet: paramSet,
       paramGet: paramGet,
       evalEffect: evalEffect,
-      init: init
+      init: init,
+      setScenario: setScenario
     });
-  }).catch(LOG);
+  })).check();
   return {};
 });
-System.get("ES6/モデル" + '');
+System.get("ES6/プレーヤー" + '');
 System.register("ES6/ビュー", [], function() {
   "use strict";
   var __moduleName = "ES6/ビュー";
-  READY('Player', 'DOM').then((function(_) {
+  READY('Storage', 'Player', 'DOM').then((function(_) {
     'use strict';
     var View = null;
     var EP = Element.prototype;
@@ -1276,7 +1334,7 @@ System.register("ES6/ビュー", [], function() {
         adjustScale(height, 0, true);
       });
       fitScreen();
-      View.showNotice('この機能はブラウザにより\n表示の差があります', 1000);
+      View.showNotice('この機能はブラウザにより\n表示の差があります');
     }));
     var el_debugSub = createDdebugSub();
     var el = el_debugSub.append(new DOM('button', bs));
@@ -1284,14 +1342,21 @@ System.register("ES6/ビュー", [], function() {
     el.on('click', (function(_) {
       fireEvent('Rclick');
     }));
+    var el = el_debugSub.append(new DOM('button', bs));
+    el.append(new DOM('text', 'サウンド有無'));
+    el.on('click', (function(_) {
+      var e = !Sound.soundEnabled;
+      Sound.soundEnabled = e;
+      Storage.setSetting('soundEnabled', e).check();
+      View.showNotice(("サウンドを" + (e ? '有' : '無') + "効にしました"));
+    }));
     var el_debugSub = createDdebugSub();
     var el = el_debugSub.append(new DOM('button', bs));
     el.append(new DOM('text', 'キャシュ削除'));
     el.on('click', (function(_) {
       Player.cacheClear();
-      View.showNotice('キャッシュを削除しました', 500);
+      View.showNotice('キャッシュを削除しました');
     }));
-    var el_debugSub = createDdebugSub();
     var el = el_debugSub.append(new DOM('button', bs));
     el.append(new DOM('text', 'リセット'));
     el.on('click', (function(_) {
@@ -1366,8 +1431,13 @@ System.register("ES6/ビュー", [], function() {
             this.changeMode(type, opt);
         },
         on: function(kind, onFulfilled, onRejected) {
+          var rehook = (function(_) {
+            return View.on(kind, onFulfilled, onRejected);
+          });
           return new Promise((function(resolve) {
             return hookInput(kind, resolve);
+          })).then((function(_) {
+            return rehook;
           })).then(onFulfilled).check().catch(onRejected);
         },
         initDisplay: function(opt) {
@@ -1400,11 +1470,12 @@ System.register("ES6/ビュー", [], function() {
             });
           el_context.setStyles(opt);
         },
-        showNotice: function(message) {
-          var show_time = arguments[1] !== (void 0) ? arguments[1] : 1000;
+        showNotice: function(message, show_time) {
           var delay_time = arguments[2] !== (void 0) ? arguments[2] : 250;
           if (!message)
             throw 'illegal message string';
+          if (!show_time)
+            show_time = message.split('\n').length * 500;
           message = '【！】\n' + message;
           var noticeWindow = new DOM('div', {
             fontSize: '2em',
@@ -1467,6 +1538,7 @@ System.register("ES6/ビュー", [], function() {
           return hide;
         },
         adjustScale: adjustScale,
+        setAnimate: setAnimate,
         updateDebugWindow: function(obj) {
           el_debugWindow.textContent = 'デバッグ情報\n' + JSON.stringify(obj, null, 4);
         }
@@ -1501,7 +1573,7 @@ System.register("ES6/ビュー", [], function() {
           this.__proto__.__proto__.initDisplay(opt);
           this.mainMessageWindow = this.addMessageWindow({z: 10});
           this.imageFrame = this.addImageFrame({z: 20});
-          View.on('Rclick').then((function(_) {
+          View.on('menu').then((function(_) {
             return $__16.showMenu();
           })).check();
         },
@@ -1642,14 +1714,18 @@ System.register("ES6/ビュー", [], function() {
           var $__17 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
               sys = ($__18 = $__17.sys) === void 0 ? false : $__18;
           var defer = Promise.defer();
+          var removed = false;
+          var focusbt;
+          var focusindex = -10000;
+          var bts = [];
           var cw = new DOM('div', {
             position: 'absolute',
             left: 'calc((100% - 70%) / 2 - 5%)',
             width: '70%',
             top: '5%',
-            boxShadow: sys ? 'rgba(100, 255, 150, 0.3) 0 0 5em' : 'rgba(100, 100, 255, 0.3) 0 0 5em',
+            boxShadow: sys ? 'rgba(100, 255, 150, 0.5) 0 0 5em' : 'rgba(100, 100, 255, 0.3) 0 0 5em',
             borderRadius: '3% / 5%',
-            background: sys ? 'rgba(100, 255, 150, 0.3)' : 'rgba(100, 100, 255, 0.3)',
+            background: sys ? 'rgba(100, 255, 150, 0.5)' : 'rgba(100, 100, 255, 0.3)',
             padding: '0% 5%',
             overflowY: opts.length > 3 ? 'scroll' : 'hidden',
             maxHeight: '70%'
@@ -1676,11 +1752,22 @@ System.register("ES6/ビュー", [], function() {
               borderRadius: '5% / 50%',
               width: '100%',
               height: '2.5em',
-              margin: '5% 0%'
+              margin: '5% 0%',
+              textShadow: 'rgba(0,0,0,0.9) 0em 0em 0.5em'
             });
             bt.disabled = !!opt.disabled;
             bt.append(new DOM('text', opt.name));
+            bt.onfocus = bt.onmouseover = (function(_) {
+              Sound.playSysSE('フォーカス');
+              focusindex = index;
+              bt.setStyles({background: sys ? 'rgba(100,200,150,0.8)' : 'rgba(100,100,200,0.8)'});
+            });
+            bt.onblur = bt.onmouseout = (function(_) {
+              bt.setStyles({background: sys ? 'rgba(0,100,50,0.8)' : 'rgba(0,0,100,0.8)'});
+            });
             bt.onclick = (function(_) {
+              removed = true;
+              Sound.playSysSE('選択');
               defer.resolve(opt.value);
               if (!sys)
                 delete $__16.windows.choice;
@@ -1689,7 +1776,44 @@ System.register("ES6/ビュー", [], function() {
               cw.remove();
             });
             cw.append(bt);
+            if (!opt.disabled)
+              var index = bts.push(bt) - 1;
           }, this);
+          View.on('up', (function(rehook) {
+            return focusmove(rehook, -1);
+          }));
+          View.on('down', (function(rehook) {
+            return focusmove(rehook, +1);
+          }));
+          View.on('left', (function(rehook) {
+            return focusmove(rehook, -10);
+          }));
+          View.on('right', (function(rehook) {
+            return focusmove(rehook, +10);
+          }));
+          View.on('enter', focusenter);
+          function focusmove(rehook, n) {
+            if (removed)
+              return;
+            var fi = focusindex;
+            var si = fi + n;
+            var last = bts.length - 1;
+            if (fi < 0)
+              si = n > 0 ? 0 : last;
+            else if (si < 0)
+              si = fi == 0 ? last : 0;
+            else if (si > last)
+              si = fi == last ? 0 : last;
+            bts[si].focus();
+            Promise.delay(200).then(rehook);
+          }
+          function focusenter(rehook) {
+            if (removed)
+              return;
+            if (focusindex >= 0)
+              return bts[focusindex].click();
+            Promise.delay(200).then(rehook);
+          }
           el_context.append(cw);
           return defer.promise;
         },
@@ -1736,7 +1860,7 @@ System.register("ES6/ビュー", [], function() {
             }));
           View.menuIndex = (View.menuIndex || 0) + 1;
           blockEvent();
-          View.on('Rclick').then((function(_) {
+          View.on('menu').then((function(_) {
             if ($__16.windows.choiceBack)
               $__16.windows.choiceBack.remove();
             View.hideMenu();
@@ -1770,7 +1894,7 @@ System.register("ES6/ビュー", [], function() {
             return;
           --View.menuIndex;
           allowEvent();
-          View.on('Rclick').then((function(_) {
+          View.on('menu').then((function(_) {
             return View.showMenu();
           }));
           Object.keys(View.windows).forEach((function(key) {
@@ -1782,8 +1906,13 @@ System.register("ES6/ビュー", [], function() {
     };
     var $__17 = $traceurRuntime.assertObject(((function(_) {
       var keyboardTable = {
+        8: 'backspace',
         13: 'enter',
-        32: 'space'
+        32: 'space',
+        37: 'left',
+        38: 'up',
+        39: 'right',
+        40: 'down'
       };
       var hooks = [];
       document.addEventListener('keydown', (function(evt) {
@@ -1816,10 +1945,15 @@ System.register("ES6/ビュー", [], function() {
         switch (kind) {
           case 'go':
             return ['Lclick', 'enter', 'space'];
-            break;
+          case 'menu':
+            return ['Rclick', 'backspace'];
           case 'Rclick':
+          case 'left':
+          case 'up':
+          case 'right':
+          case 'down':
+          case 'enter':
             return [kind];
-            break;
           default:
             throw 'illegal hook event type';
         }
@@ -1858,15 +1992,97 @@ System.register("ES6/ビュー", [], function() {
     p.then((function(_) {
       return READY.View.ready(null);
     }));
-  })).catch(LOG);
+  })).check();
   return {};
 });
 System.get("ES6/ビュー" + '');
-System.register("ES6/コントローラー", [], function() {
+System.register("ES6/サウンド", [], function() {
   "use strict";
-  var __moduleName = "ES6/コントローラー";
-  READY('Player', 'View').then((function(_) {
+  var __moduleName = "ES6/サウンド";
+  READY('Storage', 'View').then(Util.co($traceurRuntime.initGeneratorFunction(function $__21() {
+    var soundEnabled,
+        sysSEMap,
+        R;
+    return $traceurRuntime.createGeneratorInstance(function($ctx) {
+      while (true)
+        switch ($ctx.state) {
+          case 0:
+            $ctx.state = 2;
+            return Storage.getSetting('soundEnabled', false);
+          case 2:
+            soundEnabled = $ctx.sent;
+            $ctx.state = 4;
+            break;
+          case 4:
+            sysSEMap = new Map;
+            R = $traceurRuntime.assertObject(Util.overrides).R;
+            READY.Sound.ready({
+              playSysSE: function(name, opt) {
+                if (!this.soundEnabled)
+                  return R;
+                var defer = Promise.defer();
+                var a = sysSEMap.get(name);
+                if (!a) {
+                  a = new Audio(("エンジン/効果音/" + name + ".ogg"));
+                  sysSEMap.set(name, a);
+                  a.oncanplaythrough = (function(_) {
+                    a.oncanplaythrough = null;
+                    Sound.playSysSE(name, opt).then(defer.resolve);
+                  });
+                } else {
+                  a.currentTime = 0;
+                  a.volume = 0.5;
+                  a.onplay = (function(_) {
+                    return defer.resolve({ended: new Promise((function(ok) {
+                        return a.onended = ok;
+                      }))});
+                  });
+                  a.play();
+                }
+                return defer.promise;
+              },
+              fadeoutSysSE: function(name) {
+                var $__20;
+                var opt = arguments[1] !== (void 0) ? arguments[1] : {};
+                if (!this.soundEnabled)
+                  return R;
+                var defer = Promise.defer();
+                var a = sysSEMap.get(name);
+                if (!a) {
+                  LOG(("対象のサウンド『" + name + "』が未登録"));
+                  return R;
+                }
+                var volume = a.volume;
+                var $__19 = $traceurRuntime.assertObject(opt),
+                    duration = ($__20 = $__19.duration) === void 0 ? 500 : $__20;
+                View.setAnimate((function(delay, complete, pause) {
+                  var newvolume = volume * (1 - delay / duration);
+                  if (newvolume <= 0) {
+                    newvolume = 0;
+                    complete();
+                  }
+                  a.volume = newvolume;
+                })).then(defer.resolve);
+                return defer.promise;
+              },
+              soundEnabled: soundEnabled
+            });
+            $ctx.state = -2;
+            break;
+          default:
+            return $ctx.end();
+        }
+    }, $__21, this);
+  }))).check();
+  return {};
+});
+System.get("ES6/サウンド" + '');
+System.register("ES6/ゲーム", [], function() {
+  "use strict";
+  var __moduleName = "ES6/ゲーム";
+  READY('Player', 'View', 'Sound').then((function(_) {
     'use strict';
+    var R = $traceurRuntime.assertObject(Util.overrides).R;
     var message = ((function(_) {
       var abort = Util.NOP;
       return (function(text) {
@@ -1878,7 +2094,7 @@ System.register("ES6/コントローラー", [], function() {
         return p;
       });
     }))();
-    var setup = Util.co($traceurRuntime.initGeneratorFunction(function $__19() {
+    var setup = Util.co($traceurRuntime.initGeneratorFunction(function $__23() {
       var setting,
           scenario,
           script;
@@ -1886,8 +2102,8 @@ System.register("ES6/コントローラー", [], function() {
         while (true)
           switch ($ctx.state) {
             case 0:
-              Player.setRunPhase('準備');
-              Player.data.phase = 'pause';
+              Player.init();
+              setSysBG();
               $ctx.state = 28;
               break;
             case 28:
@@ -1898,6 +2114,7 @@ System.register("ES6/コントローラー", [], function() {
               $ctx.state = 4;
               break;
             case 4:
+              View.on('menu').then(setup);
               message('再生する作品を選んでください');
               $ctx.state = 30;
               break;
@@ -1920,8 +2137,7 @@ System.register("ES6/コントローラー", [], function() {
               $ctx.state = 8;
               break;
             case 8:
-              Player.init(scenario);
-              Storage.init();
+              Player.setScenario(scenario);
               $ctx.state = 32;
               break;
             case 32:
@@ -1954,7 +2170,9 @@ System.register("ES6/コントローラー", [], function() {
                       var name = prompt('『<スクリプト名>』または『<スクリプト名>#<マーク名>』の形式で指定します');
                       if (!name)
                         return message('作品選択メニューに戻ります。').delay(1000).then(setup);
-                      Player.fetchScriptData(name, true).then(ok, ng);
+                      Player.fetchScriptData(name, true).then(ok, (function(err) {
+                        message('指定されたファイルを読み込めません。').delay(1000).then(setup);
+                      }));
                       break;
                     default:
                       throw 'illegal start type';
@@ -1968,7 +2186,7 @@ System.register("ES6/コントローラー", [], function() {
             case 16:
               $ctx.state = 18;
               return message('').then((function(_) {
-                View.nextPage('');
+                View.clean();
                 return Player.runScript(script);
               }));
             case 18:
@@ -1994,9 +2212,9 @@ System.register("ES6/コントローラー", [], function() {
             default:
               return $ctx.end();
           }
-      }, $__19, this);
+      }, $__23, this);
     }));
-    var restart = Util.co($traceurRuntime.initGeneratorFunction(function $__20(err) {
+    var restart = Util.co($traceurRuntime.initGeneratorFunction(function $__24(err) {
       return $traceurRuntime.createGeneratorInstance(function($ctx) {
         while (true)
           switch ($ctx.state) {
@@ -2020,9 +2238,9 @@ System.register("ES6/コントローラー", [], function() {
             default:
               return $ctx.end();
           }
-      }, $__20, this);
+      }, $__24, this);
     }));
-    var start = Util.co($traceurRuntime.initGeneratorFunction(function $__21() {
+    var start = Util.co($traceurRuntime.initGeneratorFunction(function $__25() {
       var setting;
       return $traceurRuntime.createGeneratorInstance(function($ctx) {
         while (true)
@@ -2040,36 +2258,44 @@ System.register("ES6/コントローラー", [], function() {
               break;
             case 4:
               Data.SystemVersion = setting['システムバージョン'][0];
+              View.changeMode('NOVEL');
               $ctx.state = 14;
               break;
             case 14:
               $ctx.state = 6;
-              return message('openノベルプレイヤー by Hikaru02\n\nシステムバージョン：　' + Data.SystemVersion).delay(1000);
+              return Promise.all([setSysBG(false), Promise.race([View.on('go'), Sound.playSysSE('起動').then((function() {
+                var ended = $traceurRuntime.assertObject(arguments[0] !== (void 0) ? arguments[0] : {}).ended;
+                return Promise.all([ended || R, View.addSentence('openノベルプレイヤー by Hikaru02\n\nシステムバージョン：　' + Data.SystemVersion, {weight: 0}).delay(3000)]);
+              }))]).through((function(_) {
+                return Sound.fadeoutSysSE('起動');
+              }))]).check();
             case 6:
               $ctx.maybeThrow();
               $ctx.state = 8;
               break;
             case 8:
-              Player.init();
-              $ctx.state = 16;
-              break;
-            case 16:
               $ctx.returnValue = setup().catch(restart);
               $ctx.state = -2;
               break;
             default:
               return $ctx.end();
           }
-      }, $__21, this);
+      }, $__25, this);
     }));
+    function setSysBG() {
+      var view = arguments[0] !== (void 0) ? arguments[0] : true;
+      var p = Player.toBlobURL('画像', '背景', 'png', true);
+      return view ? p.then((function(url) {
+        return View.setBGImage({url: url});
+      })) : p;
+    }
     start();
     READY.Game.ready({reset: function() {
-        Player.init();
         setup();
       }});
-  })).catch(LOG);
+  })).check();
   return {};
 });
-System.get("ES6/コントローラー" + '');
+System.get("ES6/ゲーム" + '');
 
 //# sourceMappingURL=メイン.map

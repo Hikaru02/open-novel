@@ -1,5 +1,5 @@
 
-READY().then(function () {
+READY().then( _ => {
 	'use strict'
 
 	function setPhase(phase) { document.title = '【' +phase+ '】' }
@@ -217,12 +217,29 @@ READY().then(function () {
 					if (!str) return failed('不正なパラメータ指定検出') 
 					var name = replaceEffect(str[1])
 					var effect = str[2]
+				//	if (isNoneType(effect)) effect = '""'
 					if (!name) return failed('不正なパラメータ指定検出') 
 					var eff = evalEffect(effect, failed)
 					//LOG(name, effect, eff)
 					paramSet(name, eff)
 
 				})
+				done()
+			},
+
+			入力(data, done, failed) {
+				LOG(data)
+				str = Util.toHalfWidth(data[0])
+				if (!str) return failed('不正なパラメータ指定検出') 
+				var str = /.+\:/.test(str) ? str.match(/(.+)\:(.*)/) : [, str, '""']
+
+				var name = replaceEffect(str[1])
+				var effect = str[2]
+				var eff = evalEffect(effect, failed)
+				LOG(name, effect, eff)
+				var rv = prompt('', eff) || eff
+				paramSet(name, rv)
+
 				done()
 			},
 
@@ -252,6 +269,7 @@ READY().then(function () {
 
 			マーク(data, done, failed) {
 
+				if (parentComp != run.resolve) return failed('このコマンドはトップレベルにおいてください')
 				var params = {}
 				paramForEach( (value, key) => params[key] = value )
 				var cp = {
@@ -398,14 +416,15 @@ READY().then(function () {
 
 
 
-	function toBlobURL(kind, name, type) {
+	function toBlobURL(kind, name, type, sys = false) {
+		var root = sys ? 'エンジン' : 'データ'
 		var sub = Util.forceName(kind, name, type)
-		var subkey = `${Player.data.scenarioName}/${sub}`
+		var subkey = sys ? `${sub}` : `${Player.data.scenarioName}/${sub}`
 		if (Util.isNoneType(name)) return Promise.resolve(null)
 		if (cacheBlobMap.has(subkey)) return Promise.resolve(cacheBlobMap.get(subkey))
 		var hide = View.setLoadingMessage('Loading...')
 		return new Promise( (ok, ng) => {		
-			find(`データ/${subkey}`).catch( _ => `データ/[[共通素材]]/${sub}` ).then( url => ok(url), ng)
+			find(`${root}/${subkey}`).catch( _ => `${root}/[[共通素材]]/${sub}` ).then( url => ok(url), ng)
 		}).then(loadBlob).then( blob => {
 			var blobURL = URL.createObjectURL(blob)
 			cacheBlobMap.set(subkey, blobURL)
@@ -413,7 +432,7 @@ READY().then(function () {
 			//Storage.testPut(subkey, blob)
 			hide()
 			return blobURL
-		}, hide)
+		}).through(hide)
 	}
 
 
@@ -440,6 +459,11 @@ READY().then(function () {
 			script.mark = mark
 			return script
 		})
+	}
+
+
+	function fetchSEData(name, sys) {
+		return toBlobURL('効果音', name, 'wav', sys)
 	}
 
 
@@ -527,14 +551,18 @@ READY().then(function () {
 	}
 
 
-	function init(scenario) {
-		var _scenario = Player.data.scenarioName
+	function init() {
 		Player.data = {}
-		Player.data.scenarioName = scenario ? scenario : _scenario
+		Player.data.phase = 'pause'
+		Player.setRunPhase('準備')
 		Player.paramClear()
 		View.clean()
 	}
 
+	function setScenario(scenario) {
+		var _scenario = Player.data.scenarioName
+		Player.data.scenarioName = scenario ? scenario : _scenario
+	}
 
 	var cacheBlobMap = new Map
 
@@ -569,8 +597,8 @@ READY().then(function () {
 	})()
 
 	READY.Player.ready({
-		setRunPhase, setErrorPhase, fetchSettingData, fetchScriptData, runScript, print, cacheClear, paramClear,
-		toBlobEmogiURL, find, save, data: {}, loadSaveData, saveSaveData, paramSet, paramGet, evalEffect, init
+		setRunPhase, setErrorPhase, fetchSettingData, fetchScriptData, fetchSEData, runScript, print, cacheClear, paramClear,
+		toBlobURL, toBlobEmogiURL, find, save, data: {}, loadSaveData, saveSaveData, paramSet, paramGet, evalEffect, init, setScenario,
 	})
 
-}).catch(LOG)
+}).check()

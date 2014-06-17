@@ -140,6 +140,10 @@
 			return {promise, resolve, reject}
 		},
 
+		delay(time) {
+			return Promise.resolve().delay(time)
+		},
+
 	})
 
 
@@ -174,10 +178,10 @@
 
 		through: function through(onFulfilled, onRejected) {
 			return this.then( val => {
-				onFulfilled(val)
+				if (onFulfilled) onFulfilled(val)
 				return Promise.resolve(val)
 			}, err => {
-				onRejected(err)
+				if (onRejected) onRejected(err)
 				return Promise.reject(err)
 			} )
 		},
@@ -245,7 +249,7 @@
 		race   : ary => Promise.race(ary).$ ,
 	})
 
-	Util.overrides = { Promise: $Promise }
+	Util.overrides = { Promise: $Promise, R: Promise.resolve() }
 
 	var READY = ( _ => {
 		function READY(type) {
@@ -255,7 +259,7 @@
 				return READY[type]
 			}))
 		}
-		;['DOM', 'Player', 'View', 'Storage', 'Game'].forEach(type => {
+		;['DOM', 'Player', 'View', 'Storage', 'Sound', 'Game'].forEach(type => {
 			global[type] = null
 			var defer = $Promise.defer()
 			READY[type] = defer.promise

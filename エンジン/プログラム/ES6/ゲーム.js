@@ -1,6 +1,8 @@
 
-READY('Player', 'View').then( _ => {
+READY('Player', 'View', 'Sound').then( _ => {
 	'use strict'
+
+	var {R} = Util.overrides
 
 	var message = (_ => {
 		var abort = Util.NOP
@@ -18,11 +20,14 @@ READY('Player', 'View').then( _ => {
 
 	var setup = Util.co(function* () {
 
-		Player.setRunPhase('準備')
-		Player.data.phase = 'pause'
+		Player.init()
+
+		setSysBG()
 
 		//message('作品一覧を読み込んでいます...')
 		var setting = yield Player.fetchSettingData(Data.URL.ContentsSetting)
+
+		View.on('menu').then(setup)
 
 		message('再生する作品を選んでください')
 		var scenario = yield new Promise( (ok, ng) => {
@@ -40,8 +45,7 @@ READY('Player', 'View').then( _ => {
 			View.setChoiceWindow(opts, {sys: true}).then(ok, ng)
 		})
 
-		Player.init(scenario)
-		Storage.init()
+		Player.setScenario(scenario)
 
 
 		//message('作品情報を読み込んでいます...')
@@ -70,7 +74,9 @@ READY('Player', 'View').then( _ => {
 					case '任意の場所から':
 						var name = prompt('『<スクリプト名>』または『<スクリプト名>#<マーク名>』の形式で指定します')
 						if (!name) return message('作品選択メニューに戻ります。').delay(1000).then(setup)
-						Player.fetchScriptData(name, true).then(ok, ng)
+						Player.fetchScriptData(name, true).then(ok, err => {
+							message('指定されたファイルを読み込めません。').delay(1000).then(setup)
+						})
 					
 					break
 					default: throw 'illegal start type'
@@ -90,7 +96,8 @@ READY('Player', 'View').then( _ => {
 	*/
 
 		yield message('').then( _ => {
-			View.nextPage('')
+			//View.nextPage('')
+			View.clean()
 			return Player.runScript(script)
 		})
 
@@ -128,31 +135,43 @@ READY('Player', 'View').then( _ => {
 
 		Data.SystemVersion = setting['システムバージョン'][0]
 
-		yield message( 'openノベルプレイヤー by Hikaru02\n\nシステムバージョン：　' + Data.SystemVersion).delay(1000)
+		View.changeMode('NOVEL')
 
-		Player.init()
+		yield Promise.all([
+			setSysBG(false),
+			Promise.race([
+				View.on('go'),
+				Sound.playSysSE('起動').then( ({ended} = {}) => Promise.all([
+					ended || R,
+					View.addSentence('openノベルプレイヤー by Hikaru02\n\nシステムバージョン：　' + Data.SystemVersion, { weight: 0 }).delay(3000)
+				]) )
+			]).through( _ => Sound.fadeoutSysSE('起動') )
+		]).check()
+
 		return setup().catch(restart)
 	})
 
 
 
+	function setSysBG(view = true) {
+		var p = Player.toBlobURL('画像', '背景', 'png', true)
+		return view ? p.then( url => View.setBGImage({ url }) ) : p	
+	}
+
 	start()
 
 	READY.Game.ready({
 		reset() {
-			Player.init()
 			setup()
 		},
 	})
 
-}).catch(LOG)
+}).check()
 
 
 
 
 /* TODO
-	・セーブ
-	・prompt　ー　一致率
 	・事前キャッシュ、効率化
 	・Worker分離
 	・エフェクト
