@@ -1985,8 +1985,8 @@ System.register("ES6/ビュー", [], function() {
     var $full = false;
     var $ratio = 16 / 9;
     var $mode = '';
-    var width = document.body.clientWidth * devicePixelRatio;
-    var $scale = width / $ratio >= 480 ? 480 : width / $ratio;
+    var width = document.body.clientWidth;
+    var $scale = (width * devicePixelRatio) / $ratio >= 480 ? 480 : (width * devicePixelRatio) / $ratio;
     METHODS.TEST.changeMode('TEST');
     var p = adjustScale($scale / devicePixelRatio, $ratio);
     p.then((function(_) {
