@@ -140,9 +140,11 @@ READY('Player', 'View', 'Sound').then( _ => {
 		yield Promise.all([
 			setSysBG(false),
 			Promise.race([
-				Sound.playSysSE('起動').then( ({ended} = {}) => ended || R ),
-				View.on('go'),
-				View.addSentence('openノベルプレイヤー by Hikaru02\n\nシステムバージョン：　' + Data.SystemVersion, { weight: 0 }).delay(3000)
+				Promise.all([
+					Sound.playSysSE('起動').then( ({ended} = {}) => ended || R ),
+					View.addSentence('openノベルプレイヤー by Hikaru02\n\nシステムバージョン：　' + Data.SystemVersion, { weight: 0 }).delay(3000)
+				]),
+				View.on('go')
 			]).through( _ => Sound.fadeoutSysSE('起動') )
 		]).check()
 
