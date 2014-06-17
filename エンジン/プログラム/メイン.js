@@ -2263,10 +2263,10 @@ System.register("ES6/ゲーム", [], function() {
               break;
             case 14:
               $ctx.state = 6;
-              return Promise.all([setSysBG(false), Promise.race([View.on('go'), Sound.playSysSE('起動').then((function() {
+              return Promise.all([setSysBG(false), Promise.race([Sound.playSysSE('起動').then((function() {
                 var ended = $traceurRuntime.assertObject(arguments[0] !== (void 0) ? arguments[0] : {}).ended;
-                return Promise.all([ended || R, View.addSentence('openノベルプレイヤー by Hikaru02\n\nシステムバージョン：　' + Data.SystemVersion, {weight: 0}).delay(3000)]);
-              }))]).through((function(_) {
+                return ended || R;
+              })), View.on('go'), View.addSentence('openノベルプレイヤー by Hikaru02\n\nシステムバージョン：　' + Data.SystemVersion, {weight: 0}).delay(3000)]).through((function(_) {
                 return Sound.fadeoutSysSE('起動');
               }))]).check();
             case 6:
