@@ -482,6 +482,28 @@ System.register("ES6/プレーヤー", [], function() {
         toBlobEmogiURL(name);
       }));
     }
+    var preloadAppend = ((function(_) {
+      var buffer = [];
+      var max = 2;
+      var n = 0;
+      function next() {
+        while (n < max) {
+          var func = buffer.shift();
+          if (!func)
+            return;
+          ++n;
+          Promise.resolve(func()).through((function(_) {
+            --n;
+            next();
+          })).check();
+        }
+      }
+      function append(func) {
+        buffer.push(func);
+        next();
+      }
+      return append;
+    }))();
     function cacheScript(script) {
       var sname = arguments[1] !== (void 0) ? arguments[1] : script.sname;
       if (!Array.isArray(script)) {
@@ -562,10 +584,12 @@ System.register("ES6/プレーヤー", [], function() {
       function append(args) {
         var toURL = arguments[1] !== (void 0) ? arguments[1] : toBlobURL;
         ++caching;
-        toURL.apply(null, $traceurRuntime.toObject(args)).through((function(_) {
-          if (--caching <= 0)
-            defer.resolve();
-        })).check();
+        preloadAppend((function(_) {
+          return toURL.apply(null, $traceurRuntime.toObject(args)).through((function(_) {
+            if (--caching <= 0)
+              defer.resolve();
+          })).check();
+        }));
       }
       script.forEach((function(prog) {
         try {

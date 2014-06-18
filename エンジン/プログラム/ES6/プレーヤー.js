@@ -63,6 +63,36 @@ READY().then( _ => {
 	}
 
 
+
+	var preloadAppend = (_ => {
+
+		var buffer = []
+		var max = 2
+		var n = 0
+
+		function next() {
+			while (n < max) {
+				var func = buffer.shift()
+				if (!func) return
+				++n
+				Promise.resolve(func()).through(_ => {
+					--n
+					next()
+				}).check()
+			}
+		}
+
+		function append(func) {
+			buffer.push(func)
+			next()
+		}
+
+		return append
+
+	})()
+
+
+
 	function cacheScript(script, sname = script.sname) {
 
 		if (!Array.isArray(script)) {
@@ -155,9 +185,11 @@ READY().then( _ => {
 
 		function append(args, toURL = toBlobURL) {
 			++caching
-			toURL(...args).through( _ => {
-				if (--caching <= 0) defer.resolve()
-			}).check()
+			preloadAppend( _ => {
+				return toURL(...args).through( _ => {
+					if (--caching <= 0) defer.resolve()
+				}).check()
+			})
 			//.then( url => LOG(`キャッシュ：${url} ${toURL.name} ${args}`) ).
 		}
 
