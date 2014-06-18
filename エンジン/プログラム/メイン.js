@@ -1927,6 +1927,9 @@ System.register("ES6/ビュー", [], function() {
             bt.append(new DOM('text', opt.name));
             bt.onfocus = bt.onmouseover = (function(_) {
               Sound.playSysSE('フォーカス');
+              var elm = bts[focusindex];
+              if (elm)
+                elm.blur();
               focusindex = index;
               bt.setStyles({background: sys ? 'rgba(100,200,150,0.8)' : 'rgba(100,100,200,0.8)'});
             });
