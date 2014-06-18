@@ -148,7 +148,10 @@ READY('Storage', 'Player', 'DOM').then( _ => {
 		var e = !Sound.soundEnabled
 		Sound.soundEnabled = e
 		Storage.setSetting('soundEnabled', e).check()
-		View.showNotice(`サウンドを${e?'有':'無'}効にしました`)
+		if (Sound.soundAvailability)
+			View.showNotice(`サウンドを${e?'有':'無'}効に設定しました`)
+		else
+			View.showNotice(`サウンドを${e?'有':'無'}効に設定しました`+'\nただしお使いの環境では音が出せません')
 	})
 
 	var el_debugSub = createDdebugSub()

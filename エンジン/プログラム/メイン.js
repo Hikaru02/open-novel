@@ -1514,7 +1514,10 @@ System.register("ES6/ビュー", [], function() {
       var e = !Sound.soundEnabled;
       Sound.soundEnabled = e;
       Storage.setSetting('soundEnabled', e).check();
-      View.showNotice(("サウンドを" + (e ? '有' : '無') + "効にしました"));
+      if (Sound.soundAvailability)
+        View.showNotice(("サウンドを" + (e ? '有' : '無') + "効に設定しました"));
+      else
+        View.showNotice(("サウンドを" + (e ? '有' : '無') + "効に設定しました") + '\nただしお使いの環境では音が出せません');
     }));
     var el_debugSub = createDdebugSub();
     var el = el_debugSub.append(new DOM('button', bs));
@@ -2190,16 +2193,22 @@ System.register("ES6/サウンド", [], function() {
             return $ctx.end();
         }
     }, $__19, this);
-  }))).then((function($__18) {
-    var soundEnabled = $__18.soundEnabled;
+  }))).then((function(config) {
+    var soundEnabled = $traceurRuntime.assertObject(config).soundEnabled;
     var sourceMap = new Map;
     var bufferMap = new Map;
-    var ctx = new AudioContext();
-    var gainMaster = ctx.createGain();
-    var gainSysSE = ctx.createGain();
-    gainMaster.connect(ctx.destination);
-    gainSysSE.connect(gainMaster);
-    gainMaster.gain.value = 0.5;
+    var soundAvailability = !!global.AudioContext;
+    if (soundAvailability) {
+      var ctx = new AudioContext();
+      var gainMaster = ctx.createGain();
+      var gainSysSE = ctx.createGain();
+      gainMaster.connect(ctx.destination);
+      gainSysSE.connect(gainMaster);
+      gainMaster.gain.value = 0.5;
+    }
+    function canplay() {
+      return soundAvailability && soundEnabled;
+    }
     function useSound(url) {
       return Player.load(url, 'arraybuffer').then((function(buf) {
         return bufferMap.set(url, buf);
@@ -2223,6 +2232,8 @@ System.register("ES6/サウンド", [], function() {
       }));
     }
     function playSound(url, node) {
+      if (!canplay())
+        return Promise.resolve();
       var src = sourceMap.get(url);
       if (!src) {
         LOG(("サウンドURL『" + url + "』は未準備のため再生が延期されました"));
@@ -2250,7 +2261,8 @@ System.register("ES6/サウンド", [], function() {
       fadeoutSysSE: function(name) {
         var opt = arguments[1] !== (void 0) ? arguments[1] : {};
       },
-      soundEnabled: soundEnabled
+      soundEnabled: soundEnabled,
+      soundAvailability: soundAvailability
     });
   })).check();
   return {};

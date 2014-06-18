@@ -5,22 +5,33 @@ READY('Storage', 'Player', 'View').then(Util.co(function* () {
 
 	return {soundEnabled}
 
-})).then( ({soundEnabled}) => {
+})).then( config => {
 
+	var {soundEnabled} = config
 
 	var sourceMap = new Map
 	var bufferMap = new Map
 	//var {R} = Util.overrides
 
-	var ctx = new AudioContext()
+	var soundAvailability = !!global.AudioContext
 
-	var gainMaster = ctx.createGain()
-	var gainSysSE = ctx.createGain()
+	if (soundAvailability) {
 
-	gainMaster.connect(ctx.destination)
-	gainSysSE.connect(gainMaster)
+		var ctx = new AudioContext()
 
-	gainMaster.gain.value = 0.5
+		var gainMaster = ctx.createGain()
+		var gainSysSE = ctx.createGain()
+
+		gainMaster.connect(ctx.destination)
+		gainSysSE.connect(gainMaster)
+
+		gainMaster.gain.value = 0.5
+
+	}
+
+	function canplay() {
+		return soundAvailability && soundEnabled
+	}
 
 
 	function useSound(url) {
@@ -44,6 +55,7 @@ READY('Storage', 'Player', 'View').then(Util.co(function* () {
 	}
 
 	function playSound(url, node) {
+		if (!canplay()) return Promise.resolve()
 		var src = sourceMap.get(url)
 		if (!src) {
 			LOG(`サウンドURL『${url}』は未準備のため再生が延期されました`)
@@ -95,7 +107,7 @@ READY('Storage', 'Player', 'View').then(Util.co(function* () {
 			*/
 		},
 
-		soundEnabled,
+		soundEnabled, soundAvailability,
 	})
 
 }).check()
