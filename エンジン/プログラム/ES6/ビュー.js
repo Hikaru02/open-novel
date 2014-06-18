@@ -567,13 +567,16 @@ READY('Storage', 'Player', 'DOM').then( _ => {
 					bt.append(new DOM('text', opt.name))
 					bt.onfocus = bt.onmouseover = _ => {
 						Sound.playSysSE('フォーカス')
+						bt.setStyles({ background: sys ? 'rgba(100,200,150,0.8)' : 'rgba(100,100,200,0.8)' })
 						var elm = bts[focusindex]
 						if (elm) elm.blur()
 						focusindex = index
-						bt.setStyles({ background: sys ? 'rgba(100,200,150,0.8)' : 'rgba(100,100,200,0.8)' })
 					}
 					bt.onblur = bt.onmouseout = _ => {
 						bt.setStyles({ background: sys ? 'rgba(0,100,50,0.8)' : 'rgba(0,0,100,0.8)' })
+						var elm = bts[focusindex]
+						if (elm) elm.blur()
+						//focusindex = -10000
 					}
 					bt.onclick = _ => {
 						removed = true
