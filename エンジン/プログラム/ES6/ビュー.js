@@ -320,9 +320,9 @@ READY('Storage', 'Player', 'DOM').then( _ => {
 
 			setLoadingMessage: function (message) {
 				var loadingWindow = new DOM('div', {
-					fontSize		: '2em',
-					color			: 'rgba(255,255,255,0.5)',
-					textShadow		: 'rgba(0,0,0,0.5) 0.01em 0.01em 0.01em',
+					fontSize		: '1em',
+					color			: 'rgba(255,255,255,0.25)',
+					textShadow		: 'rgba(0,0,0,0.5) 0.1em 0.1em 0.1em',
 				//	textAlign		: 'center',
 					position		: 'absolute',
 					right			: '0%',
