@@ -93,8 +93,9 @@ READY('Player', 'View', 'Sound').then( _ => {
 
 
 	var load = Util.co(function* (script) {
-		//message('キャッシュ中…')
-		Player.cacheScript(script)
+
+		message('キャッシュ中…')
+		yield Player.cacheScript(script)
 
 	/*
 		yield message('再生準備が完了しました。\nクリック、タップ、エンターキー、スペースキーで進みます。').on('go').then( _ => {
@@ -180,7 +181,7 @@ READY('Player', 'View', 'Sound').then( _ => {
 				load(script)
 			} ).check()
 		},
-		
+
 	})
 
 }).check()

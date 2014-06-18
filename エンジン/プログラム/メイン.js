@@ -2385,32 +2385,39 @@ System.register("ES6/ゲーム", [], function() {
         while (true)
           switch ($ctx.state) {
             case 0:
-              Player.cacheScript(script);
-              $ctx.state = 12;
+              message('キャッシュ中…');
+              $ctx.state = 16;
               break;
-            case 12:
+            case 16:
               $ctx.state = 2;
-              return message('').then((function(_) {
-                View.clean();
-                return Player.runScript(script);
-              }));
+              return Player.cacheScript(script);
             case 2:
               $ctx.maybeThrow();
               $ctx.state = 4;
               break;
             case 4:
-              View.clean();
-              Player.setRunPhase('準備');
-              $ctx.state = 14;
-              break;
-            case 14:
               $ctx.state = 6;
-              return message('再生が終了しました。\n作品選択メニューに戻ります。').delay(1000);
+              return message('').then((function(_) {
+                View.clean();
+                return Player.runScript(script);
+              }));
             case 6:
               $ctx.maybeThrow();
               $ctx.state = 8;
               break;
             case 8:
+              View.clean();
+              Player.setRunPhase('準備');
+              $ctx.state = 18;
+              break;
+            case 18:
+              $ctx.state = 10;
+              return message('再生が終了しました。\n作品選択メニューに戻ります。').delay(1000);
+            case 10:
+              $ctx.maybeThrow();
+              $ctx.state = 12;
+              break;
+            case 12:
               $ctx.returnValue = setup().catch(restart);
               $ctx.state = -2;
               break;
