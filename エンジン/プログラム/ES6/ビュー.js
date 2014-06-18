@@ -301,7 +301,7 @@ READY('Storage', 'Player', 'DOM').then( _ => {
 						opacity = delta / delay_time
 						if (opacity >= 1) {
 							opacity = 1
-							if (typeof navigator.vibrate == 'function') navigator.vibrate([100,100,100])
+							vibrate([100,100,100])
 							complete()
 						}
 						noticeWindow.style.opacity = opacity
@@ -573,6 +573,7 @@ READY('Storage', 'Player', 'DOM').then( _ => {
 					bt.onclick = _ => {
 						removed = true
 						Sound.playSysSE('選択')
+						vibrate([50])
 						defer.resolve(opt.value)
 						if (!sys) delete this.windows.choice
 						else delete this.windows.choiceBack
@@ -775,6 +776,10 @@ READY('Storage', 'Player', 'DOM').then( _ => {
 		]
 	})()
 
+
+	function vibrate(...args) {
+		if (typeof navigator.vibrate == 'function') navigator.vibrate(...args)
+	}
 
 	var $full = false
 	var $ratio = 16 / 9

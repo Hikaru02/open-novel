@@ -1688,8 +1688,7 @@ System.register("ES6/ビュー", [], function() {
               opacity = delta / delay_time;
               if (opacity >= 1) {
                 opacity = 1;
-                if (typeof navigator.vibrate == 'function')
-                  navigator.vibrate([100, 100, 100]);
+                vibrate([100, 100, 100]);
                 complete();
               }
               noticeWindow.style.opacity = opacity;
@@ -1767,9 +1766,9 @@ System.register("ES6/ビュー", [], function() {
         },
         messageWindowProto: {
           nextPage: function(name) {
-            var $__23;
-            var $__22 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
-                sys = ($__23 = $__22.sys) === void 0 ? false : $__23;
+            var $__24;
+            var $__23 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
+                sys = ($__24 = $__23.sys) === void 0 ? false : $__24;
             View.windows.message.setStyles({
               background: sys ? 'rgba(0,100,50,0.5)' : 'rgba(0,0,100,0.5)',
               boxShadow: (sys ? 'rgba(0,100,50,0.5)' : 'rgba(0,0,100,0.5)') + ' 0 0 0.5em 0.5em'
@@ -1786,16 +1785,16 @@ System.register("ES6/ビュー", [], function() {
                 nl = 0;
             var el = this.el_body;
             var weight = opt.weight;
-            var $__22 = [false, false],
-                aborted = $__22[0],
-                cancelled = $__22[1];
-            var $__22 = [(function(_) {
+            var $__23 = [false, false],
+                aborted = $__23[0],
+                cancelled = $__23[1];
+            var $__23 = [(function(_) {
               return aborted = true;
             }), (function(_) {
               return cancelled = true;
             })],
-                abort = $__22[0],
-                cancel = $__22[1];
+                abort = $__23[0],
+                cancel = $__23[1];
             View.on('go').then(cancel);
             var p = setAnimate((function(delay, complete, pause) {
               if (aborted)
@@ -1898,9 +1897,9 @@ System.register("ES6/ビュー", [], function() {
           return fr;
         },
         setChoiceWindow: function(opts) {
-          var $__23;
-          var $__22 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
-              sys = ($__23 = $__22.sys) === void 0 ? false : $__23;
+          var $__24;
+          var $__23 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
+              sys = ($__24 = $__23.sys) === void 0 ? false : $__24;
           var defer = Promise.defer();
           var removed = false;
           var focusbt;
@@ -1956,6 +1955,7 @@ System.register("ES6/ビュー", [], function() {
             bt.onclick = (function(_) {
               removed = true;
               Sound.playSysSE('選択');
+              vibrate([50]);
               defer.resolve(opt.value);
               if (!sys)
                 delete $__21.windows.choice;
@@ -2089,7 +2089,7 @@ System.register("ES6/ビュー", [], function() {
         }
       }
     };
-    var $__22 = $traceurRuntime.assertObject(((function(_) {
+    var $__23 = $traceurRuntime.assertObject(((function(_) {
       var keyboardTable = {
         8: 'backspace',
         13: 'enter',
@@ -2162,11 +2162,19 @@ System.register("ES6/ビュー", [], function() {
         onEvent(type);
       }];
     }))()),
-        hookInput = $__22[0],
-        hookClear = $__22[1],
-        blockEvent = $__22[2],
-        allowEvent = $__22[3],
-        fireEvent = $__22[4];
+        hookInput = $__23[0],
+        hookClear = $__23[1],
+        blockEvent = $__23[2],
+        allowEvent = $__23[3],
+        fireEvent = $__23[4];
+    function vibrate() {
+      var $__25;
+      for (var args = [],
+          $__22 = 0; $__22 < arguments.length; $__22++)
+        args[$__22] = arguments[$__22];
+      if (typeof navigator.vibrate == 'function')
+        ($__25 = navigator).vibrate.apply($__25, $traceurRuntime.toObject(args));
+    }
     var $full = false;
     var $ratio = 16 / 9;
     var $mode = '';
@@ -2184,7 +2192,7 @@ System.get("ES6/ビュー" + '');
 System.register("ES6/サウンド", [], function() {
   "use strict";
   var __moduleName = "ES6/サウンド";
-  READY('Storage', 'Player', 'View').then(Util.co($traceurRuntime.initGeneratorFunction(function $__26() {
+  READY('Storage', 'Player', 'View').then(Util.co($traceurRuntime.initGeneratorFunction(function $__28() {
     var soundEnabled,
         sysSEMap,
         R;
@@ -2230,7 +2238,7 @@ System.register("ES6/サウンド", [], function() {
                 return defer.promise;
               },
               fadeoutSysSE: function(name) {
-                var $__25;
+                var $__27;
                 var opt = arguments[1] !== (void 0) ? arguments[1] : {};
                 var defer = Promise.defer();
                 var a = sysSEMap.get(name);
@@ -2241,8 +2249,8 @@ System.register("ES6/サウンド", [], function() {
                   return R;
                 } else {
                   var volume = a.volume;
-                  var $__24 = $traceurRuntime.assertObject(opt),
-                      duration = ($__25 = $__24.duration) === void 0 ? 500 : $__25;
+                  var $__26 = $traceurRuntime.assertObject(opt),
+                      duration = ($__27 = $__26.duration) === void 0 ? 500 : $__27;
                   View.setAnimate((function(delay, complete, pause) {
                     var newvolume = volume * (1 - delay / duration);
                     if (newvolume <= 0) {
@@ -2261,7 +2269,7 @@ System.register("ES6/サウンド", [], function() {
           default:
             return $ctx.end();
         }
-    }, $__26, this);
+    }, $__28, this);
   }))).check();
   return {};
 });
@@ -2283,7 +2291,7 @@ System.register("ES6/ゲーム", [], function() {
         return p;
       });
     }))();
-    var setup = Util.co($traceurRuntime.initGeneratorFunction(function $__28() {
+    var setup = Util.co($traceurRuntime.initGeneratorFunction(function $__30() {
       var setting,
           scenario,
           script;
@@ -2382,9 +2390,9 @@ System.register("ES6/ゲーム", [], function() {
             default:
               return $ctx.end();
           }
-      }, $__28, this);
+      }, $__30, this);
     }));
-    var load = Util.co($traceurRuntime.initGeneratorFunction(function $__29(script) {
+    var load = Util.co($traceurRuntime.initGeneratorFunction(function $__31(script) {
       return $traceurRuntime.createGeneratorInstance(function($ctx) {
         while (true)
           switch ($ctx.state) {
@@ -2428,9 +2436,9 @@ System.register("ES6/ゲーム", [], function() {
             default:
               return $ctx.end();
           }
-      }, $__29, this);
+      }, $__31, this);
     }));
-    var restart = Util.co($traceurRuntime.initGeneratorFunction(function $__30(err) {
+    var restart = Util.co($traceurRuntime.initGeneratorFunction(function $__32(err) {
       return $traceurRuntime.createGeneratorInstance(function($ctx) {
         while (true)
           switch ($ctx.state) {
@@ -2456,9 +2464,9 @@ System.register("ES6/ゲーム", [], function() {
             default:
               return $ctx.end();
           }
-      }, $__30, this);
+      }, $__32, this);
     }));
-    var start = Util.co($traceurRuntime.initGeneratorFunction(function $__31() {
+    var start = Util.co($traceurRuntime.initGeneratorFunction(function $__33() {
       var setting;
       return $traceurRuntime.createGeneratorInstance(function($ctx) {
         while (true)
@@ -2498,7 +2506,7 @@ System.register("ES6/ゲーム", [], function() {
             default:
               return $ctx.end();
           }
-      }, $__31, this);
+      }, $__33, this);
     }));
     function setSysBG() {
       var view = arguments[0] !== (void 0) ? arguments[0] : true;
