@@ -67,7 +67,7 @@ READY('Storage', 'Player', 'View').then(Util.co(function* () {
 		}
 		src.connect(node)
 		src.start()
-		sourceMap.delete(src)
+		sourceMap.delete(url)
 		prepareSound(url)
 		var defer = Promise.defer()
 		src.onended = defer.resolve
