@@ -88,6 +88,14 @@ READY('Player', 'View', 'Sound').then( _ => {
 
 		})
 
+		return load(script)
+	})
+
+
+	var load = Util.co(function* (script) {
+		//message('キャッシュ中…')
+		Player.cacheScript(script)
+
 	/*
 		yield message('再生準備が完了しました。\nクリック、タップ、エンターキー、スペースキーで進みます。').on('go').then( _ => {
 			//Player.setRunPhase('再生')
@@ -161,9 +169,18 @@ READY('Player', 'View', 'Sound').then( _ => {
 	start()
 
 	READY.Game.ready({
+
 		reset() {
 			setup()
 		},
+
+		loadSaveData() {
+			Player.loadSaveData().then( script => {
+				Player.init()
+				load(script)
+			} ).check()
+		},
+		
 	})
 
 }).check()

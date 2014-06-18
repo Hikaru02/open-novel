@@ -463,6 +463,7 @@ System.register("ES6/プレーヤー", [], function() {
         }));
       }
       var base = [];
+      cacheEmogi(text);
       parseOne(base, text);
       return base;
     }
@@ -474,9 +475,125 @@ System.register("ES6/プレーヤー", [], function() {
         return this[name].apply(this, arguments);
       };
     }
-    function runScript(script, scenario, parentComp, masterComp) {
-      var $__4;
+    function cacheEmogi(text) {
+      ;
+      (text.match(/\\\[.+\]/g) || []).forEach((function(eff) {
+        var name = eff.slice(2, -1);
+        toBlobEmogiURL(name);
+      }));
+    }
+    function cacheScript(script) {
+      var sname = arguments[1] !== (void 0) ? arguments[1] : script.sname;
+      if (!Array.isArray(script)) {
+        LOG('不正なスクリプトのためキャッシュできない');
+        LOG(script);
+        return Promise.reject('不正なスクリプトのためキャッシュできない');
+      }
+      var hashmark = $traceurRuntime.assertObject(script).hashmark;
+      if (!sname)
+        LOG('!!!sname');
+      script = copyObject(script);
+      var cacheHandlers = {
+        会話: otherName('何もしない'),
+        背景: function(data) {
+          var name = data[0];
+          append(['背景', name, 'jpg']);
+        },
+        立絵: otherName('立ち絵'),
+        立ち絵: function(data) {
+          data.forEach((function(ary) {
+            if (Util.isNoneType(ary))
+              return;
+            var $__3 = $traceurRuntime.assertObject(ary),
+                position = $__3[0],
+                names = $__3[1];
+            if (!position)
+              return;
+            if (!names)
+              return;
+            var name = names[0];
+            append(['立ち絵', name, 'png']);
+          }));
+        },
+        分岐系: function(data) {
+          data.forEach((function(ary) {
+            var value = ary[1];
+            if (typeof value[0] == 'string')
+              cacheHandlers['ジャンプ'](value);
+            else
+              cacheScript(value, sname);
+          }));
+        },
+        選択: otherName('選択肢'),
+        選択肢: otherName('分岐系'),
+        ジャンプ: function(data) {
+          var $__4;
+          var to = data[0];
+          if (!to)
+            return;
+          var name = to,
+              base = sname;
+          var $__3 = $traceurRuntime.assertObject(name.replace(/＃/g, '#').split('#')),
+              name = $__3[0],
+              mark = ($__4 = $__3[1]) === void 0 ? '' : $__4;
+          if (!name)
+            name = base.replace(/＃/g, '#').split('#')[0];
+          var subkey = (Player.data.scenarioName + "/" + Util.forceName('シナリオ', name, 'txt'));
+          if (!cacheHas(subkey))
+            fetchScriptData(to, base).then((function(script) {
+              return cacheScript(script);
+            })).check();
+        },
+        変数: otherName('パラメータ'),
+        パラメーター: otherName('パラメータ'),
+        パラメータ: otherName('何もしない'),
+        入力: otherName('何もしない'),
+        繰返: otherName('繰り返し'),
+        繰返し: otherName('繰り返し'),
+        繰り返し: otherName('分岐系'),
+        分岐: otherName('分岐系'),
+        マーク: otherName('何もしない'),
+        スクリプト: otherName('何もしない'),
+        コメント: otherName('何もしない'),
+        何もしない: function() {}
+      };
+      var defer = Promise.defer();
+      var caching = 0;
+      function append(args) {
+        var toURL = arguments[1] !== (void 0) ? arguments[1] : toBlobURL;
+        ++caching;
+        toURL.apply(null, $traceurRuntime.toObject(args)).through((function(_) {
+          if (--caching <= 0)
+            defer.resolve();
+        })).check();
+      }
+      script.forEach((function(prog) {
+        try {
+          if (!prog)
+            return;
+          var act = prog[0].trim();
+          var data = prog[1];
+          if (act in cacheHandlers) {
+            cacheHandlers[act](data);
+          } else {
+            LOG('キャッシュ中にサポートされていないコマンド『' + act + '』に遭遇');
+          }
+        } catch (err) {
+          LOG(("キャッシュ中にコマンド『" + act + "』で『" + err + "』が起きた"));
+        }
+      }));
+      if (caching == 0)
+        defer.resolve();
+      return defer.promise;
+    }
+    function runScript(script) {
+      var sname = arguments[1] !== (void 0) ? arguments[1] : script.sname;
+      var parentComp = arguments[2];
+      var masterComp = arguments[3];
       var $__2;
+      if (!sname)
+        LOG('!!!sname');
+      sname = sname.split('#')[0];
       View.changeModeIfNeeded('NOVEL');
       Player.data.phase = 'play';
       document.title = ("【" + Player.data.scenarioName + "】");
@@ -485,17 +602,23 @@ System.register("ES6/プレーヤー", [], function() {
         parentComp = run.resolve;
       if (!masterComp)
         masterComp = run.resolve;
-      var hashmark = script.mark;
+      var $__3 = $traceurRuntime.assertObject(script),
+          hashmark = $__3.mark,
+          params = $__3.params,
+          scenario = $__3.scenario;
       var searching = !!hashmark;
+      if (params)
+        Object.keys(params).forEach((function(name) {
+          return Player.paramSet(name, params[name]);
+        }));
+      if (scenario)
+        Player.setScenario(scenario);
       script = copyObject(script);
-      if (scenario) {
-        var $__3 = $traceurRuntime.assertObject(scenario.replace(/＃/g, '#').split('#')),
-            name = $__3[0],
-            mark = ($__4 = $__3[1]) === void 0 ? '' : $__4;
-        if (!name)
-          name = Player.data.currentScriptName.replace(/＃/g, '#').split('#')[0];
-        scenario = mark ? name + '#' + mark : name;
-        Player.data.currentScriptName = scenario;
+      function runSubScript(script) {
+        return runScript(script, sname, parentComp, masterComp);
+      }
+      function runChildScript(script) {
+        return runScript(script, undefined, undefined, masterComp);
       }
       var actHandlers = ($__2 = {}, Object.defineProperty($__2, "会話", {
         value: function(data, done, failed) {
@@ -509,7 +632,6 @@ System.register("ES6/プレーヤー", [], function() {
               name = '';
             name = replaceEffect(name);
             View.nextPage(name);
-            Player.data.currentSpeakerName = name;
             function nextSentence() {
               var text = texts.shift();
               if (!text)
@@ -518,7 +640,6 @@ System.register("ES6/プレーヤー", [], function() {
                 return '\u200B'.repeat(num);
               })).replace(/\\n/g, '\n');
               text = replaceEffect(text);
-              Player.data.currentSentence = text;
               View.addSentence(text).on('go', nextSentence, failed);
             }
             nextSentence();
@@ -627,7 +748,7 @@ System.register("ES6/プレーヤー", [], function() {
             if (typeof value[0] == 'string')
               actHandlers['ジャンプ'](value, done, failed);
             else
-              runScript(value, null, parentComp, masterComp).then(done, failed);
+              runSubScript(value).then(done, failed);
           }));
         },
         configurable: true,
@@ -636,8 +757,8 @@ System.register("ES6/プレーヤー", [], function() {
       }), Object.defineProperty($__2, "ジャンプ", {
         value: function(data, done, failed) {
           var to = replaceEffect(data[0]);
-          fetchScriptData(to).then((function(script) {
-            return runScript(script, to, null, masterComp);
+          fetchScriptData(to, sname).then((function(script) {
+            return runChildScript(script);
           })).then(done, failed);
         },
         configurable: true,
@@ -674,7 +795,6 @@ System.register("ES6/プレーヤー", [], function() {
         writable: true
       }), Object.defineProperty($__2, "入力", {
         value: function(data, done, failed) {
-          LOG(data);
           str = Util.toHalfWidth(data[0]);
           if (!str)
             return failed('不正なパラメータ指定検出');
@@ -682,7 +802,6 @@ System.register("ES6/プレーヤー", [], function() {
           var name = replaceEffect(str[1]);
           var effect = str[2];
           var eff = evalEffect(effect, failed);
-          LOG(name, effect, eff);
           var rv = prompt('', eff) || eff;
           paramSet(name, rv);
           done();
@@ -714,7 +833,7 @@ System.register("ES6/プレーヤー", [], function() {
                 return failed('不正なパラメータ指定検出');
               var flag = !!evalEffect(effect, ng);
               if (flag)
-                runScript(acts, null, parentComp, masterComp).then(ok, ng);
+                runSubScript(acts).then(ok, ng);
               return flag;
             })))
               done();
@@ -734,7 +853,7 @@ System.register("ES6/プレーヤー", [], function() {
               return failed('不正なパラメータ指定検出');
             var flag = !!evalEffect(effect, failed);
             if (flag)
-              runScript(acts, null, parentComp, masterComp).then(done, failed);
+              runSubScript(acts).then(done, failed);
             return flag;
           })))
             done();
@@ -751,14 +870,13 @@ System.register("ES6/プレーヤー", [], function() {
             return params[key] = value;
           }));
           var cp = {
-            script: Player.data.currentScriptName,
-            speakerName: Player.currentSpeakerName,
-            sentence: Player.currentSentence,
+            script: sname,
             mark: data[0],
             params: params
           };
           Player.data.currentPoint = cp;
           done();
+          updateDebugWindow();
         },
         configurable: true,
         enumerable: true,
@@ -800,7 +918,6 @@ System.register("ES6/プレーヤー", [], function() {
         writable: true
       }), $__2);
       function main_loop() {
-        updateDebugWindow();
         var act,
             loop = new Promise((function(resolve, reject) {
               var prog = script.shift();
@@ -869,11 +986,11 @@ System.register("ES6/プレーヤー", [], function() {
       paramForEach((function(value, key) {
         return params[key] = value;
       }));
-      var cacheSizeMB = ((cacheBlobMap.get('$size') || 0) / 1024 / 1024).toFixed(1);
+      var cacheSizeMB = ((cacheGet('$size') || 0) / 1024 / 1024).toFixed(1);
       var mark = Player.data.currentPoint && Player.data.currentPoint.mark || '（無し）';
       var obj = {
         キャッシュサイズ: cacheSizeMB + 'MB',
-        直近のマーク: mark,
+        現在のマーク: mark,
         パラメータ: params
       };
       View.updateDebugWindow(obj);
@@ -891,8 +1008,10 @@ System.register("ES6/プレーヤー", [], function() {
       var subkey = sys ? ("" + sub) : (Player.data.scenarioName + "/" + sub);
       if (Util.isNoneType(name))
         return Promise.resolve(null);
-      if (cacheBlobMap.has(subkey))
-        return Promise.resolve(cacheBlobMap.get(subkey));
+      if (cacheHas(subkey))
+        return Promise.resolve(cacheGet(subkey));
+      var defer = Promise.defer();
+      cacheSet(subkey, defer.promise);
       var hide = View.setLoadingMessage('Loading...');
       return new Promise((function(ok, ng) {
         find((root + "/" + subkey)).catch((function(_) {
@@ -902,8 +1021,8 @@ System.register("ES6/プレーヤー", [], function() {
         }), ng);
       })).then(loadBlob).then((function(blob) {
         var blobURL = URL.createObjectURL(blob);
-        cacheBlobMap.set(subkey, blobURL);
-        cacheBlobMap.set('$size', (cacheBlobMap.get('$size') || 0) + blob.size);
+        defer.resolve(blobURL);
+        cacheSizeUpdate(blob.size);
         hide();
         return blobURL;
       })).through(hide);
@@ -918,22 +1037,23 @@ System.register("ES6/プレーヤー", [], function() {
         return data;
       }));
     }
-    function fetchScriptData(name, scenarioBind) {
+    function fetchScriptData(name, base) {
       var $__4;
       if (!name)
-        return Promise.reject('スクリプト名が不正');
+        return Promise.reject('子スクリプト名が不正');
+      if (!base)
+        return Promise.reject('親スクリプト名が不正');
       var $__3 = $traceurRuntime.assertObject(name.replace(/＃/g, '#').split('#')),
           name = $__3[0],
           mark = ($__4 = $__3[1]) === void 0 ? '' : $__4;
       if (!name)
-        name = Player.data.currentScriptName.replace(/＃/g, '#').split('#')[0];
-      if (scenarioBind)
-        Player.data.currentScriptName = name;
+        name = base.replace(/＃/g, '#').split('#')[0];
       return toBlobScriptURL(name).then(loadText).then((function(text) {
         return parseScript(text);
       })).then((function(script) {
         script.unshift(['マーク', ['']]);
         script.mark = mark;
+        script.sname = name;
         return script;
       }));
     }
@@ -999,7 +1119,12 @@ System.register("ES6/プレーヤー", [], function() {
             script,
             $__7,
             $__8,
-            $__9;
+            $__9,
+            $__10,
+            $__11,
+            $__12,
+            $__13,
+            $__14;
         return $traceurRuntime.createGeneratorInstance(function($ctx) {
           while (true)
             switch ($ctx.state) {
@@ -1031,25 +1156,29 @@ System.register("ES6/プレーヤー", [], function() {
                 break;
               case 8:
                 $__3 = $traceurRuntime.assertObject(save), mark = $__3.mark, params = $__3.params, script = $__3.script;
-                Object.keys(params).forEach((function(name) {
-                  return Player.paramSet(name, params[name]);
-                }));
                 $ctx.state = 20;
                 break;
               case 20:
                 $__7 = Player.fetchScriptData;
-                $__8 = $__7.call(Player, (script + "#" + mark), true);
+                $__8 = $__7.call(Player, (script + "#" + mark), ("" + script));
+                $__9 = $__8.then;
+                $__12 = function(script) {
+                  script.params = params, params;
+                  $__10 = Player.data, $__11 = $__10.scenarioName, script.scenario = $__11, $__11;
+                  return script;
+                };
+                $__13 = $__9.call($__8, $__12);
                 $ctx.state = 14;
                 break;
               case 14:
                 $ctx.state = 10;
-                return $__8;
+                return $__13;
               case 10:
-                $__9 = $ctx.sent;
+                $__14 = $ctx.sent;
                 $ctx.state = 12;
                 break;
               case 12:
-                $ctx.returnValue = $__9;
+                $ctx.returnValue = $__14;
                 $ctx.state = -2;
                 break;
               default:
@@ -1065,12 +1194,12 @@ System.register("ES6/プレーヤー", [], function() {
             no,
             params,
             save,
-            $__10,
-            $__11,
-            $__12,
-            $__13,
-            $__14,
-            $__15;
+            $__15,
+            $__16,
+            $__17,
+            $__18,
+            $__19,
+            $__20;
         return $traceurRuntime.createGeneratorInstance(function($ctx) {
           while (true)
             switch ($ctx.state) {
@@ -1093,19 +1222,19 @@ System.register("ES6/プレーヤー", [], function() {
                 $ctx.state = 22;
                 break;
               case 22:
-                $__10 = View.setChoiceWindow;
-                $__11 = $__10.call(View, opts, {sys: true});
+                $__15 = View.setChoiceWindow;
+                $__16 = $__15.call(View, opts, {sys: true});
                 $ctx.state = 10;
                 break;
               case 10:
                 $ctx.state = 6;
-                return $__11;
+                return $__16;
               case 6:
-                $__12 = $ctx.sent;
+                $__17 = $ctx.sent;
                 $ctx.state = 8;
                 break;
               case 8:
-                no = $__12 + 0;
+                no = $__17 + 0;
                 $ctx.state = 12;
                 break;
               case 12:
@@ -1117,19 +1246,19 @@ System.register("ES6/プレーヤー", [], function() {
                 $ctx.state = 24;
                 break;
               case 24:
-                $__13 = Storage.setSaveData;
-                $__14 = $__13.call(Storage, no, save);
+                $__18 = Storage.setSaveData;
+                $__19 = $__18.call(Storage, no, save);
                 $ctx.state = 18;
                 break;
               case 18:
                 $ctx.state = 14;
-                return $__14;
+                return $__19;
               case 14:
-                $__15 = $ctx.sent;
+                $__20 = $ctx.sent;
                 $ctx.state = 16;
                 break;
               case 16:
-                $ctx.returnValue = $__15;
+                $ctx.returnValue = $__20;
                 $ctx.state = -2;
                 break;
               default:
@@ -1146,40 +1275,73 @@ System.register("ES6/プレーヤー", [], function() {
       View.clean();
     }
     function setScenario(scenario) {
-      var _scenario = Player.data.scenarioName;
-      Player.data.scenarioName = scenario ? scenario : _scenario;
-    }
-    var cacheBlobMap = new Map;
-    function cacheClear() {
-      cacheBlobMap.forEach((function(subURL, blobURL) {
-        URL.revokeObjectURL(blobURL);
-      }));
-      cacheBlobMap.clear();
-      cacheBlobMap.set('$size', 0);
-      updateDebugWindow();
+      Player.data.scenarioName = scenario;
     }
     var $__3 = $traceurRuntime.assertObject(((function(_) {
-      var paramMap = new Map;
-      return [(function(key, val) {
-        paramMap.set(key, val);
-        updateDebugWindow();
-      }), (function(key) {
-        if (!paramMap.has(key)) {
-          paramMap.set(key, 0);
+      var cacheMap = new Map;
+      cacheInit();
+      function cacheInit() {
+        cacheMap.clear();
+        cacheMap.set('$size', 0);
+      }
+      return {
+        cacheClear: function() {
+          cacheMap.forEach((function(_, p) {
+            if (p.then)
+              p.then((function(url) {
+                return URL.revokeObjectURL(url);
+              }));
+          }));
+          cacheInit();
+          updateDebugWindow();
+        },
+        cacheHas: function(key) {
+          return cacheMap.has(key);
+        },
+        cacheGet: function(key) {
+          return cacheMap.get(key);
+        },
+        cacheSet: function(key, val) {
+          cacheMap.set(key, val);
+        },
+        cacheSizeUpdate: function(n) {
+          cacheMap.set('$size', cacheMap.get('$size') + n);
           updateDebugWindow();
         }
-        return paramMap.get(key);
-      }), (function(_) {
-        paramMap.clear();
-        updateDebugWindow();
-      }), (function(func) {
-        paramMap.forEach(func);
-      })];
+      };
     }))()),
-        paramSet = $__3[0],
-        paramGet = $__3[1],
-        paramClear = $__3[2],
-        paramForEach = $__3[3];
+        cacheClear = $__3.cacheClear,
+        cacheHas = $__3.cacheHas,
+        cacheGet = $__3.cacheGet,
+        cacheSet = $__3.cacheSet,
+        cacheSizeUpdate = $__3.cacheSizeUpdate;
+    var $__3 = $traceurRuntime.assertObject(((function(_) {
+      var paramMap = new Map;
+      return {
+        paramSet: function(key, val) {
+          paramMap.set(key, val);
+          updateDebugWindow();
+        },
+        paramGet: function(key) {
+          if (!paramMap.has(key)) {
+            paramMap.set(key, 0);
+            updateDebugWindow();
+          }
+          return paramMap.get(key);
+        },
+        paramClear: function() {
+          paramMap.clear();
+          updateDebugWindow();
+        },
+        paramForEach: function(func) {
+          paramMap.forEach(func);
+        }
+      };
+    }))()),
+        paramSet = $__3.paramSet,
+        paramGet = $__3.paramGet,
+        paramClear = $__3.paramClear,
+        paramForEach = $__3.paramForEach;
     READY.Player.ready({
       setRunPhase: setRunPhase,
       setErrorPhase: setErrorPhase,
@@ -1201,7 +1363,8 @@ System.register("ES6/プレーヤー", [], function() {
       paramGet: paramGet,
       evalEffect: evalEffect,
       init: init,
-      setScenario: setScenario
+      setScenario: setScenario,
+      cacheScript: cacheScript
     });
   })).check();
   return {};
@@ -1223,11 +1386,11 @@ System.register("ES6/ビュー", [], function() {
         return this;
       },
       setStyles: function(styles) {
-        var $__16 = this;
+        var $__21 = this;
         styles = styles || {};
         Object.keys(styles).forEach((function(key) {
           if (styles[key] != null)
-            $__16.style[key] = styles[key];
+            $__21.style[key] = styles[key];
         }), this);
         return this;
       }
@@ -1564,7 +1727,7 @@ System.register("ES6/ビュー", [], function() {
       NOVEL: {
         __proto__: METHODS.COMMON,
         initDisplay: function(opt) {
-          var $__16 = this;
+          var $__21 = this;
           Util.setDefaults(opt, {
             color: 'rgba(255,255,255,0.9)',
             textShadow: 'rgba(0,0,0,0.9) 0.1em 0.1em 0.1em',
@@ -1574,14 +1737,14 @@ System.register("ES6/ビュー", [], function() {
           this.mainMessageWindow = this.addMessageWindow({z: 10});
           this.imageFrame = this.addImageFrame({z: 20});
           View.on('menu').then((function(_) {
-            return $__16.showMenu();
+            return $__21.showMenu();
           })).check();
         },
         messageWindowProto: {
           nextPage: function(name) {
-            var $__18;
-            var $__17 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
-                sys = ($__18 = $__17.sys) === void 0 ? false : $__18;
+            var $__23;
+            var $__22 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
+                sys = ($__23 = $__22.sys) === void 0 ? false : $__23;
             View.windows.message.setStyles({
               background: sys ? 'rgba(0,100,50,0.5)' : 'rgba(0,0,100,0.5)',
               boxShadow: (sys ? 'rgba(0,100,50,0.5)' : 'rgba(0,0,100,0.5)') + ' 0 0 0.5em 0.5em'
@@ -1598,16 +1761,16 @@ System.register("ES6/ビュー", [], function() {
                 nl = 0;
             var el = this.el_body;
             var weight = opt.weight;
-            var $__17 = [false, false],
-                aborted = $__17[0],
-                cancelled = $__17[1];
-            var $__17 = [(function(_) {
+            var $__22 = [false, false],
+                aborted = $__22[0],
+                cancelled = $__22[1];
+            var $__22 = [(function(_) {
               return aborted = true;
             }), (function(_) {
               return cancelled = true;
             })],
-                abort = $__17[0],
-                cancel = $__17[1];
+                abort = $__22[0],
+                cancel = $__22[1];
             View.on('go').then(cancel);
             var p = setAnimate((function(delay, complete, pause) {
               if (aborted)
@@ -1710,9 +1873,9 @@ System.register("ES6/ビュー", [], function() {
           return fr;
         },
         setChoiceWindow: function(opts) {
-          var $__18;
-          var $__17 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
-              sys = ($__18 = $__17.sys) === void 0 ? false : $__18;
+          var $__23;
+          var $__22 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
+              sys = ($__23 = $__22.sys) === void 0 ? false : $__23;
           var defer = Promise.defer();
           var removed = false;
           var focusbt;
@@ -1740,7 +1903,7 @@ System.register("ES6/ビュー", [], function() {
             this.windows.choiceBack = cw;
           }
           opts.forEach(function(opt) {
-            var $__16 = this;
+            var $__21 = this;
             if (!('value' in opt))
               opt.value = opt.name;
             var bt = new DOM('button', {
@@ -1770,9 +1933,9 @@ System.register("ES6/ビュー", [], function() {
               Sound.playSysSE('選択');
               defer.resolve(opt.value);
               if (!sys)
-                delete $__16.windows.choice;
+                delete $__21.windows.choice;
               else
-                delete $__16.windows.choiceBack;
+                delete $__21.windows.choiceBack;
               cw.remove();
             });
             cw.append(bt);
@@ -1805,14 +1968,14 @@ System.register("ES6/ビュー", [], function() {
             else if (si > last)
               si = fi == last ? 0 : last;
             bts[si].focus();
-            Promise.delay(200).then(rehook);
+            Promise.delay(100).then(rehook);
           }
           function focusenter(rehook) {
             if (removed)
               return;
             if (focusindex >= 0)
               return bts[focusindex].click();
-            Promise.delay(200).then(rehook);
+            Promise.delay(100).then(rehook);
           }
           el_context.append(cw);
           return defer.promise;
@@ -1853,7 +2016,7 @@ System.register("ES6/ビュー", [], function() {
           return this.mainMessageWindow.addSentence(text, opt);
         },
         showMenu: function() {
-          var $__16 = this;
+          var $__21 = this;
           if (Player.data.phase != 'play' || View.menuIndex > 0)
             return View.on('Rclick').then((function(_) {
               return View.showMenu();
@@ -1861,8 +2024,8 @@ System.register("ES6/ビュー", [], function() {
           View.menuIndex = (View.menuIndex || 0) + 1;
           blockEvent();
           View.on('menu').then((function(_) {
-            if ($__16.windows.choiceBack)
-              $__16.windows.choiceBack.remove();
+            if ($__21.windows.choiceBack)
+              $__21.windows.choiceBack.remove();
             View.hideMenu();
           })).check();
           Object.keys(View.windows).forEach((function(key) {
@@ -1879,10 +2042,7 @@ System.register("ES6/ビュー", [], function() {
                 }));
                 break;
               case 'ロード':
-                Player.loadSaveData().through((function(_) {
-                  View.hideMenu();
-                  Player.init();
-                })).then(Player.runScript);
+                Game.loadSaveData();
                 break;
               default:
                 throw 'illegal choice type';
@@ -1904,7 +2064,7 @@ System.register("ES6/ビュー", [], function() {
         }
       }
     };
-    var $__17 = $traceurRuntime.assertObject(((function(_) {
+    var $__22 = $traceurRuntime.assertObject(((function(_) {
       var keyboardTable = {
         8: 'backspace',
         13: 'enter',
@@ -1977,11 +2137,11 @@ System.register("ES6/ビュー", [], function() {
         onEvent(type);
       }];
     }))()),
-        hookInput = $__17[0],
-        hookClear = $__17[1],
-        blockEvent = $__17[2],
-        allowEvent = $__17[3],
-        fireEvent = $__17[4];
+        hookInput = $__22[0],
+        hookClear = $__22[1],
+        blockEvent = $__22[2],
+        allowEvent = $__22[3],
+        fireEvent = $__22[4];
     var $full = false;
     var $ratio = 16 / 9;
     var $mode = '';
@@ -1999,7 +2159,7 @@ System.get("ES6/ビュー" + '');
 System.register("ES6/サウンド", [], function() {
   "use strict";
   var __moduleName = "ES6/サウンド";
-  READY('Storage', 'Player', 'View').then(Util.co($traceurRuntime.initGeneratorFunction(function $__21() {
+  READY('Storage', 'Player', 'View').then(Util.co($traceurRuntime.initGeneratorFunction(function $__26() {
     var soundEnabled,
         sysSEMap,
         R;
@@ -2018,11 +2178,11 @@ System.register("ES6/サウンド", [], function() {
             R = $traceurRuntime.assertObject(Util.overrides).R;
             READY.Sound.ready({
               playSysSE: function(name, opt) {
-                if (!this.soundEnabled)
-                  return R;
                 var defer = Promise.defer();
                 var a = sysSEMap.get(name);
-                if (!a) {
+                if (!this.soundEnabled)
+                  defer.reject('OFF');
+                else if (!a) {
                   a = new Audio(("エンジン/効果音/" + name + ".ogg"));
                   a.load();
                   sysSEMap.set(name, a);
@@ -2030,6 +2190,8 @@ System.register("ES6/サウンド", [], function() {
                     a.oncanplaythrough = null;
                     Sound.playSysSE(name, opt).then(defer.resolve);
                   });
+                } else if (a.readyState !== 4) {
+                  defer.reject('OFF');
                 } else {
                   a.currentTime = 0;
                   a.volume = 0.5;
@@ -2043,27 +2205,28 @@ System.register("ES6/サウンド", [], function() {
                 return defer.promise;
               },
               fadeoutSysSE: function(name) {
-                var $__20;
+                var $__25;
                 var opt = arguments[1] !== (void 0) ? arguments[1] : {};
-                if (!this.soundEnabled)
-                  return R;
                 var defer = Promise.defer();
                 var a = sysSEMap.get(name);
-                if (!a) {
+                if (!this.soundEnabled)
+                  defer.reject('OFF');
+                else if (!a) {
                   LOG(("対象のサウンド『" + name + "』が未登録"));
                   return R;
+                } else {
+                  var volume = a.volume;
+                  var $__24 = $traceurRuntime.assertObject(opt),
+                      duration = ($__25 = $__24.duration) === void 0 ? 500 : $__25;
+                  View.setAnimate((function(delay, complete, pause) {
+                    var newvolume = volume * (1 - delay / duration);
+                    if (newvolume <= 0) {
+                      newvolume = 0;
+                      complete();
+                    }
+                    a.volume = newvolume;
+                  })).then(defer.resolve);
                 }
-                var volume = a.volume;
-                var $__19 = $traceurRuntime.assertObject(opt),
-                    duration = ($__20 = $__19.duration) === void 0 ? 500 : $__20;
-                View.setAnimate((function(delay, complete, pause) {
-                  var newvolume = volume * (1 - delay / duration);
-                  if (newvolume <= 0) {
-                    newvolume = 0;
-                    complete();
-                  }
-                  a.volume = newvolume;
-                })).then(defer.resolve);
                 return defer.promise;
               },
               soundEnabled: soundEnabled
@@ -2073,7 +2236,7 @@ System.register("ES6/サウンド", [], function() {
           default:
             return $ctx.end();
         }
-    }, $__21, this);
+    }, $__26, this);
   }))).check();
   return {};
 });
@@ -2095,7 +2258,7 @@ System.register("ES6/ゲーム", [], function() {
         return p;
       });
     }))();
-    var setup = Util.co($traceurRuntime.initGeneratorFunction(function $__23() {
+    var setup = Util.co($traceurRuntime.initGeneratorFunction(function $__28() {
       var setting,
           scenario,
           script;
@@ -2105,9 +2268,9 @@ System.register("ES6/ゲーム", [], function() {
             case 0:
               Player.init();
               setSysBG();
-              $ctx.state = 28;
+              $ctx.state = 20;
               break;
-            case 28:
+            case 20:
               $ctx.state = 2;
               return Player.fetchSettingData(Data.URL.ContentsSetting);
             case 2:
@@ -2117,9 +2280,9 @@ System.register("ES6/ゲーム", [], function() {
             case 4:
               View.on('menu').then(setup);
               message('再生する作品を選んでください');
-              $ctx.state = 30;
+              $ctx.state = 22;
               break;
-            case 30:
+            case 22:
               $ctx.state = 6;
               return new Promise((function(ok, ng) {
                 var novels = setting['作品'];
@@ -2139,9 +2302,9 @@ System.register("ES6/ゲーム", [], function() {
               break;
             case 8:
               Player.setScenario(scenario);
-              $ctx.state = 32;
+              $ctx.state = 24;
               break;
-            case 32:
+            case 24:
               $ctx.state = 10;
               return Player.fetchSettingData(("データ/" + scenario + "/設定.txt"));
             case 10:
@@ -2150,9 +2313,9 @@ System.register("ES6/ゲーム", [], function() {
               break;
             case 12:
               message('『' + scenario + '』の\nどこから開始するか選んでください');
-              $ctx.state = 34;
+              $ctx.state = 26;
               break;
-            case 34:
+            case 26:
               $ctx.state = 14;
               return new Promise((function(ok, ng) {
                 var opts = ['初めから', '続きから', '任意の場所から'].reduce((function(opts, name) {
@@ -2185,37 +2348,54 @@ System.register("ES6/ゲーム", [], function() {
               $ctx.state = 16;
               break;
             case 16:
-              $ctx.state = 18;
+              $ctx.returnValue = load(script);
+              $ctx.state = -2;
+              break;
+            default:
+              return $ctx.end();
+          }
+      }, $__28, this);
+    }));
+    var load = Util.co($traceurRuntime.initGeneratorFunction(function $__29(script) {
+      return $traceurRuntime.createGeneratorInstance(function($ctx) {
+        while (true)
+          switch ($ctx.state) {
+            case 0:
+              Player.cacheScript(script);
+              $ctx.state = 12;
+              break;
+            case 12:
+              $ctx.state = 2;
               return message('').then((function(_) {
                 View.clean();
                 return Player.runScript(script);
               }));
-            case 18:
+            case 2:
               $ctx.maybeThrow();
-              $ctx.state = 20;
+              $ctx.state = 4;
               break;
-            case 20:
+            case 4:
               View.clean();
               Player.setRunPhase('準備');
-              $ctx.state = 36;
+              $ctx.state = 14;
               break;
-            case 36:
-              $ctx.state = 22;
+            case 14:
+              $ctx.state = 6;
               return message('再生が終了しました。\n作品選択メニューに戻ります。').delay(1000);
-            case 22:
+            case 6:
               $ctx.maybeThrow();
-              $ctx.state = 24;
+              $ctx.state = 8;
               break;
-            case 24:
+            case 8:
               $ctx.returnValue = setup().catch(restart);
               $ctx.state = -2;
               break;
             default:
               return $ctx.end();
           }
-      }, $__23, this);
+      }, $__29, this);
     }));
-    var restart = Util.co($traceurRuntime.initGeneratorFunction(function $__24(err) {
+    var restart = Util.co($traceurRuntime.initGeneratorFunction(function $__30(err) {
       return $traceurRuntime.createGeneratorInstance(function($ctx) {
         while (true)
           switch ($ctx.state) {
@@ -2239,9 +2419,9 @@ System.register("ES6/ゲーム", [], function() {
             default:
               return $ctx.end();
           }
-      }, $__24, this);
+      }, $__30, this);
     }));
-    var start = Util.co($traceurRuntime.initGeneratorFunction(function $__25() {
+    var start = Util.co($traceurRuntime.initGeneratorFunction(function $__31() {
       var setting;
       return $traceurRuntime.createGeneratorInstance(function($ctx) {
         while (true)
@@ -2281,7 +2461,7 @@ System.register("ES6/ゲーム", [], function() {
             default:
               return $ctx.end();
           }
-      }, $__25, this);
+      }, $__31, this);
     }));
     function setSysBG() {
       var view = arguments[0] !== (void 0) ? arguments[0] : true;
@@ -2291,9 +2471,17 @@ System.register("ES6/ゲーム", [], function() {
       })) : p;
     }
     start();
-    READY.Game.ready({reset: function() {
+    READY.Game.ready({
+      reset: function() {
         setup();
-      }});
+      },
+      loadSaveData: function() {
+        Player.loadSaveData().then((function(script) {
+          Player.init();
+          load(script);
+        })).check();
+      }
+    });
   })).check();
   return {};
 });

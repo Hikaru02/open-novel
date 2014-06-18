@@ -598,12 +598,12 @@ READY('Storage', 'Player', 'DOM').then( _ => {
 					else if (si < 0) si = fi == 0 ? last : 0
 					else if (si > last) si = fi == last ? 0 : last
 					bts[si].focus()
-					Promise.delay(200).then(rehook)
+					Promise.delay(100).then(rehook)
 				}
 				function focusenter(rehook) {
 					if (removed) return
 					if (focusindex >= 0) return bts[focusindex].click()
-					Promise.delay(200).then(rehook)
+					Promise.delay(100).then(rehook)
 				}
 
 				el_context.append(cw)
@@ -678,10 +678,7 @@ READY('Storage', 'Player', 'DOM').then( _ => {
 
 						break
 						case 'ロード':
-							Player.loadSaveData().through( _ => {
-								View.hideMenu()
-								Player.init()
-							} ).then(Player.runScript)
+							Game.loadSaveData()
 
 						break
 						default: throw 'illegal choice type'
