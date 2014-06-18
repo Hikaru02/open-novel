@@ -62,9 +62,12 @@ READY('Player', 'View', 'Sound').then( _ => {
 			return View.setChoiceWindow(opts, {sys: true}).then( kind => {
 
 				//message('シナリオを読み込んでいます...')
+				var base = setting['開始シナリオ']
+				if (!base || !(base = base[0])) return ng('開始シナリオが見つかりません。\n開始シナリオの設定は必須です。')
+
 				switch (kind) {
 					case '初めから': 
-						Player.fetchScriptData(setting['開始シナリオ'][0], true).then(ok, ng)
+						Player.fetchScriptData(base).then(ok, ng)
 
 					break
 					case '続きから':
@@ -72,9 +75,9 @@ READY('Player', 'View', 'Sound').then( _ => {
 
 					break
 					case '任意の場所から':
-						var name = prompt('『<スクリプト名>』または『<スクリプト名>#<マーク名>』の形式で指定します')
+						var name = prompt('『<スクリプト名>』または『<スクリプト名>#<マーク名>』の形式で指定します。\n開始シナリオから始める場合は『#<マーク名>』の形式も使えます。')
 						if (!name) return message('作品選択メニューに戻ります。').delay(1000).then(setup)
-						Player.fetchScriptData(name, true).then(ok, err => {
+						Player.fetchScriptData(name, base).then(ok, err => {
 							message('指定されたファイルを読み込めません。').delay(1000).then(setup)
 						})
 					
@@ -116,7 +119,9 @@ READY('Player', 'View', 'Sound').then( _ => {
 		Player.setRunPhase('準備')
 
 		yield message('再生が終了しました。\n作品選択メニューに戻ります。').delay(1000)
+
 		return setup().catch(restart)
+
 	})
 
 
@@ -125,10 +130,11 @@ READY('Player', 'View', 'Sound').then( _ => {
 	var restart = Util.co(function* (err) {
 
 		LOG(err)
+		if (typeof err !== 'string') err = '致命的なエラーが発生したため再生を継続できません。' 
 		View.clean()
 		Player.setRunPhase('エラー解決')
 
-		yield message('致命的なエラーが発生したため再生を継続できません。\n作品選択メニューに戻ります。').delay(3000)
+		yield message(err + '\n作品選択メニューに戻ります。').delay(3000)
 		return setup().catch(restart)
 
 	})
@@ -178,6 +184,7 @@ READY('Player', 'View', 'Sound').then( _ => {
 		loadSaveData() {
 			Player.loadSaveData().then( script => {
 				Player.init()
+				Player.setScenario(script.scenario)
 				load(script)
 			} ).check()
 		},

@@ -111,7 +111,7 @@
 					var {value, done} = iter.next(val)
 					//LOG(value, done)
 					value = Promise.resolve(value)
-					if (done) defer.resolve(value)
+					if (done) value.then(defer.resolve, defer.reject)
 					else value.then(loop, defer.reject)
 				}
 				loop()

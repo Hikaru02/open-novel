@@ -84,7 +84,7 @@ System.register("ES6/ヘルパー", [], function() {
                 done = $__1.done;
             value = Promise.resolve(value);
             if (done)
-              defer.resolve(value);
+              value.then(defer.resolve, defer.reject);
             else
               value.then(loop, defer.reject);
           });
@@ -1065,13 +1065,14 @@ System.register("ES6/プレーヤー", [], function() {
       var $__4;
       if (!name)
         return Promise.reject('子スクリプト名が不正');
-      if (!base)
-        return Promise.reject('親スクリプト名が不正');
       var $__3 = $traceurRuntime.assertObject(name.replace(/＃/g, '#').split('#')),
           name = $__3[0],
           mark = ($__4 = $__3[1]) === void 0 ? '' : $__4;
-      if (!name)
+      if (!name) {
+        if (!base)
+          return Promise.reject('親スクリプト名が必要');
         name = base.replace(/＃/g, '#').split('#')[0];
+      }
       return toBlobScriptURL(name).then(loadText).then((function(text) {
         return parseScript(text);
       })).then((function(script) {
@@ -1184,7 +1185,7 @@ System.register("ES6/プレーヤー", [], function() {
                 break;
               case 20:
                 $__7 = Player.fetchScriptData;
-                $__8 = $__7.call(Player, (script + "#" + mark), ("" + script));
+                $__8 = $__7.call(Player, (script + "#" + mark));
                 $__9 = $__8.then;
                 $__12 = function(script) {
                   script.params = params, params;
@@ -2347,18 +2348,21 @@ System.register("ES6/ゲーム", [], function() {
                   return opts;
                 }), []);
                 return View.setChoiceWindow(opts, {sys: true}).then((function(kind) {
+                  var base = setting['開始シナリオ'];
+                  if (!base || !(base = base[0]))
+                    return ng('開始シナリオが見つかりません。\n開始シナリオの設定は必須です。');
                   switch (kind) {
                     case '初めから':
-                      Player.fetchScriptData(setting['開始シナリオ'][0], true).then(ok, ng);
+                      Player.fetchScriptData(base).then(ok, ng);
                       break;
                     case '続きから':
                       Player.loadSaveData().then(ok, ng);
                       break;
                     case '任意の場所から':
-                      var name = prompt('『<スクリプト名>』または『<スクリプト名>#<マーク名>』の形式で指定します');
+                      var name = prompt('『<スクリプト名>』または『<スクリプト名>#<マーク名>』の形式で指定します。\n開始シナリオから始める場合は『#<マーク名>』の形式も使えます。');
                       if (!name)
                         return message('作品選択メニューに戻ります。').delay(1000).then(setup);
-                      Player.fetchScriptData(name, true).then(ok, (function(err) {
+                      Player.fetchScriptData(name, base).then(ok, (function(err) {
                         message('指定されたファイルを読み込めません。').delay(1000).then(setup);
                       }));
                       break;
@@ -2432,13 +2436,15 @@ System.register("ES6/ゲーム", [], function() {
           switch ($ctx.state) {
             case 0:
               LOG(err);
+              if (typeof err !== 'string')
+                err = '致命的なエラーが発生したため再生を継続できません。';
               View.clean();
               Player.setRunPhase('エラー解決');
               $ctx.state = 8;
               break;
             case 8:
               $ctx.state = 2;
-              return message('致命的なエラーが発生したため再生を継続できません。\n作品選択メニューに戻ります。').delay(3000);
+              return message(err + '\n作品選択メニューに戻ります。').delay(3000);
             case 2:
               $ctx.maybeThrow();
               $ctx.state = 4;
@@ -2509,6 +2515,7 @@ System.register("ES6/ゲーム", [], function() {
       loadSaveData: function() {
         Player.loadSaveData().then((function(script) {
           Player.init();
+          Player.setScenario(script.scenario);
           load(script);
         })).check();
       }

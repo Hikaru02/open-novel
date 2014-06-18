@@ -580,9 +580,11 @@ READY().then( _ => {
 
 	function fetchScriptData(name, base) {
 		if (!name) return Promise.reject('子スクリプト名が不正')
-		if (!base) return Promise.reject('親スクリプト名が不正')
 		var [name, mark = ''] = name.replace(/＃/g,'#').split('#')
-		if (!name) name = base.replace(/＃/g,'#').split('#')[0]
+		if (!name) {
+			if (!base) return Promise.reject('親スクリプト名が必要')
+			name = base.replace(/＃/g,'#').split('#')[0]
+		}
 		return toBlobScriptURL(name).then(loadText).then( text => parseScript(text) ).then(script => {
 			script.unshift(['マーク',['']])
 			script.mark = mark
@@ -655,7 +657,7 @@ READY().then( _ => {
 			})
 			var save = yield View.setChoiceWindow(opts, {sys: true})
 			var {mark, params, script} = save
-			return yield Player.fetchScriptData(`${script}#${mark}`, `${script}`).then( script => {
+			return yield Player.fetchScriptData(`${script}#${mark}`).then( script => {
 				script.params = params
 				script.scenario = Player.data.scenarioName
 				return script
