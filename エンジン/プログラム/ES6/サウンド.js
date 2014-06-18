@@ -10,7 +10,7 @@ READY('Storage', 'Player', 'View').then(Util.co(function* () {
 		playSysSE(name, opt) {
 			var defer = Promise.defer()
 			var a = sysSEMap.get(name)
-			if (!this.soundEnabled) defer.reject('OFF')
+			if (!this.soundEnabled) defer.resolve()
 			else if (!a) {
 				a = new Audio(`エンジン/効果音/${name}.ogg`)
 				a.load()
@@ -20,7 +20,7 @@ READY('Storage', 'Player', 'View').then(Util.co(function* () {
 					Sound.playSysSE(name, opt).then(defer.resolve)
 				}
 			} else if (a.readyState !== 4) {
-				defer.reject('OFF')
+				defer.resolve()
 			} else {
 				//a.pause()
 				a.currentTime = 0
@@ -34,7 +34,7 @@ READY('Storage', 'Player', 'View').then(Util.co(function* () {
 		fadeoutSysSE(name, opt = {}) {
 			var defer = Promise.defer()
 			var a = sysSEMap.get(name)
-			if (!this.soundEnabled) defer.reject('OFF')
+			if (!this.soundEnabled) defer.resolve()
 			else if (!a) {
 				LOG(`対象のサウンド『${name}』が未登録`)
 				return R

@@ -2181,7 +2181,7 @@ System.register("ES6/サウンド", [], function() {
                 var defer = Promise.defer();
                 var a = sysSEMap.get(name);
                 if (!this.soundEnabled)
-                  defer.reject('OFF');
+                  defer.resolve();
                 else if (!a) {
                   a = new Audio(("エンジン/効果音/" + name + ".ogg"));
                   a.load();
@@ -2191,7 +2191,7 @@ System.register("ES6/サウンド", [], function() {
                     Sound.playSysSE(name, opt).then(defer.resolve);
                   });
                 } else if (a.readyState !== 4) {
-                  defer.reject('OFF');
+                  defer.resolve();
                 } else {
                   a.currentTime = 0;
                   a.volume = 0.5;
@@ -2210,7 +2210,7 @@ System.register("ES6/サウンド", [], function() {
                 var defer = Promise.defer();
                 var a = sysSEMap.get(name);
                 if (!this.soundEnabled)
-                  defer.reject('OFF');
+                  defer.resolve();
                 else if (!a) {
                   LOG(("対象のサウンド『" + name + "』が未登録"));
                   return R;
