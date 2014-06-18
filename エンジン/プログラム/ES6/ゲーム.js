@@ -2,7 +2,7 @@
 READY('Player', 'View', 'Sound').then( _ => {
 	'use strict'
 
-	var {R} = Util.overrides
+	//var {R} = Util.overrides
 
 	var message = (_ => {
 		var abort = Util.NOP
@@ -156,7 +156,7 @@ READY('Player', 'View', 'Sound').then( _ => {
 			setSysBG(false),
 			Promise.race([
 				Promise.all([
-					Sound.playSysSE('起動').then( ({ended} = {}) => ended || R ),
+					Sound.playSysSE('起動'),
 					View.addSentence('openノベルプレイヤー by Hikaru02\n\nシステムバージョン：　' + Data.SystemVersion, { weight: 0 }).delay(3000)
 				]),
 				View.on('go')

@@ -2,36 +2,77 @@
 READY('Storage', 'Player', 'View').then(Util.co(function* () {
 
 	var soundEnabled = yield Storage.getSetting('soundEnabled', false)
-	var sysSEMap = new Map
-	var {R} = Util.overrides
+
+	return {soundEnabled}
+
+})).then( ({soundEnabled}) => {
+
+
+	var sourceMap = new Map
+	var bufferMap = new Map
+	//var {R} = Util.overrides
+
+	var ctx = new AudioContext()
+
+	var gainMaster = ctx.createGain()
+	var gainSysSE = ctx.createGain()
+
+	gainMaster.connect(ctx.destination)
+	gainSysSE.connect(gainMaster)
+
+	gainMaster.gain.value = 0.5
+
+
+	function useSound(url) {
+		return Player.load(url, 'arraybuffer').then( buf => bufferMap.set(url, buf) )
+	}
+
+	function prepareSound(url) {
+		var buf = bufferMap.get(url)
+		if (!buf) {
+			LOG(`サウンドURL『${url}』は未取得のため準備が延期されました`)
+			return useSound(url).then( _ => prepareSound(url) )
+		} 
+		return new Promise( (ok, ng) => {
+			ctx.decodeAudioData(buf, buf => {
+				var src = ctx.createBufferSource()
+				src.buffer = buf
+				sourceMap.set(url, src)
+				ok()
+			}, ng )
+		})
+	}
+
+	function playSound(url, node) {
+		var src = sourceMap.get(url)
+		if (!src) {
+			LOG(`サウンドURL『${url}』は未準備のため再生が延期されました`)
+			return prepareSound(url).then( _ => playSound(url, node) )
+		} 
+		if (!node) {
+			LOG('接続先のノードが不明なため再生が中止されました')
+			return Promise.reject()
+		}
+		src.connect(node)
+		src.start()
+		sourceMap.delete(src)
+		prepareSound(url)
+		var defer = Promise.defer()
+		src.onended = defer.resolve
+		return defer.promise
+	}
+
+
 
 	READY.Sound.ready({
 
 		playSysSE(name, opt) {
-			var defer = Promise.defer()
-			var a = sysSEMap.get(name)
-			if (!this.soundEnabled) defer.resolve()
-			else if (!a) {
-				a = new Audio(`エンジン/効果音/${name}.ogg`)
-				a.load()
-				sysSEMap.set(name, a)
-				a.oncanplaythrough = _ => {
-					a.oncanplaythrough = null
-					Sound.playSysSE(name, opt).then(defer.resolve)
-				}
-			} else if (a.readyState !== 4) {
-				defer.resolve()
-			} else {
-				//a.pause()
-				a.currentTime = 0
-				a.volume = 0.5
-				a.onplay = _ => defer.resolve( {ended: new Promise( ok => a.onended = ok )} )
-				a.play()
-			}
-			return defer.promise
+			var url = `エンジン/効果音/${name}.ogg`
+			return playSound(url, gainSysSE)
 		},
 
 		fadeoutSysSE(name, opt = {}) {
+			/*
 			var defer = Promise.defer()
 			var a = sysSEMap.get(name)
 			if (!this.soundEnabled) defer.resolve()
@@ -51,10 +92,11 @@ READY('Storage', 'Player', 'View').then(Util.co(function* () {
 				}).then(defer.resolve)
 			}
 			return defer.promise
+			*/
 		},
 
 		soundEnabled,
 	})
 
-})).check()
+}).check()
 

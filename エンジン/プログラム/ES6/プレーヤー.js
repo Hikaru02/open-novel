@@ -657,7 +657,7 @@ READY().then( _ => {
 			})
 			var save = yield View.setChoiceWindow(opts, {sys: true})
 			var {mark, params, script} = save
-			return yield Player.fetchScriptData(`${script}#${mark}`).then( script => {
+			return Player.fetchScriptData(`${script}#${mark}`).then( script => {
 				script.params = params
 				script.scenario = Player.data.scenarioName
 				return script
@@ -755,7 +755,7 @@ READY().then( _ => {
 	READY.Player.ready({
 		setRunPhase, setErrorPhase, fetchSettingData, fetchScriptData, fetchSEData, runScript, print, cacheClear, paramClear,
 		toBlobURL, toBlobEmogiURL, find, save, data: {}, loadSaveData, saveSaveData, paramSet, paramGet, evalEffect, init, setScenario,
-		cacheScript,
+		cacheScript, load,
 	})
 
 }).check()
