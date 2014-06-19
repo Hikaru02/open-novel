@@ -149,6 +149,7 @@ READY('Player', 'View', 'Sound').then( _ => {
 		var setting = yield Player.fetchSettingData(Data.URL.EngineSetting)
 
 		Data.SystemVersion = setting['システムバージョン'][0]
+		var startSE = new Sound('sysSE', '起動')
 
 		View.changeMode('NOVEL')
 
@@ -156,11 +157,11 @@ READY('Player', 'View', 'Sound').then( _ => {
 			setSysBG(false),
 			Promise.race([
 				Promise.all([
-					Sound.playSysSE('起動'),
+					startSE.play(),
 					View.addSentence('openノベルプレイヤー by Hikaru02\n\nシステムバージョン：　' + Data.SystemVersion, { weight: 0 }).delay(3000)
 				]),
 				View.on('go')
-			]).through( _ => Sound.fadeoutSysSE('起動') )
+			]).through( _ => startSE.fadeout() )
 		]).check()
 
 		return setup().catch(restart)

@@ -1376,9 +1376,11 @@ System.get("ES6/プレーヤー" + '');
 System.register("ES6/ビュー", [], function() {
   "use strict";
   var __moduleName = "ES6/ビュー";
-  READY('Storage', 'Player', 'DOM').then((function(_) {
+  READY('Storage', 'Player', 'DOM', 'Sound').then((function(_) {
     'use strict';
     var View = null;
+    var clickSE = new Sound('sysSE', '選択');
+    var focusSE = new Sound('sysSE', 'フォーカス');
     var EP = Element.prototype;
     Util.setDefaults(EP, {
       on: EP.addEventListener,
@@ -1926,7 +1928,7 @@ System.register("ES6/ビュー", [], function() {
             bt.disabled = !!opt.disabled;
             bt.append(new DOM('text', opt.name));
             bt.onfocus = bt.onmouseover = (function(_) {
-              Sound.playSysSE('フォーカス');
+              focusSE.play();
               bt.setStyles({background: sys ? 'rgba(100,200,150,0.8)' : 'rgba(100,100,200,0.8)'});
               var elm = bts[focusindex];
               if (elm)
@@ -1940,9 +1942,9 @@ System.register("ES6/ビュー", [], function() {
                 elm.blur();
             });
             bt.onclick = (function(_) {
-              removed = true;
-              Sound.playSysSE('選択');
+              clickSE.play();
               vibrate([50]);
+              removed = true;
               defer.resolve(opt.value);
               if (!sys)
                 delete $__13.windows.choice;
@@ -2179,7 +2181,7 @@ System.get("ES6/ビュー" + '');
 System.register("ES6/サウンド", [], function() {
   "use strict";
   var __moduleName = "ES6/サウンド";
-  READY('Storage', 'Player', 'View').then(Util.co($traceurRuntime.initGeneratorFunction(function $__19() {
+  READY('Storage', 'Player').then(Util.co($traceurRuntime.initGeneratorFunction(function $__21() {
     var soundEnabled;
     return $traceurRuntime.createGeneratorInstance(function($ctx) {
       while (true)
@@ -2198,78 +2200,106 @@ System.register("ES6/サウンド", [], function() {
           default:
             return $ctx.end();
         }
-    }, $__19, this);
+    }, $__21, this);
   }))).then((function(config) {
     var soundEnabled = $traceurRuntime.assertObject(config).soundEnabled;
-    var sourceMap = new Map;
     var bufferMap = new Map;
     var soundAvailability = !!global.AudioContext;
     if (soundAvailability) {
       var ctx = new AudioContext();
+      var comp = ctx.createDynamicsCompressor();
       var gainMaster = ctx.createGain();
       var gainSysSE = ctx.createGain();
-      gainMaster.connect(ctx.destination);
+      comp.connect(ctx.destination);
+      gainMaster.connect(comp);
       gainSysSE.connect(gainMaster);
       gainMaster.gain.value = 0.5;
     }
     function canplay() {
       return soundAvailability && soundEnabled;
     }
-    function useSound(url) {
-      return Player.load(url, 'arraybuffer').then((function(buf) {
-        return bufferMap.set(url, buf);
-      }));
-    }
-    function prepareSound(url) {
-      var buf = bufferMap.get(url);
-      if (!buf) {
-        LOG(("サウンドURL『" + url + "』は未取得のため準備が延期されました"));
-        return useSound(url).then((function(_) {
-          return prepareSound(url);
+    var Sound = function Sound(kind, name) {
+      if (!kind)
+        throw 'タイプが未指定';
+      if (!name)
+        throw '名前が未指定';
+      if (!soundAvailability)
+        return;
+      switch (kind) {
+        case 'sysSE':
+          var url = ("エンジン/効果音/" + name + ".ogg");
+          var des = gainSysSE;
+          break;
+        default:
+          throw ("想定外のタイプ『" + kind + "』");
+      }
+      var gain = ctx.createGain();
+      gain.connect(des);
+      this.readyState = 0;
+      this.url = url;
+      this.buf = null;
+      this.src = null;
+      this.gain = gain;
+      this.prepare();
+    };
+    ($traceurRuntime.createClass)(Sound, {
+      load: function() {
+        var $__18 = this;
+        var url = this.url;
+        var buf = bufferMap.get(url);
+        if (buf)
+          return Promise.resolve(buf);
+        return Player.load(url, 'arraybuffer').then((function(buf) {
+          bufferMap.set(url, buf);
+          $__18.buf = buf;
         }));
-      }
-      return new Promise((function(ok, ng) {
-        ctx.decodeAudioData(buf, (function(buf) {
-          var src = ctx.createBufferSource();
-          src.buffer = buf;
-          sourceMap.set(url, src);
-          ok();
-        }), ng);
-      }));
-    }
-    function playSound(url, node) {
-      if (!canplay())
-        return Promise.resolve();
-      var src = sourceMap.get(url);
-      if (!src) {
-        LOG(("サウンドURL『" + url + "』は未準備のため再生が延期されました"));
-        return prepareSound(url).then((function(_) {
-          return playSound(url, node);
+      },
+      prepare: function() {
+        var $__18 = this;
+        var buf = this.buf;
+        if (!buf)
+          return this.load().then((function(_) {
+            return $__18.prepare();
+          }));
+        return new Promise((function(ok, ng) {
+          ctx.decodeAudioData(buf, (function(buf) {
+            var src = ctx.createBufferSource();
+            src.buffer = buf;
+            src.connect($__18.gain);
+            $__18.src = src;
+            ok();
+          }), ng);
         }));
-      }
-      if (!node) {
-        LOG('接続先のノードが不明なため再生が中止されました');
-        return Promise.reject();
-      }
-      src.connect(node);
-      src.start();
-      sourceMap.delete(url);
-      prepareSound(url);
-      var defer = Promise.defer();
-      src.onended = defer.resolve;
-      return defer.promise;
-    }
-    READY.Sound.ready({
-      playSysSE: function(name, opt) {
-        var url = ("エンジン/効果音/" + name + ".ogg");
-        return playSound(url, gainSysSE);
       },
-      fadeoutSysSE: function(name) {
-        var opt = arguments[1] !== (void 0) ? arguments[1] : {};
+      play: function() {
+        var $__18 = this;
+        if (!canplay())
+          return Promise.resolve(null);
+        var src = this.src;
+        if (!src)
+          return this.prepare().then((function(_) {
+            return $__18.play();
+          }));
+        src.start(0);
+        this.src = null;
+        this.prepare();
+        return new Promise((function(ok) {
+          src.onended = ok;
+        }));
       },
+      fadeout: function() {
+        var duration = arguments[0] !== (void 0) ? arguments[0] : 0.5;
+        var t0 = ctx.currentTime,
+            gain = this.gain.gain;
+        gain.setValueAtTime(gain.value, t0);
+        gain.linearRampToValueAtTime(0, t0 + duration);
+      }
+    }, {});
+    Object.assign(Sound, {
       soundEnabled: soundEnabled,
       soundAvailability: soundAvailability
     });
+    READY.Sound.ready(Sound);
   })).check();
   return {};
 });
@@ -2290,7 +2320,7 @@ System.register("ES6/ゲーム", [], function() {
         return p;
       });
     }))();
-    var setup = Util.co($traceurRuntime.initGeneratorFunction(function $__20() {
+    var setup = Util.co($traceurRuntime.initGeneratorFunction(function $__22() {
       var setting,
           scenario,
           script;
@@ -2389,9 +2419,9 @@ System.register("ES6/ゲーム", [], function() {
             default:
               return $ctx.end();
           }
-      }, $__20, this);
+      }, $__22, this);
     }));
-    var load = Util.co($traceurRuntime.initGeneratorFunction(function $__21(script) {
+    var load = Util.co($traceurRuntime.initGeneratorFunction(function $__23(script) {
       return $traceurRuntime.createGeneratorInstance(function($ctx) {
         while (true)
           switch ($ctx.state) {
@@ -2435,9 +2465,9 @@ System.register("ES6/ゲーム", [], function() {
             default:
               return $ctx.end();
           }
-      }, $__21, this);
+      }, $__23, this);
     }));
-    var restart = Util.co($traceurRuntime.initGeneratorFunction(function $__22(err) {
+    var restart = Util.co($traceurRuntime.initGeneratorFunction(function $__24(err) {
       return $traceurRuntime.createGeneratorInstance(function($ctx) {
         while (true)
           switch ($ctx.state) {
@@ -2463,10 +2493,11 @@ System.register("ES6/ゲーム", [], function() {
             default:
               return $ctx.end();
           }
-      }, $__22, this);
+      }, $__24, this);
     }));
-    var start = Util.co($traceurRuntime.initGeneratorFunction(function $__23() {
-      var setting;
+    var start = Util.co($traceurRuntime.initGeneratorFunction(function $__25() {
+      var setting,
+          startSE;
       return $traceurRuntime.createGeneratorInstance(function($ctx) {
         while (true)
           switch ($ctx.state) {
@@ -2483,13 +2514,14 @@ System.register("ES6/ゲーム", [], function() {
               break;
             case 4:
               Data.SystemVersion = setting['システムバージョン'][0];
+              startSE = new Sound('sysSE', '起動');
               View.changeMode('NOVEL');
               $ctx.state = 14;
               break;
             case 14:
               $ctx.state = 6;
-              return Promise.all([setSysBG(false), Promise.race([Promise.all([Sound.playSysSE('起動'), View.addSentence('openノベルプレイヤー by Hikaru02\n\nシステムバージョン：　' + Data.SystemVersion, {weight: 0}).delay(3000)]), View.on('go')]).through((function(_) {
-                return Sound.fadeoutSysSE('起動');
+              return Promise.all([setSysBG(false), Promise.race([Promise.all([startSE.play(), View.addSentence('openノベルプレイヤー by Hikaru02\n\nシステムバージョン：　' + Data.SystemVersion, {weight: 0}).delay(3000)]), View.on('go')]).through((function(_) {
+                return startSE.fadeout();
               }))]).check();
             case 6:
               $ctx.maybeThrow();
@@ -2502,7 +2534,7 @@ System.register("ES6/ゲーム", [], function() {
             default:
               return $ctx.end();
           }
-      }, $__23, this);
+      }, $__25, this);
     }));
     function setSysBG() {
       var view = arguments[0] !== (void 0) ? arguments[0] : true;

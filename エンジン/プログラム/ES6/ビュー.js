@@ -1,8 +1,11 @@
 
-READY('Storage', 'Player', 'DOM').then( _ => {
+READY('Storage', 'Player', 'DOM', 'Sound').then( _ => {
 	'use strict'
 
 	var View = null
+
+	var clickSE = new Sound('sysSE', '選択')
+	var focusSE = new Sound('sysSE', 'フォーカス')
 
 	var EP = Element.prototype
 	Util.setDefaults(EP, {
@@ -48,7 +51,6 @@ READY('Storage', 'Player', 'DOM').then( _ => {
 		el_root.append(el_wrapper).append(el_player).append(el_context)
 
 	//var RAF = requestAnimationFrame
-
 
 
 	function adjustScale(height, ratio, full) {
@@ -566,7 +568,7 @@ READY('Storage', 'Player', 'DOM').then( _ => {
 					bt.disabled = !!opt.disabled
 					bt.append(new DOM('text', opt.name))
 					bt.onfocus = bt.onmouseover = _ => {
-						Sound.playSysSE('フォーカス')
+						focusSE.play()
 						bt.setStyles({ background: sys ? 'rgba(100,200,150,0.8)' : 'rgba(100,100,200,0.8)' })
 						var elm = bts[focusindex]
 						if (elm) elm.blur()
@@ -579,9 +581,9 @@ READY('Storage', 'Player', 'DOM').then( _ => {
 						//focusindex = -10000
 					}
 					bt.onclick = _ => {
-						removed = true
-						Sound.playSysSE('選択')
+						clickSE.play()
 						vibrate([50])
+						removed = true
 						defer.resolve(opt.value)
 						if (!sys) delete this.windows.choice
 						else delete this.windows.choiceBack

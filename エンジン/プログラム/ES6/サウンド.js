@@ -1,5 +1,5 @@
 
-READY('Storage', 'Player', 'View').then(Util.co(function* () {
+READY('Storage', 'Player').then(Util.co(function* () {
 
 	var soundEnabled = yield Storage.getSetting('soundEnabled', false)
 
@@ -9,7 +9,6 @@ READY('Storage', 'Player', 'View').then(Util.co(function* () {
 
 	var {soundEnabled} = config
 
-	var sourceMap = new Map
 	var bufferMap = new Map
 	//var {R} = Util.overrides
 
@@ -19,10 +18,12 @@ READY('Storage', 'Player', 'View').then(Util.co(function* () {
 
 		var ctx = new AudioContext()
 
+		var comp = ctx.createDynamicsCompressor()
 		var gainMaster = ctx.createGain()
 		var gainSysSE = ctx.createGain()
 
-		gainMaster.connect(ctx.destination)
+		comp.connect(ctx.destination)
+		gainMaster.connect(comp)
 		gainSysSE.connect(gainMaster)
 
 		gainMaster.gain.value = 0.5
@@ -34,81 +35,77 @@ READY('Storage', 'Player', 'View').then(Util.co(function* () {
 	}
 
 
-	function useSound(url) {
-		return Player.load(url, 'arraybuffer').then( buf => bufferMap.set(url, buf) )
-	}
 
-	function prepareSound(url) {
-		var buf = bufferMap.get(url)
-		if (!buf) {
-			LOG(`サウンドURL『${url}』は未取得のため準備が延期されました`)
-			return useSound(url).then( _ => prepareSound(url) )
-		} 
-		return new Promise( (ok, ng) => {
-			ctx.decodeAudioData(buf, buf => {
-				var src = ctx.createBufferSource()
-				src.buffer = buf
-				sourceMap.set(url, src)
-				ok()
-			}, ng )
-		})
-	}
+	class Sound {
 
-	function playSound(url, node) {
-		if (!canplay()) return Promise.resolve()
-		var src = sourceMap.get(url)
-		if (!src) {
-			LOG(`サウンドURL『${url}』は未準備のため再生が延期されました`)
-			return prepareSound(url).then( _ => playSound(url, node) )
-		} 
-		if (!node) {
-			LOG('接続先のノードが不明なため再生が中止されました')
-			return Promise.reject()
-		}
-		src.connect(node)
-		src.start()
-		sourceMap.delete(url)
-		prepareSound(url)
-		var defer = Promise.defer()
-		src.onended = defer.resolve
-		return defer.promise
-	}
-
-
-
-	READY.Sound.ready({
-
-		playSysSE(name, opt) {
-			var url = `エンジン/効果音/${name}.ogg`
-			return playSound(url, gainSysSE)
-		},
-
-		fadeoutSysSE(name, opt = {}) {
-			/*
-			var defer = Promise.defer()
-			var a = sysSEMap.get(name)
-			if (!this.soundEnabled) defer.resolve()
-			else if (!a) {
-				LOG(`対象のサウンド『${name}』が未登録`)
-				return R
-			} else {
-				var volume = a.volume
-				var {duration = 500} = opt
-				View.setAnimate( (delay, complete, pause) => {
-					var newvolume = volume * (1 - delay / duration)
-					if (newvolume <= 0) {
-						newvolume = 0
-						complete()
-					}
-					a.volume = newvolume
-				}).then(defer.resolve)
+		constructor(kind, name) {
+			if (!kind) throw 'タイプが未指定'
+			if (!name) throw '名前が未指定'
+			if (!soundAvailability) return
+			switch (kind) {
+				case 'sysSE':
+					var url = `エンジン/効果音/${name}.ogg`
+					var des = gainSysSE
+				break
+				default: throw `想定外のタイプ『${kind}』`
 			}
-			return defer.promise
-			*/
-		},
+			var gain = ctx.createGain()
+			gain.connect(des)
+			this.readyState = 0
+			this.url = url
+			this.buf = null
+			this.src = null
+			this.gain = gain
+			this.prepare()
+		}
 
+		load() {
+			var {url} = this
+			var buf = bufferMap.get(url)
+			if (buf) return Promise.resolve(buf)
+			return Player.load(url, 'arraybuffer').then( buf => {
+				bufferMap.set(url, buf)
+				this.buf  = buf
+			})
+		}
+
+		prepare() {
+			var {buf} = this
+			if (!buf) return this.load().then( _ => this.prepare() )
+			return new Promise( (ok, ng) => {
+				ctx.decodeAudioData(buf, buf => {
+					var src = ctx.createBufferSource()
+					src.buffer = buf
+					src.connect(this.gain)
+					this.src = src
+					ok()
+				}, ng)
+			})
+		}
+
+		play() {
+			if (!canplay()) return Promise.resolve(null)
+			var {src} = this
+			if (!src) return this.prepare().then( _ => this.play() )
+			src.start(0)
+			this.src = null
+			this.prepare()
+			return new Promise( ok => { src.onended = ok } )
+		}
+
+		fadeout(duration = 0.5) {
+			var t0 = ctx.currentTime, gain = this.gain.gain
+			gain.setValueAtTime(gain.value, t0)
+			gain.linearRampToValueAtTime(0, t0 + duration)
+		}
+
+	}
+
+	Object.assign(Sound, {
 		soundEnabled, soundAvailability,
 	})
+
+	READY.Sound.ready(Sound)
 
 }).check()
 
