@@ -73,7 +73,7 @@ READY('Storage', 'Player').then(Util.co(function* () {
 			var {buf} = this
 			if (!buf) return this.load().then( _ => this.prepare() )
 			return new Promise( (ok, ng) => {
-				ctx.decodeAudioData(buf, buf => {
+				ctx.decodeAudioData(buf.slice(), buf => {
 					var src = ctx.createBufferSource()
 					src.buffer = buf
 					src.connect(this.gain)

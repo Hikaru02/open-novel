@@ -2262,7 +2262,7 @@ System.register("ES6/サウンド", [], function() {
             return $__18.prepare();
           }));
         return new Promise((function(ok, ng) {
-          ctx.decodeAudioData(buf, (function(buf) {
+          ctx.decodeAudioData(buf.slice(), (function(buf) {
             var src = ctx.createBufferSource();
             src.buffer = buf;
             src.connect($__18.gain);
