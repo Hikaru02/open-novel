@@ -119,7 +119,144 @@
 			}
 		},
 
+		updateDebugWindow() {
+
+			if (!Data.debug) return
+
+			var params = {}
+			Util.paramForEach( (value, key) => params[key] = value )
+
+			var cacheSizeMB = ((Util.cacheGet('$size') || 0) / 1024 / 1024).toFixed(1)
+			var mark = Data.currentPoint && Data.currentPoint.mark || '（無し）'
+
+			var obj = {
+				キャッシュサイズ: cacheSizeMB + 'MB',
+				現在のマーク: mark,
+				パラメータ: params,
+			}
+
+			View.updateDebugWindow(obj)
+		},
+
+
+		toBlobEmogiURL(name) {
+			return Util.toBlobURL('絵文字', name, 'svg')
+		},
+
+		toBlobScriptURL(name) {
+			return Util.toBlobURL('シナリオ', name, 'txt')
+		},
+
+
+		toBlobURL(kind, name, type, sys = false) {
+			var root = sys ? 'エンジン' : 'データ'
+			var sub = Util.forceName(kind, name, type)
+			var subkey = sys ? `${sub}` : `${Data.scenarioName}/${sub}`
+			if (Util.isNoneType(name)) return Promise.resolve(null)
+			if (Util.cacheHas(subkey)) return Promise.resolve(Util.cacheGet(subkey))
+			var defer = Promise.defer()
+			Util.cacheSet(subkey, defer.promise)
+			var hide = View.setLoadingMessage('Loading...')
+			return new Promise( (ok, ng) => {		
+				Util.find(`${root}/${subkey}`).catch( _ => `${root}/[[共通素材]]/${sub}` ).then( url => ok(url), ng)
+			}).then(Util.loadBlob).then( blob => {
+				var blobURL = URL.createObjectURL(blob)
+				defer.resolve(blobURL)
+				Util.cacheSizeUpdate(blob.size)
+				//Storage.testPut(subkey, blob)
+				hide()
+				return blobURL
+			}).through(hide)
+		},
+
+
+		loadText(url) {
+			return Util.load(url, 'text')
+		},
+
+		loadBlob(url) {
+			return Util.load(url, 'blob')
+		},
+
+		load(url, type) {
+			return new Promise(function (ok, ng) {
+				var xhr = new XMLHttpRequest()
+				xhr.onload = _ => ok(xhr.response)
+				xhr.onerror = _ => ng(new Error(`ファイルURL『${url}』のロードに失敗`))
+				xhr.open('GET', url)
+				if (type) xhr.responseType = type
+				xhr.send()
+			})
+		},
+
+		find(url) {
+			return new Promise(function (ok, ng) {
+				var xhr = new XMLHttpRequest()
+				xhr.onload = _ => {
+					if (xhr.status < 300) ok(url)
+					else ng(new Error(`ファイルURL『${url}』が見つからない`)) 
+				}
+				xhr.onerror = _ => ng(new Error(`ファイルURL『${url}』のロードに失敗`))
+				xhr.open('HEAD', url)
+				xhr.send()
+			})
+
+		},
+
 	}
+
+
+	Util.setProperties(Util, (_ => {
+
+		var cacheMap = new Map
+		cacheInit()
+
+		function cacheInit() {
+			cacheMap.clear()
+			cacheMap.set('$size', 0)
+		}
+
+		return {
+			cacheClear() {
+				cacheMap.forEach( (_, p) => { if (p.then) p.then(url => URL.revokeObjectURL(url)) } )
+				cacheInit()
+				Util.updateDebugWindow()
+			},
+			cacheHas(key) { return cacheMap.has(key) },
+			cacheGet(key) { return cacheMap.get(key) },
+			cacheSet(key, val) { cacheMap.set(key, val) },
+			cacheSizeUpdate(n) { 
+				cacheMap.set('$size', cacheMap.get('$size') + n)
+				Util.updateDebugWindow()
+			},
+		}
+	})())
+
+	Util.setProperties(Util, (_ => {
+
+		var paramMap = new Map
+
+		return {
+			paramSet(key, val) {
+				paramMap.set(key, val)
+				Util.updateDebugWindow()
+			},
+			paramGet(key) {
+				if (!paramMap.has(key)) {
+					paramMap.set(key, 0)
+					Util.updateDebugWindow()
+				}
+				return paramMap.get(key)
+			},
+			paramClear() {
+				paramMap.clear()
+				Util.updateDebugWindow()
+			},
+			paramForEach(func) {
+				paramMap.forEach(func)
+			}
+		}
+	})())
 
 
 
@@ -249,7 +386,7 @@
 		race   : ary => Promise.race(ary).$ ,
 	})
 
-	Util.overrides = { Promise: $Promise, R: Promise.resolve() }
+	Util.overrides = { Util, $Promise: $Promise, Res: Promise.resolve() }
 
 	var READY = ( _ => {
 		function READY(type) {
@@ -257,7 +394,7 @@
 			return $Promise.all(types.map(type => {
 				if (!(type in READY)) throw 'illegal READY type "' +type+ '"'
 				return READY[type]
-			}))
+			})).then( _ => Util.overrides )
 		}
 		;['DOM', 'Player', 'View', 'Storage', 'Sound', 'Game'].forEach(type => {
 			global[type] = null

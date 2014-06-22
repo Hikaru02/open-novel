@@ -1,5 +1,5 @@
 
-READY('Storage', 'Player', 'DOM', 'Sound').then( _ => {
+READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 	'use strict'
 
 	var View = null
@@ -12,7 +12,11 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( _ => {
 		on					: EP.addEventListener,
 		requestFullscreen	: EP.webkitRequestFullscreen || EP.mozRequestFullScreen,
 		append				: EP.appendChild,
-		removeChildren		: function () { this.innerHTML = ''; return this },
+		removeChildren		: function () {
+			var ch = this.childNodes, len = ch.length
+			for (var i = len - 1; i >= 0; --i) ch[i].remove()
+			return this
+		},
 		setStyles			: function (styles) {
 			styles = styles || {}
 			Object.keys(styles).forEach( key => { if (styles[key] != null) this.style[key] = styles[key] }, this)
@@ -101,7 +105,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( _ => {
 
 	var createDdebugSub = _ => el_debug.append(new DOM('div', { display: 'inline-block' }))
 	var el_debugSub = createDdebugSub()
-	;[360, 480, 720, 1080].forEach( size => {
+	;[360, 540, 720, 1080].forEach( size => {
 		var el = el_debugSub.append(new DOM('button', bs))
 		el.append(new DOM('text', size + 'p'))
 		el.on('click', _ =>	adjustScale(size / devicePixelRatio) )
@@ -160,7 +164,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( _ => {
 	var el = el_debugSub.append(new DOM('button', bs))
 	el.append(new DOM('text', 'キャシュ削除'))
 	el.on('click', _ => {
-		Player.cacheClear()
+		Util.cacheClear()
 		View.showNotice('キャッシュを削除しました')
 	})
 	var el = el_debugSub.append(new DOM('button', bs))
@@ -430,18 +434,11 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( _ => {
 								var name = text.slice(at+2, nat).trim()
 								if ($isWebkit) {
 									var img = el.append(new DOM('img', { height: '0.75em', width: '0.75em' }))
-									;((img, name) => Player.toBlobEmogiURL(name).then( url => {img.src = url} ).catch(LOG))(img, name)
+									;((img, name) => Util.toBlobEmogiURL(name).then( url => {img.src = url} ).catch(LOG))(img, name)
 								} else {
 									var img = el.append(new DOM('object', { height: '0.75em', width: '0.75em' }))
 									img.type = 'image/svg+xml'
-									;((img, name) => Player.toBlobEmogiURL(name).then( url => {img.data = url} ).catch(LOG))(img, name)
-								/*
-									;((img, name) => {
-										var sub = Util.forceName('絵文字', name, 'svg')
-										var subkey = `${Player.scenarioName}/${sub}`
-										Player.find(`データ/${subkey}`).catch( _ => `データ/[[共通素材]]/${sub}` ).then( url => {img.src = url} ).catch(LOG)
-									})(img, name)
-								*/
+									;((img, name) => Util.toBlobEmogiURL(name).then( url => {img.data = url} ).catch(LOG))(img, name)
 								}
 								nl += nat - at
 								at = nat
@@ -632,9 +629,10 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( _ => {
 			},
 
 			setFDImages: function (opts) {
-				var el = this.imageFrame
-				el.removeChildren()
-				opts.forEach( opt => {
+				var defer = Promise.defer()
+				var fr = this.imageFrame
+				//var ch = [].slice.call(el.children)
+				Promise.all(opts.map( opt => new Promise( ok => {
 					Util.setDefaults(opt, {
 						left	: null,
 						right	: null,
@@ -652,9 +650,16 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( _ => {
 					//	maxWidth		: '50%',
 						height			: height,
 					})
+					img.onload = _ => ok(img)
 					img.src = opt.url
-					el.append(img)
+					
+				}) ) ).then( els => {
+					fr.removeChildren()
+					els.forEach( el => fr.append(el) )
+					defer.resolve()
 				})
+				return defer.promise
+				
 			},
 
 			nextPage: function (name, opt) {
@@ -666,7 +671,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( _ => {
 			},
 
 			showMenu: function () {
-				if (Player.data.phase != 'play' || View.menuIndex > 0) return View.on('Rclick').then(_ => View.showMenu())
+				if (Data.phase != 'play' || View.menuIndex > 0) return View.on('Rclick').then(_ => View.showMenu())
 				//LOG('show')
 				View.menuIndex = (View.menuIndex||0)+1
 				blockEvent()
@@ -795,7 +800,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( _ => {
 	var $ratio = 16 / 9
 	var $mode = ''
 	var width = document.body.clientWidth * devicePixelRatio
-	var $scale = (width / $ratio >= 480 ? 480 : width / $ratio) / devicePixelRatio
+	var $scale = (width / $ratio >= 540 ? 540 : width / $ratio) / devicePixelRatio
 	//document.body.style.width = '100%'
 
 	METHODS.TEST.changeMode('TEST')

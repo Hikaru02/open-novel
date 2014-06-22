@@ -1,5 +1,5 @@
 
-READY('Player', 'View', 'Sound').then( _ => {
+READY('Player', 'View', 'Sound').then( ({Util}) => {
 	'use strict'
 
 	//var {R} = Util.overrides
@@ -170,11 +170,12 @@ READY('Player', 'View', 'Sound').then( _ => {
 
 
 	function setSysBG(view = true) {
-		var p = Player.toBlobURL('画像', '背景', 'png', true)
+		var p = Util.toBlobURL('画像', '背景', 'png', true)
 		return view ? p.then( url => View.setBGImage({ url }) ) : p	
 	}
 
-	start()
+
+	start().check()
 
 	READY.Game.ready({
 

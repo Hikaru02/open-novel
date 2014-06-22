@@ -45,7 +45,7 @@ READY().then( _ => {
 		},
 
 		getSaveDatas(from, to) {
-			var scenario = Player.data.scenarioName
+			var scenario = Data.scenarioName
 			return new Promise ( (ok, ng) => { 
 				var saves = new Array(to - from + 1)
 				var ts = db.transaction('savedata', 'readonly')
@@ -64,7 +64,7 @@ READY().then( _ => {
 		},
 
 		setSaveData(no, data) {
-			var scenario = Player.data.scenarioName
+			var scenario = Data.scenarioName
 			return new Promise ( (ok, ng) => { 
 				var ts = db.transaction('savedata', 'readwrite')
 				var os = ts.objectStore('savedata')

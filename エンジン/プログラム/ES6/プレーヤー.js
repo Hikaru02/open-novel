@@ -1,5 +1,5 @@
 
-READY().then( _ => {
+READY().then( ({Util}) => {
 	'use strict'
 
 	function setPhase(phase) { document.title = '【' +phase+ '】' }
@@ -58,7 +58,7 @@ READY().then( _ => {
 	function cacheEmogi(text) {
 		;(text.match(/\\\[.+\]/g) || []).forEach( eff => {
 			var name = eff.slice(2, -1)
-			toBlobEmogiURL(name)
+			Util.toBlobEmogiURL(name)
 		})
 	}
 
@@ -150,9 +150,9 @@ READY().then( _ => {
 				var name = to, base = sname
 				var [name, mark = ''] = name.replace(/＃/g,'#').split('#')
 				if (!name) name = base.replace(/＃/g,'#').split('#')[0]
-				var subkey = `${Player.data.scenarioName}/${Util.forceName('シナリオ', name, 'txt')}`
+				var subkey = `${Data.scenarioName}/${Util.forceName('シナリオ', name, 'txt')}`
 				//LOG(subkey)
-				if (!cacheHas(subkey)) fetchScriptData(to, base).then( script => cacheScript(script) ).check()
+				if (!Util.cacheHas(subkey)) fetchScriptData(to, base).then( script => cacheScript(script) ).check()
 				
 			},
 
@@ -183,7 +183,7 @@ READY().then( _ => {
 		var defer = Promise.defer()
 		var caching = 0
 
-		function append(args, toURL = toBlobURL) {
+		function append(args, toURL = Util.toBlobURL) {
 			++caching
 			preloadAppend( _ => {
 				return toURL(...args).through( _ => {
@@ -229,8 +229,8 @@ READY().then( _ => {
 		sname = sname.split('#')[0]
 
 		View.changeModeIfNeeded('NOVEL')
-		Player.data.phase = 'play'
-		document.title = `【${Player.data.scenarioName}】`
+		Data.phase = 'play'
+		document.title = `【${Data.scenarioName}】`
 
 		var run = Promise.defer()
 		if (!parentComp) parentComp = run.resolve
@@ -239,7 +239,7 @@ READY().then( _ => {
 		var {mark: hashmark, params, scenario} = script
 
 		var searching = !!hashmark
-		if (params) Object.keys(params).forEach(name => Player.paramSet(name, params[name]))
+		if (params) Object.keys(params).forEach(name => Util.paramSet(name, params[name]))
 		if (scenario) Player.setScenario(scenario)
 		
 		script = copyObject(script)	
@@ -259,7 +259,7 @@ READY().then( _ => {
 					if (Util.isNoneType(name)) name = ''
 					name = replaceEffect(name)
 					View.nextPage(name)
-					//Player.data.currentSpeakerName = name
+					//Data.currentSpeakerName = name
 
 					function nextSentence() {
 						var text = texts.shift()
@@ -268,7 +268,7 @@ READY().then( _ => {
 							return '\u200B'.repeat(num)
 						}).replace(/\\n/g, '\n')
 						text = replaceEffect(text)
-						//Player.data.currentSentence = text
+						//Data.currentSentence = text
 						View.addSentence(text).on('go', nextSentence, failed)
 					}
 					nextSentence()
@@ -279,7 +279,7 @@ READY().then( _ => {
 
 			背景(data, done, failed) {
 				var name = replaceEffect(data[0])
-				toBlobURL('背景', name, 'jpg').then( url => View.setBGImage({ url }) ).then(done, failed)
+				Util.toBlobURL('背景', name, 'jpg').then( url => View.setBGImage({ url }) ).then(done, failed)
 			},
 
 			立絵: otherName('立ち絵'),
@@ -315,9 +315,9 @@ READY().then( _ => {
 						height = height != null ? `${+height}%` : null
 					}
 
-					base.push(toBlobURL('立ち絵', name, 'png').then( url => ({ url, height, [a_type]: `${a_per}%`, [v_type]: `${v_per}%` }) ))
+					base.push(Util.toBlobURL('立ち絵', name, 'png').then( url => ({ url, height, [a_type]: `${a_per}%`, [v_type]: `${v_per}%` }) ))
 					return base
-				}, [])).then(View.setFDImages.bind(View)).then(done, failed)
+				}, [])).then( opt => View.setFDImages(opt) ).then(done, failed)
 			},
 
 			選択: otherName('選択肢'),
@@ -351,7 +351,7 @@ READY().then( _ => {
 					if (!name) return failed('不正なパラメータ指定検出') 
 					var eff = evalEffect(effect, failed)
 					//LOG(name, effect, eff)
-					paramSet(name, eff)
+					Util.paramSet(name, eff)
 
 				})
 				done()
@@ -368,7 +368,7 @@ READY().then( _ => {
 				var eff = evalEffect(effect, failed)
 				//LOG(name, effect, eff)
 				var rv = prompt('', eff) || eff
-				paramSet(name, rv)
+				Util.paramSet(name, rv)
 
 				done()
 			},
@@ -401,16 +401,16 @@ READY().then( _ => {
 
 				if (parentComp != run.resolve) return failed('このコマンドはトップレベルにおいてください')
 				var params = {}
-				paramForEach( (value, key) => params[key] = value )
+				Util.paramForEach( (value, key) => params[key] = value )
 				var cp = {
 					script: sname, 
 					mark: data[0],
 					params,
 				}
 				//LOG(cp)
-				Player.data.currentPoint = cp
+				Data.currentPoint = cp
 				done()
-				updateDebugWindow()
+				Util.updateDebugWindow()
 			},
 
 			スクリプト(data, done, failed) {
@@ -445,8 +445,6 @@ READY().then( _ => {
 		}
 
 		function main_loop() {
-
-			//updateDebugWindow()
 
 			var act, loop = new Promise( (resolve, reject) => {
 
@@ -507,130 +505,14 @@ READY().then( _ => {
 		effect = effect.replace(/[^+\-*/%><!=?:()&|\s]+/g, str => {
 			if (/^[0-9.]+$/.test(str)) return str
 			if (/^"[^"]*"$/.test(str)) return str
-			return `paramGet('${str}')`
+			return `Util.paramGet('${str}')`
 		})
 		//LOG(effect)
 		return eval(effect)
 	}
 
 
-	function updateDebugWindow() {
 
-		if (!Data.debug) return
-
-		var params = {}
-		paramForEach( (value, key) => params[key] = value )
-
-		var cacheSizeMB = ((cacheGet('$size') || 0) / 1024 / 1024).toFixed(1)
-		var mark = Player.data.currentPoint && Player.data.currentPoint.mark || '（無し）'
-
-		var obj = {
-			キャッシュサイズ: cacheSizeMB + 'MB',
-			現在のマーク: mark,
-			パラメータ: params,
-		}
-
-		View.updateDebugWindow(obj)
-	}
-
-
-	function toBlobEmogiURL(name) {
-		return toBlobURL('絵文字', name, 'svg')
-	}
-
-	function toBlobScriptURL(name) {
-		return toBlobURL('シナリオ', name, 'txt')
-	}
-
-
-	function toBlobURL(kind, name, type, sys = false) {
-		var root = sys ? 'エンジン' : 'データ'
-		var sub = Util.forceName(kind, name, type)
-		var subkey = sys ? `${sub}` : `${Player.data.scenarioName}/${sub}`
-		if (Util.isNoneType(name)) return Promise.resolve(null)
-		if (cacheHas(subkey)) return Promise.resolve(cacheGet(subkey))
-		var defer = Promise.defer()
-		cacheSet(subkey, defer.promise)
-		var hide = View.setLoadingMessage('Loading...')
-		return new Promise( (ok, ng) => {		
-			find(`${root}/${subkey}`).catch( _ => `${root}/[[共通素材]]/${sub}` ).then( url => ok(url), ng)
-		}).then(loadBlob).then( blob => {
-			var blobURL = URL.createObjectURL(blob)
-			defer.resolve(blobURL)
-			cacheSizeUpdate(blob.size)
-			//Storage.testPut(subkey, blob)
-			hide()
-			return blobURL
-		}).through(hide)
-	}
-
-
-
-	function fetchSettingData(url) {
-		return loadText(url).then( text => {
-			var setting = parseScript(text)
-			var data = {}
-			setting.forEach( ary => {
-				data[ary[0]] = ary[1]
-			})
-			return data
-		} )
-	}
-
-
-	function fetchScriptData(name, base) {
-		if (!name) return Promise.reject('子スクリプト名が不正')
-		var [name, mark = ''] = name.replace(/＃/g,'#').split('#')
-		if (!name) {
-			if (!base) return Promise.reject('親スクリプト名が必要')
-			name = base.replace(/＃/g,'#').split('#')[0]
-		}
-		return toBlobScriptURL(name).then(loadText).then( text => parseScript(text) ).then(script => {
-			script.unshift(['マーク',['']])
-			script.mark = mark
-			script.sname = name
-			return script
-		})
-	}
-
-
-	function fetchSEData(name, sys) {
-		return toBlobURL('効果音', name, 'ogg', sys)
-	}
-
-
-	function loadText(url) {
-		return load(url, 'text')
-	}
-
-	function loadBlob(url) {
-		return load(url, 'blob')
-	}
-
-	function load(url, type) {
-		return new Promise(function (ok, ng) {
-			var xhr = new XMLHttpRequest()
-			xhr.onload = _ => ok(xhr.response)
-			xhr.onerror = _ => ng(new Error(`ファイルURL『${url}』のロードに失敗`))
-			xhr.open('GET', url)
-			if (type) xhr.responseType = type
-			xhr.send()
-		})
-	}
-
-	function find(url) {
-		return new Promise(function (ok, ng) {
-			var xhr = new XMLHttpRequest()
-			xhr.onload = _ => {
-				if (xhr.status < 300) ok(url)
-				else ng(new Error(`ファイルURL『${url}』が見つからない`)) 
-			}
-			xhr.onerror = _ => ng(new Error(`ファイルURL『${url}』のロードに失敗`))
-			xhr.open('HEAD', url)
-			xhr.send()
-		})
-
-	}
 
 
 	function print(message) {
@@ -638,13 +520,6 @@ READY().then( _ => {
 		View.print(message)
 	}
 
-
-	function save(no) {
-		var cp = Player.data.currentPoint
-		if (!cp) return Promise.reject('直近のセーブポイントが見つかりません。')
-		return Storage.setSaveData(no, cp)
-
-	}
 
 
 	function loadSaveData() {
@@ -659,7 +534,7 @@ READY().then( _ => {
 			var {mark, params, script} = save
 			return Player.fetchScriptData(`${script}#${mark}`).then( script => {
 				script.params = params
-				script.scenario = Player.data.scenarioName
+				script.scenario = Data.scenarioName
 				return script
 			})
 		})()
@@ -677,8 +552,8 @@ READY().then( _ => {
 			var no = (yield View.setChoiceWindow(opts, {sys: true})) + 0
 
 			var params = {}
-			paramForEach( (value, key) => params[key] = value )
-			var save = Player.data.currentPoint
+			Util.paramForEach( (value, key) => params[key] = value )
+			var save = Data.currentPoint
 
 			return yield Storage.setSaveData(no, save)
 			
@@ -687,75 +562,48 @@ READY().then( _ => {
 
 
 	function init() {
-		Player.data = {}
-		Player.data.phase = 'pause'
+		Data.phase = 'pause'
 		Player.setRunPhase('準備')
-		Player.paramClear()
+		Util.paramClear()
 		View.clean()
 	}
 
 	function setScenario(scenario) {
-		Player.data.scenarioName = scenario
+		Data.scenarioName = scenario
 	}
 
 
+	function fetchSettingData(url) {
+		return Util.loadText(url).then( text => {
+			var setting = parseScript(text)
+			var data = {}
+			setting.forEach( ary => {
+				data[ary[0]] = ary[1]
+			})
+			return data
+		} )
+	}
 
-	var {cacheClear, cacheHas, cacheGet, cacheSet, cacheSizeUpdate} = (_ => {
 
-		var cacheMap = new Map
-		cacheInit()
-
-		function cacheInit() {
-			cacheMap.clear()
-			cacheMap.set('$size', 0)
+	function fetchScriptData(name, base) {
+		if (!name) return Promise.reject('子スクリプト名が不正')
+		var [name, mark = ''] = name.replace(/＃/g,'#').split('#')
+		if (!name) {
+			if (!base) return Promise.reject('親スクリプト名が必要')
+			name = base.replace(/＃/g,'#').split('#')[0]
 		}
+		return Util.toBlobScriptURL(name).then(Util.loadText).then( text => parseScript(text) ).then(script => {
+			script.unshift(['マーク',['']])
+			script.mark = mark
+			script.sname = name
+			return script
+		})
+	}
 
-		return {
-			cacheClear() {
-				cacheMap.forEach( (_, p) => { if (p.then) p.then(url => URL.revokeObjectURL(url)) } )
-				cacheInit()
-				updateDebugWindow()
-			},
-			cacheHas(key) { return cacheMap.has(key) },
-			cacheGet(key) { return cacheMap.get(key) },
-			cacheSet(key, val) { cacheMap.set(key, val) },
-			cacheSizeUpdate(n) { 
-				cacheMap.set('$size', cacheMap.get('$size') + n)
-				//LOG(n, cacheGet('$size'))
-				updateDebugWindow()
-			},
-		}
-	})()
-
-	var {paramSet, paramGet, paramClear, paramForEach} = (_ => {
-		var paramMap = new Map
-
-		return {
-			paramSet(key, val) {
-				paramMap.set(key, val)
-				updateDebugWindow()
-			},
-			paramGet(key) {
-				if (!paramMap.has(key)) {
-					paramMap.set(key, 0)
-					updateDebugWindow()
-				}
-				return paramMap.get(key)
-			},
-			paramClear() {
-				paramMap.clear()
-				updateDebugWindow()
-			},
-			paramForEach(func) {
-				paramMap.forEach(func)
-			}
-		}
-	})()
-
+	
 	READY.Player.ready({
-		setRunPhase, setErrorPhase, fetchSettingData, fetchScriptData, fetchSEData, runScript, print, cacheClear, paramClear,
-		toBlobURL, toBlobEmogiURL, find, save, data: {}, loadSaveData, saveSaveData, paramSet, paramGet, evalEffect, init, setScenario,
-		cacheScript, load,
+		setRunPhase, setErrorPhase, fetchSettingData, fetchScriptData, runScript, print,
+		loadSaveData, saveSaveData, evalEffect, init, setScenario, cacheScript,
 	})
 
 }).check()

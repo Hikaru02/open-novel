@@ -91,8 +91,149 @@ System.register("ES6/ヘルパー", [], function() {
           loop();
           return defer.promise;
         };
+      },
+      updateDebugWindow: function() {
+        if (!Data.debug)
+          return;
+        var params = {};
+        Util.paramForEach((function(value, key) {
+          return params[key] = value;
+        }));
+        var cacheSizeMB = ((Util.cacheGet('$size') || 0) / 1024 / 1024).toFixed(1);
+        var mark = Data.currentPoint && Data.currentPoint.mark || '（無し）';
+        var obj = {
+          キャッシュサイズ: cacheSizeMB + 'MB',
+          現在のマーク: mark,
+          パラメータ: params
+        };
+        View.updateDebugWindow(obj);
+      },
+      toBlobEmogiURL: function(name) {
+        return Util.toBlobURL('絵文字', name, 'svg');
+      },
+      toBlobScriptURL: function(name) {
+        return Util.toBlobURL('シナリオ', name, 'txt');
+      },
+      toBlobURL: function(kind, name, type) {
+        var sys = arguments[3] !== (void 0) ? arguments[3] : false;
+        var root = sys ? 'エンジン' : 'データ';
+        var sub = Util.forceName(kind, name, type);
+        var subkey = sys ? ("" + sub) : (Data.scenarioName + "/" + sub);
+        if (Util.isNoneType(name))
+          return Promise.resolve(null);
+        if (Util.cacheHas(subkey))
+          return Promise.resolve(Util.cacheGet(subkey));
+        var defer = Promise.defer();
+        Util.cacheSet(subkey, defer.promise);
+        var hide = View.setLoadingMessage('Loading...');
+        return new Promise((function(ok, ng) {
+          Util.find((root + "/" + subkey)).catch((function(_) {
+            return (root + "/[[共通素材]]/" + sub);
+          })).then((function(url) {
+            return ok(url);
+          }), ng);
+        })).then(Util.loadBlob).then((function(blob) {
+          var blobURL = URL.createObjectURL(blob);
+          defer.resolve(blobURL);
+          Util.cacheSizeUpdate(blob.size);
+          hide();
+          return blobURL;
+        })).through(hide);
+      },
+      loadText: function(url) {
+        return Util.load(url, 'text');
+      },
+      loadBlob: function(url) {
+        return Util.load(url, 'blob');
+      },
+      load: function(url, type) {
+        return new Promise(function(ok, ng) {
+          var xhr = new XMLHttpRequest();
+          xhr.onload = (function(_) {
+            return ok(xhr.response);
+          });
+          xhr.onerror = (function(_) {
+            return ng(new Error(("ファイルURL『" + url + "』のロードに失敗")));
+          });
+          xhr.open('GET', url);
+          if (type)
+            xhr.responseType = type;
+          xhr.send();
+        });
+      },
+      find: function(url) {
+        return new Promise(function(ok, ng) {
+          var xhr = new XMLHttpRequest();
+          xhr.onload = (function(_) {
+            if (xhr.status < 300)
+              ok(url);
+            else
+              ng(new Error(("ファイルURL『" + url + "』が見つからない")));
+          });
+          xhr.onerror = (function(_) {
+            return ng(new Error(("ファイルURL『" + url + "』のロードに失敗")));
+          });
+          xhr.open('HEAD', url);
+          xhr.send();
+        });
       }
     };
+    Util.setProperties(Util, ((function(_) {
+      var cacheMap = new Map;
+      cacheInit();
+      function cacheInit() {
+        cacheMap.clear();
+        cacheMap.set('$size', 0);
+      }
+      return {
+        cacheClear: function() {
+          cacheMap.forEach((function(_, p) {
+            if (p.then)
+              p.then((function(url) {
+                return URL.revokeObjectURL(url);
+              }));
+          }));
+          cacheInit();
+          Util.updateDebugWindow();
+        },
+        cacheHas: function(key) {
+          return cacheMap.has(key);
+        },
+        cacheGet: function(key) {
+          return cacheMap.get(key);
+        },
+        cacheSet: function(key, val) {
+          cacheMap.set(key, val);
+        },
+        cacheSizeUpdate: function(n) {
+          cacheMap.set('$size', cacheMap.get('$size') + n);
+          Util.updateDebugWindow();
+        }
+      };
+    }))());
+    Util.setProperties(Util, ((function(_) {
+      var paramMap = new Map;
+      return {
+        paramSet: function(key, val) {
+          paramMap.set(key, val);
+          Util.updateDebugWindow();
+        },
+        paramGet: function(key) {
+          if (!paramMap.has(key)) {
+            paramMap.set(key, 0);
+            Util.updateDebugWindow();
+          }
+          return paramMap.get(key);
+        },
+        paramClear: function() {
+          paramMap.clear();
+          Util.updateDebugWindow();
+        },
+        paramForEach: function(func) {
+          paramMap.forEach(func);
+        }
+      };
+    }))());
     Util.setDefaults(String.prototype, {repeat: function repeat(num) {
         return new Array(num + 1).join(this);
       }});
@@ -237,8 +378,9 @@ System.register("ES6/ヘルパー", [], function() {
       })
     });
     Util.overrides = {
-      Promise: $Promise,
-      R: Promise.resolve()
+      Util: Util,
+      $Promise: $Promise,
+      Res: Promise.resolve()
     };
     var READY = ((function(_) {
       function READY(type) {
@@ -247,7 +389,9 @@ System.register("ES6/ヘルパー", [], function() {
           if (!(type in READY))
             throw 'illegal READY type "' + type + '"';
           return READY[type];
-        })));
+        }))).then((function(_) {
+          return Util.overrides;
+        }));
       }
       ;
       ['DOM', 'Player', 'View', 'Storage', 'Sound', 'Game'].forEach((function(type) {
@@ -335,7 +479,7 @@ System.register("ES6/ストレージ", [], function() {
         }));
       },
       getSaveDatas: function(from, to) {
-        var scenario = Player.data.scenarioName;
+        var scenario = Data.scenarioName;
         return new Promise((function(ok, ng) {
           var saves = new Array(to - from + 1);
           var ts = db.transaction('savedata', 'readonly');
@@ -357,7 +501,7 @@ System.register("ES6/ストレージ", [], function() {
         }));
       },
       setSaveData: function(no, data) {
-        var scenario = Player.data.scenarioName;
+        var scenario = Data.scenarioName;
         return new Promise((function(ok, ng) {
           var ts = db.transaction('savedata', 'readwrite');
           var os = ts.objectStore('savedata');
@@ -426,8 +570,9 @@ System.get("ES6/ストレージ" + '');
 System.register("ES6/プレーヤー", [], function() {
   "use strict";
   var __moduleName = "ES6/プレーヤー";
-  READY().then((function(_) {
+  READY().then((function($__3) {
     'use strict';
+    var Util = $__3.Util;
     function setPhase(phase) {
       document.title = '【' + phase + '】';
     }
@@ -479,7 +624,7 @@ System.register("ES6/プレーヤー", [], function() {
       ;
       (text.match(/\\\[.+\]/g) || []).forEach((function(eff) {
         var name = eff.slice(2, -1);
-        toBlobEmogiURL(name);
+        Util.toBlobEmogiURL(name);
       }));
     }
     var preloadAppend = ((function(_) {
@@ -526,9 +671,9 @@ System.register("ES6/プレーヤー", [], function() {
           data.forEach((function(ary) {
             if (Util.isNoneType(ary))
               return;
-            var $__3 = $traceurRuntime.assertObject(ary),
-                position = $__3[0],
-                names = $__3[1];
+            var $__4 = $traceurRuntime.assertObject(ary),
+                position = $__4[0],
+                names = $__4[1];
             if (!position)
               return;
             if (!names)
@@ -549,19 +694,19 @@ System.register("ES6/プレーヤー", [], function() {
         選択: otherName('選択肢'),
         選択肢: otherName('分岐系'),
         ジャンプ: function(data) {
-          var $__4;
+          var $__5;
           var to = data[0];
           if (!to)
             return;
           var name = to,
               base = sname;
-          var $__3 = $traceurRuntime.assertObject(name.replace(/＃/g, '#').split('#')),
-              name = $__3[0],
-              mark = ($__4 = $__3[1]) === void 0 ? '' : $__4;
+          var $__4 = $traceurRuntime.assertObject(name.replace(/＃/g, '#').split('#')),
+              name = $__4[0],
+              mark = ($__5 = $__4[1]) === void 0 ? '' : $__5;
           if (!name)
             name = base.replace(/＃/g, '#').split('#')[0];
-          var subkey = (Player.data.scenarioName + "/" + Util.forceName('シナリオ', name, 'txt'));
-          if (!cacheHas(subkey))
+          var subkey = (Data.scenarioName + "/" + Util.forceName('シナリオ', name, 'txt'));
+          if (!Util.cacheHas(subkey))
             fetchScriptData(to, base).then((function(script) {
               return cacheScript(script);
             })).check();
@@ -582,7 +727,7 @@ System.register("ES6/プレーヤー", [], function() {
       var defer = Promise.defer();
       var caching = 0;
       function append(args) {
-        var toURL = arguments[1] !== (void 0) ? arguments[1] : toBlobURL;
+        var toURL = arguments[1] !== (void 0) ? arguments[1] : Util.toBlobURL;
         ++caching;
         preloadAppend((function(_) {
           return toURL.apply(null, $traceurRuntime.toObject(args)).through((function(_) {
@@ -619,21 +764,21 @@ System.register("ES6/プレーヤー", [], function() {
         LOG('!!!sname');
       sname = sname.split('#')[0];
       View.changeModeIfNeeded('NOVEL');
-      Player.data.phase = 'play';
-      document.title = ("【" + Player.data.scenarioName + "】");
+      Data.phase = 'play';
+      document.title = ("【" + Data.scenarioName + "】");
       var run = Promise.defer();
       if (!parentComp)
         parentComp = run.resolve;
       if (!masterComp)
         masterComp = run.resolve;
-      var $__3 = $traceurRuntime.assertObject(script),
-          hashmark = $__3.mark,
-          params = $__3.params,
-          scenario = $__3.scenario;
+      var $__4 = $traceurRuntime.assertObject(script),
+          hashmark = $__4.mark,
+          params = $__4.params,
+          scenario = $__4.scenario;
       var searching = !!hashmark;
       if (params)
         Object.keys(params).forEach((function(name) {
-          return Player.paramSet(name, params[name]);
+          return Util.paramSet(name, params[name]);
         }));
       if (scenario)
         Player.setScenario(scenario);
@@ -676,7 +821,7 @@ System.register("ES6/プレーヤー", [], function() {
       }), Object.defineProperty($__2, "背景", {
         value: function(data, done, failed) {
           var name = replaceEffect(data[0]);
-          toBlobURL('背景', name, 'jpg').then((function(url) {
+          Util.toBlobURL('背景', name, 'jpg').then((function(url) {
             return View.setBGImage({url: url});
           })).then(done, failed);
         },
@@ -691,15 +836,15 @@ System.register("ES6/プレーヤー", [], function() {
       }), Object.defineProperty($__2, "立ち絵", {
         value: function(data, done, failed) {
           Promise.all(data.reduce((function(base, ary) {
-            var $__4,
-                $__5;
+            var $__5,
+                $__6;
             if (!base)
               return;
             if (Util.isNoneType(ary))
               return base;
-            var $__3 = $traceurRuntime.assertObject(ary),
-                position = $__3[0],
-                names = $__3[1];
+            var $__4 = $traceurRuntime.assertObject(ary),
+                position = $__4[0],
+                names = $__4[1];
             if (!position)
               return failed('不正な位置検出');
             if (!names)
@@ -708,25 +853,25 @@ System.register("ES6/プレーヤー", [], function() {
             var name = replaceEffect(names[0]);
             var a_type = ['left', 'right']['左右'.indexOf(position)];
             var v_type = 'top';
-            var $__3 = [0, 0],
-                a_per = $__3[0],
-                v_per = $__3[1];
+            var $__4 = [0, 0],
+                a_per = $__4[0],
+                v_per = $__4[1];
             var height = null;
             if (!a_type) {
               var pos = Util.toHalfWidth(position).match(/[+\-0-9.]+/g);
               if (!pos)
                 return failed('不正な位置検出');
-              var $__3 = $traceurRuntime.assertObject(pos),
-                  a_pos = $__3[0],
-                  v_pos = ($__4 = $__3[1]) === void 0 ? '0' : $__4,
-                  height = ($__5 = $__3[2]) === void 0 ? null : $__5;
+              var $__4 = $traceurRuntime.assertObject(pos),
+                  a_pos = $__4[0],
+                  v_pos = ($__5 = $__4[1]) === void 0 ? '0' : $__5,
+                  height = ($__6 = $__4[2]) === void 0 ? null : $__6;
               a_per = Math.abs(+a_pos);
               v_per = Math.abs(+v_pos);
               a_type = a_pos.match('-') ? 'right' : 'left';
               v_type = v_pos.match('-') ? 'bottom' : 'top';
               height = height != null ? (+height + "%") : null;
             }
-            base.push(toBlobURL('立ち絵', name, 'png').then((function(url) {
+            base.push(Util.toBlobURL('立ち絵', name, 'png').then((function(url) {
               var $__2;
               return (($__2 = {}, Object.defineProperty($__2, "url", {
                 value: url,
@@ -751,7 +896,9 @@ System.register("ES6/プレーヤー", [], function() {
               }), $__2));
             })));
             return base;
-          }), [])).then(View.setFDImages.bind(View)).then(done, failed);
+          }), [])).then((function(opt) {
+            return View.setFDImages(opt);
+          })).then(done, failed);
         },
         configurable: true,
         enumerable: true,
@@ -810,7 +957,7 @@ System.register("ES6/プレーヤー", [], function() {
             if (!name)
               return failed('不正なパラメータ指定検出');
             var eff = evalEffect(effect, failed);
-            paramSet(name, eff);
+            Util.paramSet(name, eff);
           }));
           done();
         },
@@ -827,7 +974,7 @@ System.register("ES6/プレーヤー", [], function() {
           var effect = str[2];
           var eff = evalEffect(effect, failed);
           var rv = prompt('', eff) || eff;
-          paramSet(name, rv);
+          Util.paramSet(name, rv);
           done();
         },
         configurable: true,
@@ -850,9 +997,9 @@ System.register("ES6/プレーヤー", [], function() {
           if (i > 10000)
             return failed('繰り返し回数が多すぎる(10000回超え)');
           new Promise((function(ok, ng) {
-            if (!data.some((function($__3) {
-              var effect = $__3[0],
-                  acts = $__3[1];
+            if (!data.some((function($__4) {
+              var effect = $__4[0],
+                  acts = $__4[1];
               if (!effect)
                 return failed('不正なパラメータ指定検出');
               var flag = !!evalEffect(effect, ng);
@@ -870,9 +1017,9 @@ System.register("ES6/プレーヤー", [], function() {
         writable: true
       }), Object.defineProperty($__2, "分岐", {
         value: function(data, done, failed) {
-          if (!data.some((function($__3) {
-            var effect = $__3[0],
-                acts = $__3[1];
+          if (!data.some((function($__4) {
+            var effect = $__4[0],
+                acts = $__4[1];
             if (!effect)
               return failed('不正なパラメータ指定検出');
             var flag = !!evalEffect(effect, failed);
@@ -890,7 +1037,7 @@ System.register("ES6/プレーヤー", [], function() {
           if (parentComp != run.resolve)
             return failed('このコマンドはトップレベルにおいてください');
           var params = {};
-          paramForEach((function(value, key) {
+          Util.paramForEach((function(value, key) {
             return params[key] = value;
           }));
           var cp = {
@@ -898,9 +1045,9 @@ System.register("ES6/プレーヤー", [], function() {
             mark: data[0],
             params: params
           };
-          Player.data.currentPoint = cp;
+          Data.currentPoint = cp;
           done();
-          updateDebugWindow();
+          Util.updateDebugWindow();
         },
         configurable: true,
         enumerable: true,
@@ -999,146 +1146,21 @@ System.register("ES6/プレーヤー", [], function() {
           return str;
         if (/^"[^"]*"$/.test(str))
           return str;
-        return ("paramGet('" + str + "')");
+        return ("Util.paramGet('" + str + "')");
       }));
       return eval(effect);
-    }
-    function updateDebugWindow() {
-      if (!Data.debug)
-        return;
-      var params = {};
-      paramForEach((function(value, key) {
-        return params[key] = value;
-      }));
-      var cacheSizeMB = ((cacheGet('$size') || 0) / 1024 / 1024).toFixed(1);
-      var mark = Player.data.currentPoint && Player.data.currentPoint.mark || '（無し）';
-      var obj = {
-        キャッシュサイズ: cacheSizeMB + 'MB',
-        現在のマーク: mark,
-        パラメータ: params
-      };
-      View.updateDebugWindow(obj);
-    }
-    function toBlobEmogiURL(name) {
-      return toBlobURL('絵文字', name, 'svg');
-    }
-    function toBlobScriptURL(name) {
-      return toBlobURL('シナリオ', name, 'txt');
-    }
-    function toBlobURL(kind, name, type) {
-      var sys = arguments[3] !== (void 0) ? arguments[3] : false;
-      var root = sys ? 'エンジン' : 'データ';
-      var sub = Util.forceName(kind, name, type);
-      var subkey = sys ? ("" + sub) : (Player.data.scenarioName + "/" + sub);
-      if (Util.isNoneType(name))
-        return Promise.resolve(null);
-      if (cacheHas(subkey))
-        return Promise.resolve(cacheGet(subkey));
-      var defer = Promise.defer();
-      cacheSet(subkey, defer.promise);
-      var hide = View.setLoadingMessage('Loading...');
-      return new Promise((function(ok, ng) {
-        find((root + "/" + subkey)).catch((function(_) {
-          return (root + "/[[共通素材]]/" + sub);
-        })).then((function(url) {
-          return ok(url);
-        }), ng);
-      })).then(loadBlob).then((function(blob) {
-        var blobURL = URL.createObjectURL(blob);
-        defer.resolve(blobURL);
-        cacheSizeUpdate(blob.size);
-        hide();
-        return blobURL;
-      })).through(hide);
-    }
-    function fetchSettingData(url) {
-      return loadText(url).then((function(text) {
-        var setting = parseScript(text);
-        var data = {};
-        setting.forEach((function(ary) {
-          data[ary[0]] = ary[1];
-        }));
-        return data;
-      }));
-    }
-    function fetchScriptData(name, base) {
-      var $__4;
-      if (!name)
-        return Promise.reject('子スクリプト名が不正');
-      var $__3 = $traceurRuntime.assertObject(name.replace(/＃/g, '#').split('#')),
-          name = $__3[0],
-          mark = ($__4 = $__3[1]) === void 0 ? '' : $__4;
-      if (!name) {
-        if (!base)
-          return Promise.reject('親スクリプト名が必要');
-        name = base.replace(/＃/g, '#').split('#')[0];
-      }
-      return toBlobScriptURL(name).then(loadText).then((function(text) {
-        return parseScript(text);
-      })).then((function(script) {
-        script.unshift(['マーク', ['']]);
-        script.mark = mark;
-        script.sname = name;
-        return script;
-      }));
-    }
-    function fetchSEData(name, sys) {
-      return toBlobURL('効果音', name, 'ogg', sys);
-    }
-    function loadText(url) {
-      return load(url, 'text');
-    }
-    function loadBlob(url) {
-      return load(url, 'blob');
-    }
-    function load(url, type) {
-      return new Promise(function(ok, ng) {
-        var xhr = new XMLHttpRequest();
-        xhr.onload = (function(_) {
-          return ok(xhr.response);
-        });
-        xhr.onerror = (function(_) {
-          return ng(new Error(("ファイルURL『" + url + "』のロードに失敗")));
-        });
-        xhr.open('GET', url);
-        if (type)
-          xhr.responseType = type;
-        xhr.send();
-      });
-    }
-    function find(url) {
-      return new Promise(function(ok, ng) {
-        var xhr = new XMLHttpRequest();
-        xhr.onload = (function(_) {
-          if (xhr.status < 300)
-            ok(url);
-          else
-            ng(new Error(("ファイルURL『" + url + "』が見つからない")));
-        });
-        xhr.onerror = (function(_) {
-          return ng(new Error(("ファイルURL『" + url + "』のロードに失敗")));
-        });
-        xhr.open('HEAD', url);
-        xhr.send();
-      });
     }
     function print(message) {
       if (!View.print)
         View.changeMode('TEST');
       View.print(message);
     }
-    function save(no) {
-      var cp = Player.data.currentPoint;
-      if (!cp)
-        return Promise.reject('直近のセーブポイントが見つかりません。');
-      return Storage.setSaveData(no, cp);
-    }
     function loadSaveData() {
-      return Util.co($traceurRuntime.initGeneratorFunction(function $__6() {
+      return Util.co($traceurRuntime.initGeneratorFunction(function $__7() {
         var saves,
             opts,
             save,
-            $__3,
+            $__4,
             mark,
             params,
             script;
@@ -1172,13 +1194,13 @@ System.register("ES6/プレーヤー", [], function() {
                 $ctx.state = 8;
                 break;
               case 8:
-                $__3 = $traceurRuntime.assertObject(save), mark = $__3.mark, params = $__3.params, script = $__3.script;
+                $__4 = $traceurRuntime.assertObject(save), mark = $__4.mark, params = $__4.params, script = $__4.script;
                 $ctx.state = 14;
                 break;
               case 14:
                 $ctx.returnValue = Player.fetchScriptData((script + "#" + mark)).then((function(script) {
                   script.params = params;
-                  script.scenario = Player.data.scenarioName;
+                  script.scenario = Data.scenarioName;
                   return script;
                 }));
                 $ctx.state = -2;
@@ -1186,22 +1208,22 @@ System.register("ES6/プレーヤー", [], function() {
               default:
                 return $ctx.end();
             }
-        }, $__6, this);
+        }, $__7, this);
       }))();
     }
     function saveSaveData() {
-      return Util.co($traceurRuntime.initGeneratorFunction(function $__6() {
+      return Util.co($traceurRuntime.initGeneratorFunction(function $__7() {
         var saves,
             opts,
             no,
             params,
             save,
-            $__7,
             $__8,
             $__9,
             $__10,
             $__11,
-            $__12;
+            $__12,
+            $__13;
         return $traceurRuntime.createGeneratorInstance(function($ctx) {
           while (true)
             switch ($ctx.state) {
@@ -1224,150 +1246,104 @@ System.register("ES6/プレーヤー", [], function() {
                 $ctx.state = 22;
                 break;
               case 22:
-                $__7 = View.setChoiceWindow;
-                $__8 = $__7.call(View, opts, {sys: true});
+                $__8 = View.setChoiceWindow;
+                $__9 = $__8.call(View, opts, {sys: true});
                 $ctx.state = 10;
                 break;
               case 10:
                 $ctx.state = 6;
-                return $__8;
+                return $__9;
               case 6:
-                $__9 = $ctx.sent;
+                $__10 = $ctx.sent;
                 $ctx.state = 8;
                 break;
               case 8:
-                no = $__9 + 0;
+                no = $__10 + 0;
                 $ctx.state = 12;
                 break;
               case 12:
                 params = {};
-                paramForEach((function(value, key) {
+                Util.paramForEach((function(value, key) {
                   return params[key] = value;
                 }));
-                save = Player.data.currentPoint;
+                save = Data.currentPoint;
                 $ctx.state = 24;
                 break;
               case 24:
-                $__10 = Storage.setSaveData;
-                $__11 = $__10.call(Storage, no, save);
+                $__11 = Storage.setSaveData;
+                $__12 = $__11.call(Storage, no, save);
                 $ctx.state = 18;
                 break;
               case 18:
                 $ctx.state = 14;
-                return $__11;
+                return $__12;
               case 14:
-                $__12 = $ctx.sent;
+                $__13 = $ctx.sent;
                 $ctx.state = 16;
                 break;
               case 16:
-                $ctx.returnValue = $__12;
+                $ctx.returnValue = $__13;
                 $ctx.state = -2;
                 break;
               default:
                 return $ctx.end();
             }
-        }, $__6, this);
+        }, $__7, this);
       }))();
     }
     function init() {
-      Player.data = {};
-      Player.data.phase = 'pause';
+      Data.phase = 'pause';
       Player.setRunPhase('準備');
-      Player.paramClear();
+      Util.paramClear();
       View.clean();
     }
     function setScenario(scenario) {
-      Player.data.scenarioName = scenario;
+      Data.scenarioName = scenario;
     }
-    var $__3 = $traceurRuntime.assertObject(((function(_) {
-      var cacheMap = new Map;
-      cacheInit();
-      function cacheInit() {
-        cacheMap.clear();
-        cacheMap.set('$size', 0);
+    function fetchSettingData(url) {
+      return Util.loadText(url).then((function(text) {
+        var setting = parseScript(text);
+        var data = {};
+        setting.forEach((function(ary) {
+          data[ary[0]] = ary[1];
+        }));
+        return data;
+      }));
+    }
+    function fetchScriptData(name, base) {
+      var $__5;
+      if (!name)
+        return Promise.reject('子スクリプト名が不正');
+      var $__4 = $traceurRuntime.assertObject(name.replace(/＃/g, '#').split('#')),
+          name = $__4[0],
+          mark = ($__5 = $__4[1]) === void 0 ? '' : $__5;
+      if (!name) {
+        if (!base)
+          return Promise.reject('親スクリプト名が必要');
+        name = base.replace(/＃/g, '#').split('#')[0];
       }
-      return {
-        cacheClear: function() {
-          cacheMap.forEach((function(_, p) {
-            if (p.then)
-              p.then((function(url) {
-                return URL.revokeObjectURL(url);
-              }));
-          }));
-          cacheInit();
-          updateDebugWindow();
-        },
-        cacheHas: function(key) {
-          return cacheMap.has(key);
-        },
-        cacheGet: function(key) {
-          return cacheMap.get(key);
-        },
-        cacheSet: function(key, val) {
-          cacheMap.set(key, val);
-        },
-        cacheSizeUpdate: function(n) {
-          cacheMap.set('$size', cacheMap.get('$size') + n);
-          updateDebugWindow();
-        }
-      };
-    }))()),
-        cacheClear = $__3.cacheClear,
-        cacheHas = $__3.cacheHas,
-        cacheGet = $__3.cacheGet,
-        cacheSet = $__3.cacheSet,
-        cacheSizeUpdate = $__3.cacheSizeUpdate;
-    var $__3 = $traceurRuntime.assertObject(((function(_) {
-      var paramMap = new Map;
-      return {
-        paramSet: function(key, val) {
-          paramMap.set(key, val);
-          updateDebugWindow();
-        },
-        paramGet: function(key) {
-          if (!paramMap.has(key)) {
-            paramMap.set(key, 0);
-            updateDebugWindow();
-          }
-          return paramMap.get(key);
-        },
-        paramClear: function() {
-          paramMap.clear();
-          updateDebugWindow();
-        },
-        paramForEach: function(func) {
-          paramMap.forEach(func);
-        }
-      };
-    }))()),
-        paramSet = $__3.paramSet,
-        paramGet = $__3.paramGet,
-        paramClear = $__3.paramClear,
-        paramForEach = $__3.paramForEach;
+      return Util.toBlobScriptURL(name).then(Util.loadText).then((function(text) {
+        return parseScript(text);
+      })).then((function(script) {
+        script.unshift(['マーク', ['']]);
+        script.mark = mark;
+        script.sname = name;
+        return script;
+      }));
+    }
     READY.Player.ready({
       setRunPhase: setRunPhase,
       setErrorPhase: setErrorPhase,
       fetchSettingData: fetchSettingData,
       fetchScriptData: fetchScriptData,
-      fetchSEData: fetchSEData,
       runScript: runScript,
       print: print,
-      cacheClear: cacheClear,
-      paramClear: paramClear,
-      toBlobURL: toBlobURL,
-      toBlobEmogiURL: toBlobEmogiURL,
-      find: find,
-      save: save,
-      data: {},
       loadSaveData: loadSaveData,
       saveSaveData: saveSaveData,
-      paramSet: paramSet,
-      paramGet: paramGet,
       evalEffect: evalEffect,
       init: init,
       setScenario: setScenario,
-      cacheScript: cacheScript,
-      load: load
+      cacheScript: cacheScript
     });
   })).check();
   return {};
@@ -1376,8 +1352,9 @@ System.get("ES6/プレーヤー" + '');
 System.register("ES6/ビュー", [], function() {
   "use strict";
   var __moduleName = "ES6/ビュー";
-  READY('Storage', 'Player', 'DOM', 'Sound').then((function(_) {
+  READY('Storage', 'Player', 'DOM', 'Sound').then((function($__16) {
     'use strict';
+    var Util = $__16.Util;
     var View = null;
     var clickSE = new Sound('sysSE', '選択');
     var focusSE = new Sound('sysSE', 'フォーカス');
@@ -1387,15 +1364,18 @@ System.register("ES6/ビュー", [], function() {
       requestFullscreen: EP.webkitRequestFullscreen || EP.mozRequestFullScreen,
       append: EP.appendChild,
       removeChildren: function() {
-        this.innerHTML = '';
+        var ch = this.childNodes,
+            len = ch.length;
+        for (var i = len - 1; i >= 0; --i)
+          ch[i].remove();
         return this;
       },
       setStyles: function(styles) {
-        var $__13 = this;
+        var $__14 = this;
         styles = styles || {};
         Object.keys(styles).forEach((function(key) {
           if (styles[key] != null)
-            $__13.style[key] = styles[key];
+            $__14.style[key] = styles[key];
         }), this);
         return this;
       }
@@ -1462,7 +1442,7 @@ System.register("ES6/ビュー", [], function() {
     });
     var el_debugSub = createDdebugSub();
     ;
-    [360, 480, 720, 1080].forEach((function(size) {
+    [360, 540, 720, 1080].forEach((function(size) {
       var el = el_debugSub.append(new DOM('button', bs));
       el.append(new DOM('text', size + 'p'));
       el.on('click', (function(_) {
@@ -1525,7 +1505,7 @@ System.register("ES6/ビュー", [], function() {
     var el = el_debugSub.append(new DOM('button', bs));
     el.append(new DOM('text', 'キャシュ削除'));
     el.on('click', (function(_) {
-      Player.cacheClear();
+      Util.cacheClear();
       View.showNotice('キャッシュを削除しました');
     }));
     var el = el_debugSub.append(new DOM('button', bs));
@@ -1734,7 +1714,7 @@ System.register("ES6/ビュー", [], function() {
       NOVEL: {
         __proto__: METHODS.COMMON,
         initDisplay: function(opt) {
-          var $__13 = this;
+          var $__14 = this;
           Util.setDefaults(opt, {
             color: 'rgba(255,255,255,0.9)',
             textShadow: 'rgba(0,0,0,0.9) 0.1em 0.1em 0.1em',
@@ -1744,14 +1724,14 @@ System.register("ES6/ビュー", [], function() {
           this.mainMessageWindow = this.addMessageWindow({z: 10});
           this.imageFrame = this.addImageFrame({z: 20});
           View.on('menu').then((function(_) {
-            return $__13.showMenu();
+            return $__14.showMenu();
           })).check();
         },
         messageWindowProto: {
           nextPage: function(name) {
-            var $__16;
-            var $__15 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
-                sys = ($__16 = $__15.sys) === void 0 ? false : $__16;
+            var $__18;
+            var $__17 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
+                sys = ($__18 = $__17.sys) === void 0 ? false : $__18;
             View.windows.message.setStyles({
               background: sys ? 'rgba(0,100,50,0.5)' : 'rgba(0,0,100,0.5)',
               boxShadow: (sys ? 'rgba(0,100,50,0.5)' : 'rgba(0,0,100,0.5)') + ' 0 0 0.5em 0.5em'
@@ -1768,16 +1748,16 @@ System.register("ES6/ビュー", [], function() {
                 nl = 0;
             var el = this.el_body;
             var weight = opt.weight;
-            var $__15 = [false, false],
-                aborted = $__15[0],
-                cancelled = $__15[1];
-            var $__15 = [(function(_) {
+            var $__17 = [false, false],
+                aborted = $__17[0],
+                cancelled = $__17[1];
+            var $__17 = [(function(_) {
               return aborted = true;
             }), (function(_) {
               return cancelled = true;
             })],
-                abort = $__15[0],
-                cancel = $__15[1];
+                abort = $__17[0],
+                cancel = $__17[1];
             View.on('go').then(cancel);
             var p = setAnimate((function(delay, complete, pause) {
               if (aborted)
@@ -1799,7 +1779,7 @@ System.register("ES6/ビュー", [], function() {
                     }));
                     ;
                     ((function(img, name) {
-                      return Player.toBlobEmogiURL(name).then((function(url) {
+                      return Util.toBlobEmogiURL(name).then((function(url) {
                         img.src = url;
                       })).catch(LOG);
                     }))(img, name);
@@ -1811,7 +1791,7 @@ System.register("ES6/ビュー", [], function() {
                     img.type = 'image/svg+xml';
                     ;
                     ((function(img, name) {
-                      return Player.toBlobEmogiURL(name).then((function(url) {
+                      return Util.toBlobEmogiURL(name).then((function(url) {
                         img.data = url;
                       })).catch(LOG);
                     }))(img, name);
@@ -1880,9 +1860,9 @@ System.register("ES6/ビュー", [], function() {
           return fr;
         },
         setChoiceWindow: function(opts) {
-          var $__16;
-          var $__15 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
-              sys = ($__16 = $__15.sys) === void 0 ? false : $__16;
+          var $__18;
+          var $__17 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
+              sys = ($__18 = $__17.sys) === void 0 ? false : $__18;
           var defer = Promise.defer();
           var removed = false;
           var focusbt;
@@ -1910,7 +1890,7 @@ System.register("ES6/ビュー", [], function() {
             this.windows.choiceBack = cw;
           }
           opts.forEach(function(opt) {
-            var $__13 = this;
+            var $__14 = this;
             if (!('value' in opt))
               opt.value = opt.name;
             var bt = new DOM('button', {
@@ -1947,9 +1927,9 @@ System.register("ES6/ビュー", [], function() {
               removed = true;
               defer.resolve(opt.value);
               if (!sys)
-                delete $__13.windows.choice;
+                delete $__14.windows.choice;
               else
-                delete $__13.windows.choiceBack;
+                delete $__14.windows.choiceBack;
               cw.remove();
             });
             cw.append(bt);
@@ -2000,28 +1980,39 @@ System.register("ES6/ビュー", [], function() {
           el_context.style.backgroundSize = 'cover';
         },
         setFDImages: function(opts) {
-          var el = this.imageFrame;
-          el.removeChildren();
-          opts.forEach((function(opt) {
-            Util.setDefaults(opt, {
-              left: null,
-              right: null,
-              top: null,
-              bottom: null
-            });
-            var mar = parseInt(opt.top) || parseInt(opt.bottom) || 0;
-            var height = opt.height ? opt.height : ((100 - mar) + "%");
-            var img = new DOM('img', {
-              position: 'absolute',
-              left: opt.left,
-              right: opt.right,
-              top: opt.top,
-              bottom: opt.bottom,
-              height: height
-            });
-            img.src = opt.url;
-            el.append(img);
+          var defer = Promise.defer();
+          var fr = this.imageFrame;
+          Promise.all(opts.map((function(opt) {
+            return new Promise((function(ok) {
+              Util.setDefaults(opt, {
+                left: null,
+                right: null,
+                top: null,
+                bottom: null
+              });
+              var mar = parseInt(opt.top) || parseInt(opt.bottom) || 0;
+              var height = opt.height ? opt.height : ((100 - mar) + "%");
+              var img = new DOM('img', {
+                position: 'absolute',
+                left: opt.left,
+                right: opt.right,
+                top: opt.top,
+                bottom: opt.bottom,
+                height: height
+              });
+              img.onload = (function(_) {
+                return ok(img);
+              });
+              img.src = opt.url;
+            }));
+          }))).then((function(els) {
+            fr.removeChildren();
+            els.forEach((function(el) {
+              return fr.append(el);
+            }));
+            defer.resolve();
           }));
+          return defer.promise;
         },
         nextPage: function(name, opt) {
           this.mainMessageWindow.nextPage(name, opt);
@@ -2030,16 +2021,16 @@ System.register("ES6/ビュー", [], function() {
           return this.mainMessageWindow.addSentence(text, opt);
         },
         showMenu: function() {
-          var $__13 = this;
-          if (Player.data.phase != 'play' || View.menuIndex > 0)
+          var $__14 = this;
+          if (Data.phase != 'play' || View.menuIndex > 0)
             return View.on('Rclick').then((function(_) {
               return View.showMenu();
             }));
           View.menuIndex = (View.menuIndex || 0) + 1;
           blockEvent();
           View.on('menu').then((function(_) {
-            if ($__13.windows.choiceBack)
-              $__13.windows.choiceBack.remove();
+            if ($__14.windows.choiceBack)
+              $__14.windows.choiceBack.remove();
             View.hideMenu();
           })).check();
           Object.keys(View.windows).forEach((function(key) {
@@ -2078,7 +2069,7 @@ System.register("ES6/ビュー", [], function() {
         }
       }
     };
-    var $__15 = $traceurRuntime.assertObject(((function(_) {
+    var $__17 = $traceurRuntime.assertObject(((function(_) {
       var keyboardTable = {
         8: 'backspace',
         13: 'enter',
@@ -2151,24 +2142,24 @@ System.register("ES6/ビュー", [], function() {
         onEvent(type);
       }];
     }))()),
-        hookInput = $__15[0],
-        hookClear = $__15[1],
-        blockEvent = $__15[2],
-        allowEvent = $__15[3],
-        fireEvent = $__15[4];
+        hookInput = $__17[0],
+        hookClear = $__17[1],
+        blockEvent = $__17[2],
+        allowEvent = $__17[3],
+        fireEvent = $__17[4];
     function vibrate() {
-      var $__17;
+      var $__19;
       for (var args = [],
-          $__14 = 0; $__14 < arguments.length; $__14++)
-        args[$__14] = arguments[$__14];
+          $__15 = 0; $__15 < arguments.length; $__15++)
+        args[$__15] = arguments[$__15];
       if (typeof navigator.vibrate == 'function')
-        ($__17 = navigator).vibrate.apply($__17, $traceurRuntime.toObject(args));
+        ($__19 = navigator).vibrate.apply($__19, $traceurRuntime.toObject(args));
     }
     var $full = false;
     var $ratio = 16 / 9;
     var $mode = '';
     var width = document.body.clientWidth * devicePixelRatio;
-    var $scale = (width / $ratio >= 480 ? 480 : width / $ratio) / devicePixelRatio;
+    var $scale = (width / $ratio >= 540 ? 540 : width / $ratio) / devicePixelRatio;
     METHODS.TEST.changeMode('TEST');
     var p = adjustScale($scale, $ratio);
     p.then((function(_) {
@@ -2181,125 +2172,131 @@ System.get("ES6/ビュー" + '');
 System.register("ES6/サウンド", [], function() {
   "use strict";
   var __moduleName = "ES6/サウンド";
-  READY('Storage', 'Player').then(Util.co($traceurRuntime.initGeneratorFunction(function $__21() {
-    var soundEnabled;
-    return $traceurRuntime.createGeneratorInstance(function($ctx) {
-      while (true)
-        switch ($ctx.state) {
-          case 0:
-            $ctx.state = 2;
-            return Storage.getSetting('soundEnabled', false);
-          case 2:
-            soundEnabled = $ctx.sent;
-            $ctx.state = 4;
-            break;
-          case 4:
-            $ctx.returnValue = {soundEnabled: soundEnabled};
-            $ctx.state = -2;
+  READY('Storage', 'Player').then((function($__22) {
+    'use strict';
+    var Util = $__22.Util;
+    var init = Util.co($traceurRuntime.initGeneratorFunction(function $__24() {
+      var soundEnabled;
+      return $traceurRuntime.createGeneratorInstance(function($ctx) {
+        while (true)
+          switch ($ctx.state) {
+            case 0:
+              $ctx.state = 2;
+              return Storage.getSetting('soundEnabled', false);
+            case 2:
+              soundEnabled = $ctx.sent;
+              $ctx.state = 4;
+              break;
+            case 4:
+              $ctx.returnValue = setup({soundEnabled: soundEnabled});
+              $ctx.state = -2;
+              break;
+            default:
+              return $ctx.end();
+          }
+      }, $__24, this);
+    }));
+    var setup = (function(config) {
+      var soundEnabled = $traceurRuntime.assertObject(config).soundEnabled;
+      var bufferMap = new Map;
+      var soundAvailability = !!global.AudioContext;
+      if (soundAvailability) {
+        var ctx = new AudioContext();
+        var comp = ctx.createDynamicsCompressor();
+        var gainMaster = ctx.createGain();
+        var gainSysSE = ctx.createGain();
+        comp.connect(ctx.destination);
+        gainMaster.connect(comp);
+        gainSysSE.connect(gainMaster);
+        gainMaster.gain.value = 0.5;
+      }
+      function canplay() {
+        return soundAvailability && soundEnabled;
+      }
+      var Sound = function Sound(kind, name) {
+        if (!kind)
+          throw 'タイプが未指定';
+        if (!name)
+          throw '名前が未指定';
+        if (!soundAvailability)
+          return;
+        switch (kind) {
+          case 'sysSE':
+            var url = ("エンジン/効果音/" + name + ".ogg");
+            var des = gainSysSE;
             break;
           default:
-            return $ctx.end();
+            throw ("想定外のタイプ『" + kind + "』");
         }
-    }, $__21, this);
-  }))).then((function(config) {
-    var soundEnabled = $traceurRuntime.assertObject(config).soundEnabled;
-    var bufferMap = new Map;
-    var soundAvailability = !!global.AudioContext;
-    if (soundAvailability) {
-      var ctx = new AudioContext();
-      var comp = ctx.createDynamicsCompressor();
-      var gainMaster = ctx.createGain();
-      var gainSysSE = ctx.createGain();
-      comp.connect(ctx.destination);
-      gainMaster.connect(comp);
-      gainSysSE.connect(gainMaster);
-      gainMaster.gain.value = 0.5;
-    }
-    function canplay() {
-      return soundAvailability && soundEnabled;
-    }
-    var Sound = function Sound(kind, name) {
-      if (!kind)
-        throw 'タイプが未指定';
-      if (!name)
-        throw '名前が未指定';
-      if (!soundAvailability)
-        return;
-      switch (kind) {
-        case 'sysSE':
-          var url = ("エンジン/効果音/" + name + ".ogg");
-          var des = gainSysSE;
-          break;
-        default:
-          throw ("想定外のタイプ『" + kind + "』");
-      }
-      var gain = ctx.createGain();
-      gain.connect(des);
-      this.readyState = 0;
-      this.url = url;
-      this.buf = null;
-      this.src = null;
-      this.gain = gain;
-      this.prepare();
-    };
-    ($traceurRuntime.createClass)(Sound, {
-      load: function() {
-        var $__18 = this;
-        var url = this.url;
-        var buf = bufferMap.get(url);
-        if (buf)
-          return Promise.resolve(buf);
-        return Player.load(url, 'arraybuffer').then((function(buf) {
-          bufferMap.set(url, buf);
-          $__18.buf = buf;
-        }));
-      },
-      prepare: function() {
-        var $__18 = this;
-        var buf = this.buf;
-        if (!buf)
-          return this.load().then((function(_) {
-            return $__18.prepare();
-          }));
-        return new Promise((function(ok, ng) {
-          ctx.decodeAudioData(buf.slice(), (function(buf) {
-            var src = ctx.createBufferSource();
-            src.buffer = buf;
-            src.connect($__18.gain);
-            $__18.src = src;
-            ok();
-          }), ng);
-        }));
-      },
-      play: function() {
-        var $__18 = this;
-        if (!canplay())
-          return Promise.resolve(null);
-        var src = this.src;
-        if (!src)
-          return this.prepare().then((function(_) {
-            return $__18.play();
-          }));
-        src.start(0);
+        var gain = ctx.createGain();
+        gain.connect(des);
+        this.readyState = 0;
+        this.url = url;
+        this.buf = null;
         this.src = null;
+        this.gain = gain;
         this.prepare();
-        return new Promise((function(ok) {
-          src.onended = ok;
-        }));
-      },
-      fadeout: function() {
-        var duration = arguments[0] !== (void 0) ? arguments[0] : 0.5;
-        var t0 = ctx.currentTime,
-            gain = this.gain.gain;
-        gain.setValueAtTime(gain.value, t0);
-        gain.linearRampToValueAtTime(0, t0 + duration);
-      }
-    }, {});
-    Object.assign(Sound, {
-      soundEnabled: soundEnabled,
-      soundAvailability: soundAvailability
+      };
+      ($traceurRuntime.createClass)(Sound, {
+        load: function() {
+          var $__20 = this;
+          var url = this.url;
+          var buf = bufferMap.get(url);
+          if (buf)
+            return Promise.resolve(buf);
+          return Util.load(url, 'arraybuffer').then((function(buf) {
+            bufferMap.set(url, buf);
+            $__20.buf = buf;
+          }));
+        },
+        prepare: function() {
+          var $__20 = this;
+          var buf = this.buf;
+          if (!buf)
+            return this.load().then((function(_) {
+              return $__20.prepare();
+            }));
+          return new Promise((function(ok, ng) {
+            ctx.decodeAudioData(buf.slice(), (function(buf) {
+              var src = ctx.createBufferSource();
+              src.buffer = buf;
+              src.connect($__20.gain);
+              $__20.src = src;
+              ok();
+            }), ng);
+          }));
+        },
+        play: function() {
+          var $__20 = this;
+          if (!canplay())
+            return Promise.resolve(null);
+          var src = this.src;
+          if (!src)
+            return this.prepare().then((function(_) {
+              return $__20.play();
+            }));
+          src.start();
+          this.src = null;
+          this.prepare();
+          return new Promise((function(ok) {
+            src.onended = ok;
+          }));
+        },
+        fadeout: function() {
+          var duration = arguments[0] !== (void 0) ? arguments[0] : 0.5;
+          var t0 = ctx.currentTime,
+              gain = this.gain.gain;
+          gain.setValueAtTime(gain.value, t0);
+          gain.linearRampToValueAtTime(0, t0 + duration);
+        }
+      }, {});
+      Object.assign(Sound, {
+        soundEnabled: soundEnabled,
+        soundAvailability: soundAvailability
+      });
+      READY.Sound.ready(Sound);
     });
-    READY.Sound.ready(Sound);
+    init().check();
   })).check();
   return {};
 });
@@ -2307,8 +2304,9 @@ System.get("ES6/サウンド" + '');
 System.register("ES6/ゲーム", [], function() {
   "use strict";
   var __moduleName = "ES6/ゲーム";
-  READY('Player', 'View', 'Sound').then((function(_) {
+  READY('Player', 'View', 'Sound').then((function($__25) {
     'use strict';
+    var Util = $__25.Util;
     var message = ((function(_) {
       var abort = Util.NOP;
       return (function(text) {
@@ -2320,7 +2318,7 @@ System.register("ES6/ゲーム", [], function() {
         return p;
       });
     }))();
-    var setup = Util.co($traceurRuntime.initGeneratorFunction(function $__22() {
+    var setup = Util.co($traceurRuntime.initGeneratorFunction(function $__26() {
       var setting,
           scenario,
           script;
@@ -2419,9 +2417,9 @@ System.register("ES6/ゲーム", [], function() {
             default:
               return $ctx.end();
           }
-      }, $__22, this);
+      }, $__26, this);
     }));
-    var load = Util.co($traceurRuntime.initGeneratorFunction(function $__23(script) {
+    var load = Util.co($traceurRuntime.initGeneratorFunction(function $__27(script) {
       return $traceurRuntime.createGeneratorInstance(function($ctx) {
         while (true)
           switch ($ctx.state) {
@@ -2465,9 +2463,9 @@ System.register("ES6/ゲーム", [], function() {
             default:
               return $ctx.end();
           }
-      }, $__23, this);
+      }, $__27, this);
     }));
-    var restart = Util.co($traceurRuntime.initGeneratorFunction(function $__24(err) {
+    var restart = Util.co($traceurRuntime.initGeneratorFunction(function $__28(err) {
       return $traceurRuntime.createGeneratorInstance(function($ctx) {
         while (true)
           switch ($ctx.state) {
@@ -2493,9 +2491,9 @@ System.register("ES6/ゲーム", [], function() {
             default:
               return $ctx.end();
           }
-      }, $__24, this);
+      }, $__28, this);
     }));
-    var start = Util.co($traceurRuntime.initGeneratorFunction(function $__25() {
+    var start = Util.co($traceurRuntime.initGeneratorFunction(function $__29() {
       var setting,
           startSE;
       return $traceurRuntime.createGeneratorInstance(function($ctx) {
@@ -2534,16 +2532,16 @@ System.register("ES6/ゲーム", [], function() {
             default:
               return $ctx.end();
           }
-      }, $__25, this);
+      }, $__29, this);
     }));
     function setSysBG() {
       var view = arguments[0] !== (void 0) ? arguments[0] : true;
-      var p = Player.toBlobURL('画像', '背景', 'png', true);
+      var p = Util.toBlobURL('画像', '背景', 'png', true);
       return view ? p.then((function(url) {
         return View.setBGImage({url: url});
       })) : p;
     }
-    start();
+    start().check();
     READY.Game.ready({
       reset: function() {
         setup();
