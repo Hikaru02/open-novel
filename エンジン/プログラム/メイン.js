@@ -2198,10 +2198,11 @@ System.register("ES6/サウンド", [], function() {
     }));
     var setup = (function(config) {
       var soundEnabled = $traceurRuntime.assertObject(config).soundEnabled;
+      var ctx = null;
       var bufferMap = new Map;
       var soundAvailability = !!global.AudioContext;
       if (soundAvailability) {
-        var ctx = new AudioContext();
+        ctx = new AudioContext();
         var comp = ctx.createDynamicsCompressor();
         var gainMaster = ctx.createGain();
         var gainSysSE = ctx.createGain();
@@ -2211,7 +2212,7 @@ System.register("ES6/サウンド", [], function() {
         gainMaster.gain.value = 0.5;
       }
       function canplay() {
-        return soundAvailability && soundEnabled;
+        return ctx && soundAvailability && soundEnabled;
       }
       var Sound = function Sound(kind, name) {
         if (!kind)
@@ -2284,6 +2285,8 @@ System.register("ES6/サウンド", [], function() {
         },
         fadeout: function() {
           var duration = arguments[0] !== (void 0) ? arguments[0] : 0.5;
+          if (!canplay())
+            return;
           var t0 = ctx.currentTime,
               gain = this.gain.gain;
           gain.setValueAtTime(gain.value, t0);

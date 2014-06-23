@@ -15,6 +15,8 @@ READY('Storage', 'Player').then( ({Util}) => {
 
 		var {soundEnabled} = config
 
+		var ctx = null
+
 		var bufferMap = new Map
 		//var {R} = Util.overrides
 
@@ -22,7 +24,7 @@ READY('Storage', 'Player').then( ({Util}) => {
 
 		if (soundAvailability) {
 
-			var ctx = new AudioContext()
+			ctx = new AudioContext()
 
 			var comp = ctx.createDynamicsCompressor()
 			var gainMaster = ctx.createGain()
@@ -37,7 +39,7 @@ READY('Storage', 'Player').then( ({Util}) => {
 		}
 
 		function canplay() {
-			return soundAvailability && soundEnabled
+			return ctx && soundAvailability && soundEnabled
 		}
 
 
@@ -100,6 +102,7 @@ READY('Storage', 'Player').then( ({Util}) => {
 			}
 
 			fadeout(duration = 0.5) {
+				if (!canplay()) return
 				var t0 = ctx.currentTime, gain = this.gain.gain
 				gain.setValueAtTime(gain.value, t0)
 				gain.linearRampToValueAtTime(0, t0 + duration)
