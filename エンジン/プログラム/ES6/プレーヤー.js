@@ -38,6 +38,7 @@ READY().then( ({Util}) => {
 		var base = []
 		cacheEmogi(text)
 		parseOne(base, text)
+
 		return base
 
 	}
@@ -93,6 +94,72 @@ READY().then( ({Util}) => {
 
 
 
+	function flattenScript(script) {
+
+		var buf = []
+
+
+		function flatten(script) {
+
+			var bk = []
+			var q = 0
+
+			script.forEach(prog => {
+
+				bk.forEach( n => { buf[n] = buf.length - (q?1:0) } )
+				bk = []
+				if (q) buf[q] = buf.length 
+				q = 0
+
+				var [act, data] = prog
+
+
+				switch (act) {
+					
+					case '繰返': case '繰返し': case '繰り返し':
+
+						q = buf.length +2
+
+					case '選択': case '選択肢':
+					case '分岐':
+
+						var cp = buf.push(act, null) -1
+
+						if (q) buf.push(-1)
+
+						buf[cp] = data.map( ([lab, val]) => {
+							if (Array.isArray(val[0])) {
+								var p = buf.length
+								bk.push(flatten(val))
+								val = p
+							}
+							return [lab, val]
+						})
+
+						if (q) {
+							buf[cp].unshift(q)
+							buf.push(cp -1)
+						}
+
+					break
+					default:
+
+						buf.push(act, data)
+
+				}
+
+			})
+
+			return buf.push(-1) -1
+
+		}
+
+		flatten(script)
+		return buf
+	}
+
+
+
 	function cacheScript(script, sname = script.sname) {
 
 		if (!Array.isArray(script)) {
@@ -101,83 +168,9 @@ READY().then( ({Util}) => {
 			return Promise.reject('不正なスクリプトのためキャッシュできない')
 		}
 
-		var {hashmark} = script
 		if (!sname) LOG('!!!sname')
 
 		script = copyObject(script)	
-
-		var cacheHandlers = {
-			会話: otherName('何もしない'),
-
-			背景(data) {
-				var name = data[0]
-				append(['背景', name, 'jpg'])
-			},
-
-			立絵: otherName('立ち絵'),
-			立ち絵(data) {
-				//LOG(data)
-				data.forEach( ary => {
-
-					if (Util.isNoneType(ary)) return
-					var [position, names] = ary
-					if (!position) return
-					if(!names) return
-
-					var name = names[0]
-
-					append(['立ち絵', name, 'png'])
-				})
-			},
-
-			分岐系(data) {
-
-				data.forEach(ary => {
-					var value = ary[1]
-					if (typeof value[0] == 'string') cacheHandlers['ジャンプ'](value)
-					else cacheScript(value, sname)
-				} )
-					
-			},
-
-			選択: otherName('選択肢'),
-			選択肢: otherName('分岐系'),
-
-			ジャンプ(data) {
-
-				var to = data[0]
-				if (!to) return
-				var name = to, base = sname
-				var [name, mark = ''] = name.replace(/＃/g,'#').split('#')
-				if (!name) name = base.replace(/＃/g,'#').split('#')[0]
-				var subkey = `${Data.scenarioName}/${Util.forceName('シナリオ', name, 'txt')}`
-				//LOG(subkey)
-				if (!Util.cacheHas(subkey)) fetchScriptData(to, base).then( script => cacheScript(script) ).check()
-				
-			},
-
-			変数: otherName('パラメータ'),
-			パラメーター: otherName('パラメータ'),
-			パラメータ: otherName('何もしない'),
-
-			入力: otherName('何もしない'),
-
-			繰返: otherName('繰り返し'),
-			繰返し: otherName('繰り返し'),
-			繰り返し: otherName('分岐系'),
-
-			分岐: otherName('分岐系'),
-
-			マーク: otherName('何もしない'),
-
-			スクリプト: otherName('何もしない'),
-
-			コメント: otherName('何もしない'),
-
-			何もしない() {
-			},
-
-		}
 
 
 		var defer = Promise.defer()
@@ -194,24 +187,66 @@ READY().then( ({Util}) => {
 		}
 
 
-		script.forEach( prog => {
+		for (var po = 0; po < script.length; po++) {
 			try {
 
-				if (!prog) return
-				var act = prog[0].trim()
-				var data = prog[1]
+				var act = script[po]
 
-				if (act in cacheHandlers) {
-					cacheHandlers[act](data)
-				} else {
-					LOG('キャッシュ中にサポートされていないコマンド『' +act+ '』に遭遇')
+				if (!act) continue
+				if (typeof act != 'string') continue
+
+				var data = script[++po]
+
+				switch (act) {
+
+					case '背景':
+						var name = data[0]
+						append(['背景', name, 'jpg'])
+					break
+
+					case '立絵': case '立ち絵':
+						data.forEach( ary => {
+
+							if (Util.isNoneType(ary)) return
+							var [position, names] = ary
+							if (!position) return
+							if(!names) return
+
+							var name = names[0]
+
+							append(['立ち絵', name, 'png'])
+						})
+					break
+
+					case '繰返': case '繰返し': case '繰り返し':
+					case '選択': case '選択肢':
+					case '分岐':
+						data = data.reduce( (base, ary) => {
+							var val = ary[1]
+							if (val && typeof val[0] == 'string') base.push(val[0])
+							return base
+						}, [] )
+
+					case 'ジャンプ':
+						data.forEach( to => {
+							if (!to) return
+							var name = to, base = sname
+							var [name, mark = ''] = name.replace(/＃/g,'#').split('#')
+							if (!name) name = base.replace(/＃/g,'#').split('#')[0]
+							var subkey = `${Data.scenarioName}/${Util.forceName('シナリオ', name, 'txt')}`
+							//LOG(subkey)
+							if (!Util.cacheHas(subkey)) fetchScriptData(to, base).then( script => cacheScript(script) ).check()
+						})
+					break
+
 				}
+
 
 			} catch (err) {
 				LOG(`キャッシュ中にコマンド『${act}』で『${err}』が起きた`)
 			}
 
-		})
+		}
 
 		//LOG(caching)
 		if (caching == 0) defer.resolve()
@@ -223,7 +258,8 @@ READY().then( ({Util}) => {
 
 
 
-	function runScript(script, sname = script.sname, parentComp, masterComp) {
+	function runScript(script, sname = script.sname, masterComp) {
+
 
 		if (!sname) LOG('!!!sname')
 		sname = sname.split('#')[0]
@@ -233,43 +269,56 @@ READY().then( ({Util}) => {
 		document.title = `【${Data.scenarioName}】`
 
 		var run = Promise.defer()
-		if (!parentComp) parentComp = run.resolve
+		//if (!parentComp) parentComp = run.resolve
 		if (!masterComp) masterComp = run.resolve
 
-		var {mark: hashmark, params, scenario} = script
+		var {mark, hash, params, scenario, active} = script
+		if(mark) Data.current.mark = mark
 
-		var searching = !!hashmark
+		var searching = !!hash
 		if (params) Object.keys(params).forEach(name => Util.paramSet(name, params[name]))
-		if (scenario) Player.setScenario(scenario)
+		//if (scenario) Player.setScenario(scenario)
 		
-		script = copyObject(script)	
+		script = copyObject(script)
+		var gsave = Data.current.setting
+		var {visited} = gsave
+		if (!visited) gsave.visited = visited = {}
+		var vBA = visited[sname] 
+		if (!vBA) visited[sname] = vBA = BitArray.create(script.length)
 
-		function runSubScript(script) { return runScript(script, sname, parentComp, masterComp) }
-		function runChildScript(script) { return runScript(script, undefined, undefined, masterComp) }
+		//function runSubScript(script) { return runScript(script, sname, parentComp, masterComp) }
+		function runChildScript(script) { return runScript(script, undefined, masterComp) }
 		
 		var actHandlers = {
 			会話(data, done, failed) {
+				save()
+
+				var visited = BitArray.get(vBA, po)
+				BitArray.set(vBA, po)
 
 				function nextPage() {
 
 					var ary = data.shift()
-					if (!ary) return done()
+					if (!ary) {
+						autosave(false)
+						return done()
+					}
 
 					var name = ary[0], texts = ary[1]
 					if (Util.isNoneType(name)) name = ''
 					name = replaceEffect(name)
-					View.nextPage(name)
+					View.nextPage(name, {visited}) 
 					//Data.currentSpeakerName = name
 
 					function nextSentence() {
 						var text = texts.shift()
 						if (!text) return nextPage()
-						text = text.replace(/\\w(\d+)/g, (_, num) => {
-							return '\u200B'.repeat(num)
-						}).replace(/\\n/g, '\n')
+						text = text.replace(/\\w\[(\d*)\]/g, (_, num) => {
+							return '\u200B'.repeat(+num||1)
+						})//.replace(/\\n/g, '\n')
 						text = replaceEffect(text)
 						//Data.currentSentence = text
-						View.addSentence(text).on('go', nextSentence, failed)
+						View.addSentence(text, {visited}).on('go', nextSentence, failed)
 					}
 					nextSentence()
 				}
@@ -279,7 +328,7 @@ READY().then( ({Util}) => {
 
 			背景(data, done, failed) {
 				var name = replaceEffect(data[0])
-				Util.toBlobURL('背景', name, 'jpg').then( url => View.setBGImage({ url }) ).then(done, failed)
+				Util.toBlobURL('背景', name, 'jpg').then( url => View.setBGImage({ name, url }) ).then(done, failed)
 			},
 
 			立絵: otherName('立ち絵'),
@@ -312,27 +361,32 @@ READY().then( ({Util}) => {
 						v_per = Math.abs(+v_pos)
 						a_type = a_pos.match('-') ? 'right' : 'left'
 						v_type = v_pos.match('-') ? 'bottom' : 'top'
-						height = height != null ? `${+height}%` : null
+						height = Util.toSize(height)
 					}
 
-					base.push(Util.toBlobURL('立ち絵', name, 'png').then( url => ({ url, height, [a_type]: `${a_per}%`, [v_type]: `${v_per}%` }) ))
+					base.push(Util.toBlobURL('立ち絵', name, 'png').then( url => ({ name, url, height, [a_type]: `${a_per}%`, [v_type]: `${v_per}%` }) ))
 					return base
 				}, [])).then( opt => View.setFDImages(opt) ).then(done, failed)
 			},
 
 			選択: otherName('選択肢'),
 			選択肢(data, done, failed) {
+				//save()
 
 				View.setChoiceWindow(data.map(ary => {
 					return { name: replaceEffect(ary[0]), value: ary[1] }
 				})).then( value => {
 					if (typeof value[0] == 'string') actHandlers['ジャンプ'](value, done, failed)
-					else runSubScript(value).then(done, failed)
+					else {
+						po = value
+						done()
+					}
 				} )
 					
 			},
 
 			ジャンプ(data, done, failed) {
+				//autosave(false)
 				var to = replaceEffect(data[0])
 				fetchScriptData(to, sname).then( script => runChildScript(script) ).then(done, failed)
 			},
@@ -375,57 +429,50 @@ READY().then( ({Util}) => {
 
 			繰返: otherName('繰り返し'),
 			繰返し: otherName('繰り返し'),
-			繰り返し(data, done, failed, i = 0) {
-				i++
-				if (i > 10000) return failed('繰り返し回数が多すぎる(10000回超え)')
-				new Promise( (ok, ng) => {
-	 				if (!data.some(([effect, acts]) => {
-	 					if (!effect) return failed('不正なパラメータ指定検出') 
-						var flag = !!evalEffect(effect, ng)
-						if (flag) runSubScript(acts).then(ok, ng)
-						return flag
-					}) ) done()
-				}).then( _ => actHandlers['繰り返し'](data, done, failed, i) ).catch(failed)
-			},
-
-			分岐(data, done, failed) {
+			繰り返し(data, done, failed) {
+				//if (i > 10000) return failed('繰り返し回数が多すぎる(10000回超え)')
+				var q = data[0]
+				data = data.slice(1)
  				if (!data.some(([effect, acts]) => {
  					if (!effect) return failed('不正なパラメータ指定検出') 
 					var flag = !!evalEffect(effect, failed)
-					if (flag) runSubScript(acts).then(done, failed)
+					if (flag) po = acts
 					return flag
-				}) ) done()
+				}) ) po = q
+				done()
+			},
+
+			分岐(data, done, failed) {
+ 				data.some(([effect, acts]) => {
+ 					if (!effect) return failed('不正なパラメータ指定検出') 
+					var flag = !!evalEffect(effect, failed)
+					if (flag) po = acts
+					return flag
+				})
+				done()
 			},
 
 			マーク(data, done, failed) {
 
-				if (parentComp != run.resolve) return failed('このコマンドはトップレベルにおいてください')
-				var params = {}
-				Util.paramForEach( (value, key) => params[key] = value )
-				var cp = {
-					script: sname, 
-					mark: data[0],
-					params,
-				}
-				//LOG(cp)
-				Data.currentPoint = cp
+				Data.current.mark = data[0]
+				autosave()
 				done()
-				Util.updateDebugWindow()
+				
 			},
 
 			スクリプト(data, done, failed) {
 				var act = data[0]
 				if (Util.isNoneType(act)) return done()
 				switch (act) {
-					case '抜ける':
-					case 'ぬける':
-						run.resolve()
-					break
+					//case '抜ける':
+					//case 'ぬける':
+					//	run.resolve()
+					//break
 					case '戻る':
 					case 'もどる':
 					case '帰る':
 					case 'かえる':
-						parentComp()
+						run.resolve()
 					break
 					case '終わる':
 					case '終る':
@@ -433,7 +480,7 @@ READY().then( ({Util}) => {
 						masterComp()
 					break
 					default:
-					failed(`制御コマンド『${act}』`)
+					failed(`不正なスクリプトコマンド『${act}』`)
 
 				}
 			},
@@ -444,21 +491,72 @@ READY().then( ({Util}) => {
 
 		}
 
+
+
+		function save() {
+
+			var params = {}
+			Util.paramForEach( (value, key) => params[key] = value )
+			var cp = {
+				script: sname, 
+				params,
+				active: Data.active,
+				point: po-2,
+				mark: Data.current.mark
+			}
+
+			Data.current.point = cp
+		}
+
+
+		function autosave(full) {
+			var p = Storage.setGlobalData(Data.current.setting)
+			if (!full) return p
+			save()
+			Util.updateDebugWindow()
+
+			return Promise.all([p,
+				Storage.getSaveDatas(101, 110).then(saves => {
+
+					saves.pop()
+					saves.unshift(Data.current.point)
+					saves.forEach( (save, i) => {
+						if (save) Storage.setSaveData(i, save) 
+					})
+				
+				})
+			])
+		}
+
+
 		function main_loop() {
 
 			var act, loop = new Promise( (resolve, reject) => {
 
-				var prog = script.shift()
-				if (!prog) {
-					return searching ? run.reject(`マーク『${hashmark}』が見つかりません。`) : run.resolve() 
+				//LOG(po)
+
+				var act = script[po]
+				if (!act) {
+					return searching ? run.reject(`マーク『${hash}』が見つかりません。`) : run.resolve() 
 				}
-				act = prog[0].trim()
-				var data = prog[1]
+
+				if (typeof act == 'number') {
+					if (searching && (+hash === po)) searching = false
+					else po = act
+					return resolve()
+				}
+
+				var data = script[++po]
+				++po
 
 				if (searching) {
-					if (act == 'マーク') {
+					//LOG('マーク', mark, po)
+					if (+hash === (po-2)) {
+						searching = false
+						po -= 2
+					} else if (act == 'マーク') {
 						var mark = data[0]
-						if (mark == hashmark) {
+						if (mark == hash) {
 							searching = false
 							return actHandlers['マーク']([mark], resolve, reject)
 						}
@@ -479,7 +577,33 @@ READY().then( ({Util}) => {
 		}
 
 		//cacheScript(script, sname, 1)
-		main_loop()
+		var po = 0
+
+		new Promise( ok => {
+
+			if (active) {
+				var p = []
+
+				var obj = active.BGImage 
+				if (obj && obj.name) {
+					p.push( Util.toBlobURL('背景', obj.name, 'jpg').then( url => {obj.url = url; return obj} )
+					.then( obj => View.setBGImage(obj) ) )
+				}
+
+				var ary = active.FDImages
+				if (ary) {
+					p.push( Promise.all(ary.map( obj => obj.name ? 
+						Util.toBlobURL('立ち絵', obj.name, 'png').then( url => {obj.url = url; return obj} ) : 1 ))
+					.then( opts => View.setFDImages(opts) ) )
+				}
+
+				Promise.all(p).then(ok).check()
+
+			} else ok()
+
+		}).then(main_loop)
+
+
 		return run.promise
 
 	}
@@ -521,45 +645,74 @@ READY().then( ({Util}) => {
 	}
 
 
-
 	function loadSaveData() {
 		return Util.co(function* () {
-			var saves = yield Storage.getSaveDatas(0, 100)
+
+			var saves = yield Storage.getSaveDatas(1, 110)
 			var opts = saves.map( (save, i) => {
-				var mark = save ? save.mark : '----------'
-				var name = i === 0 ? 'Q' : i
+				if (!save) var mark = '------------'
+				else if (save.version !== Storage.VERSION) {
+					save = null
+					mark = '--old data--'
+				} else mark = save.mark 
+				var name = i > 100 ? 'A'+(i-100) : i
 				return {name: `${name}．${mark}`, value: save, disabled: !save }
 			})
-			var save = yield View.setChoiceWindow(opts, {sys: true})
-			var {mark, params, script} = save
-			return Player.fetchScriptData(`${script}#${mark}`).then( script => {
+
+			var save = yield View.setChoiceWindow(opts, {sys: true, closeable: true})
+			if (save == '閉じる') return false
+			var {params, script, point, active, mark} = save
+			return Player.fetchScriptData(`${script}#${point}`).then( script => {
 				script.params = params
 				script.scenario = Data.scenarioName
+				script.active = active
+				script.mark = mark
 				return script
 			})
+
 		})()
 	}
 
 	function saveSaveData() {
 		return Util.co(function* () {
-			var saves = yield Storage.getSaveDatas(0, 100)
+
+			var saves = yield Storage.getSaveDatas(1, 100)
+
 			var opts = saves.map( (save, i) => {
-				var mark = save ? save.mark : '----------'
-				var name = i === 0 ? 'Q' : i
+				if (!save) var mark = '----------'
+				else if (save.version !== Storage.VERSION) {
+					mark = '--old data--'
+				} else mark = save.mark 
+				var name = i
 				return {name: `${name}．${mark}`, value: i}
 			})
-			// 注意
-			var no = (yield View.setChoiceWindow(opts, {sys: true})) + 0
+			var no = yield View.setChoiceWindow(opts, {sys: true, closeable: true})
+
+			if (no == '閉じる') return false
+
+			var con = saves[no] ? yield View.setConfirmWindow('上書きする') : true
+			if (!con) return false
 
 			var params = {}
 			Util.paramForEach( (value, key) => params[key] = value )
-			var save = Data.currentPoint
-
-			return yield Storage.setSaveData(no, save)
+			var save = Data.current.point
+			yield Storage.setSaveData(no, save)
+			yield Storage.setGlobalData(Data.current.setting)
+			return true
 			
 		})()
 	}
 
+	function deleteSaveData() {
+		return Util.co(function* () {
+
+			var con = yield View.setConfirmWindow('全消去する')
+			if (!con) return false
+			yield Storage.deleteSaveDatas(true)
+			return true
+
+		})()
+	}
 
 	function init() {
 		Data.phase = 'pause'
@@ -569,7 +722,15 @@ READY().then( ({Util}) => {
 	}
 
 	function setScenario(scenario) {
-		Data.scenarioName = scenario
+		return Util.co(function* () {
+			Data.scenarioName = scenario
+			var gsave = yield Storage.getGlobalData()
+			if (!gsave) {
+				gsave = {}
+				yield Storage.setGlobalData(gsave)
+			}
+			Data.current.setting = gsave
+		})()
 	}
 
 
@@ -587,14 +748,14 @@ READY().then( ({Util}) => {
 
 	function fetchScriptData(name, base) {
 		if (!name) return Promise.reject('子スクリプト名が不正')
-		var [name, mark = ''] = name.replace(/＃/g,'#').split('#')
+		var [name, hash = ''] = name.replace(/＃/g,'#').split('#')
 		if (!name) {
 			if (!base) return Promise.reject('親スクリプト名が必要')
 			name = base.replace(/＃/g,'#').split('#')[0]
 		}
-		return Util.toBlobScriptURL(name).then(Util.loadText).then( text => parseScript(text) ).then(script => {
-			script.unshift(['マーク',['']])
-			script.mark = mark
+		return Util.toBlobScriptURL(name).then(Util.loadText).then(parseScript).then(flattenScript).then(script => {
+			//script.unshift(['マーク',['']])
+			script.hash = hash
 			script.sname = name
 			return script
 		})
@@ -603,7 +764,7 @@ READY().then( ({Util}) => {
 	
 	READY.Player.ready({
 		setRunPhase, setErrorPhase, fetchSettingData, fetchScriptData, runScript, print,
-		loadSaveData, saveSaveData, evalEffect, init, setScenario, cacheScript,
+		loadSaveData, saveSaveData, deleteSaveData, evalEffect, init, setScenario, cacheScript,
 	})
 
 }).check()

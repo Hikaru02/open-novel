@@ -11,6 +11,8 @@
 			ContentsSetting: 'データ/作品.txt',
 			EngineSetting: 'エンジン/エンジン定義.txt',
 		},
+		active: {},
+		current: {}
 	}
 
 	var Util = {
@@ -97,6 +99,13 @@
 			.replace(/[\uff0b-\uff5a]/g, char => String.fromCharCode(char.charCodeAt(0)-65248) )
 		},
 
+		toSize(str) {
+			if (!str) return null
+			str = Util.toHalfWidth(str)
+			var n = +(str.match(/[\d.]+/) || [0])[0]
+			return ((!(/[\d.]+%/.test(str)) && n < 10) ? n*100 : n) + '%'
+		},
+
 		NOP() {},
 
 		error(message) { alert(message) },
@@ -108,11 +117,15 @@
 				var defer = Promise.defer()
 				var iter = func.apply(this, arguments)
 				var loop = val => {
-					var {value, done} = iter.next(val)
-					//LOG(value, done)
-					value = Promise.resolve(value)
-					if (done) value.then(defer.resolve, defer.reject)
-					else value.then(loop, defer.reject)
+					try {
+						var {value, done} = iter.next(val)
+						value = Promise.resolve(value)
+						if (done) value.then(defer.resolve, defer.reject)
+						else value.then(loop, defer.reject)
+					} catch(err) {
+						LOG(err)
+						defer.reject(err)
+					}
 				}
 				loop()
 				return defer.promise
@@ -127,7 +140,7 @@
 			Util.paramForEach( (value, key) => params[key] = value )
 
 			var cacheSizeMB = ((Util.cacheGet('$size') || 0) / 1024 / 1024).toFixed(1)
-			var mark = Data.currentPoint && Data.currentPoint.mark || '（無し）'
+			var mark = Data.current.mark || '（無し）'
 
 			var obj = {
 				キャッシュサイズ: cacheSizeMB + 'MB',
@@ -141,6 +154,10 @@
 
 		toBlobEmogiURL(name) {
 			return Util.toBlobURL('絵文字', name, 'svg')
+		},
+
+		toBlobSysPartsURL(name) {
+			return Util.toBlobURL('画像', name, 'svg', true)
 		},
 
 		toBlobScriptURL(name) {
@@ -203,6 +220,23 @@
 
 		},
 
+	}
+
+
+	class BitArray {
+		static create(len) {
+			return new Uint32Array(Math.ceil(len/32))
+		}
+
+		static get(ba, no) {
+			var i = no/32|0, n = ba[i], p = no%32
+			return (n & 1 << p) >>> p
+		}
+
+		static set(ba, no) {
+			var i = no/32|0, n = ba[i], p = no%32
+			ba[i] = n | 1 << p
+		}
 	}
 
 
@@ -412,7 +446,7 @@
 
 
 	Util.setDefaults(global, {
-		global, READY, Util, LOG, Data,
+		global, READY, Util, LOG, Data, BitArray,
 	})
 
 })();

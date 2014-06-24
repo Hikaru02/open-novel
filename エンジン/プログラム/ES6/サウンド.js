@@ -16,32 +16,55 @@ READY('Storage', 'Player').then( ({Util}) => {
 		var {soundEnabled} = config
 
 		var ctx = null
-
 		var bufferMap = new Map
 		//var {R} = Util.overrides
+
+		class GainChanger {
+
+			constructor(gain) {
+				this.gain = gain
+			}
+
+			up(duration = 0.5) {
+				var t0 = ctx.currentTime, gain = this.gain.gain
+				gain.cancelScheduledValues(t0)
+				gain.setValueAtTime(gain.value, t0)
+				gain.linearRampToValueAtTime(1, t0 + duration)
+			}
+
+			off() {
+				var t0 = ctx.currentTime, gain = this.gain.gain
+				gain.cancelScheduledValues(t0)
+				gain.value = 0
+			}
+
+		}
 
 		var soundAvailability = !!global.AudioContext
 
 		if (soundAvailability) {
 
 			ctx = new AudioContext()
+			
+			var gainRoot   = ctx.createGain(); gainRoot.connect(ctx.destination)
+			var compMaster = ctx.createDynamicsCompressor(); compMaster.connect(gainRoot)
 
-			var comp = ctx.createDynamicsCompressor()
-			var gainMaster = ctx.createGain()
-			var gainSysSE = ctx.createGain()
+			var gainMaster = ctx.createGain(); gainMaster.connect(compMaster); gainMaster.gain.value = 0.5
+			var gainSysSE  = ctx.createGain(); gainSysSE.connect(gainMaster)
+			var gainBGM    = ctx.createGain(); gainBGM.connect(gainMaster)
 
-			comp.connect(ctx.destination)
-			gainMaster.connect(comp)
-			gainSysSE.connect(gainMaster)
-
-			gainMaster.gain.value = 0.5
+			var rootVolume = new GainChanger(gainRoot) 
+			document.addEventListener('visibilitychange', _ => {
+				if (document.hidden) rootVolume.off() 
+				else rootVolume.up()
+			})
+			if (document.hidden) rootVolume.off()
 
 		}
 
 		function canplay() {
 			return ctx && soundAvailability && soundEnabled
 		}
-
 
 
 		class Sound {
@@ -54,12 +77,14 @@ READY('Storage', 'Player').then( ({Util}) => {
 					case 'sysSE':
 						var url = `エンジン/効果音/${name}.ogg`
 						var des = gainSysSE
+						var type = 'SE'
 					break
 					default: throw `想定外のタイプ『${kind}』`
 				}
 				var gain = ctx.createGain()
 				gain.connect(des)
 				this.readyState = 0
+				this.type = type 
 				this.url = url
 				this.buf = null
 				this.src = null
@@ -104,6 +129,7 @@ READY('Storage', 'Player').then( ({Util}) => {
 			fadeout(duration = 0.5) {
 				if (!canplay()) return
 				var t0 = ctx.currentTime, gain = this.gain.gain
+				gain.cancelScheduledValues(t0)
 				gain.setValueAtTime(gain.value, t0)
 				gain.linearRampToValueAtTime(0, t0 + duration)
 			}
@@ -111,7 +137,7 @@ READY('Storage', 'Player').then( ({Util}) => {
 		}
 
 		Object.assign(Sound, {
-			soundEnabled, soundAvailability,
+			soundEnabled, soundAvailability, CTX: ctx, gainRoot, gainMaster,
 		})
 
 		READY.Sound.ready(Sound)

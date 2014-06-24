@@ -34,7 +34,7 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 
 			var novels = setting['作品']
 
-			if (!novels || !novels.length) return message('再生できる作品がありません。\n『データ/作品.txt』を見なおしてください')
+			if (!novels || !novels.length) return message('再生できる作品がありません。\n『データ/作品.txt』を確認してください。')
 			if (novels.length === 1) return ok(novels[0])
 
 			var opts = novels.reduce( (opts, name) => {
@@ -45,51 +45,53 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 			View.setChoiceWindow(opts, {sys: true}).then(ok, ng)
 		})
 
-		Player.setScenario(scenario)
-
+		yield Player.setScenario(scenario)
 
 		//message('作品情報を読み込んでいます...')
 		var setting = yield Player.fetchSettingData(`データ/${scenario}/設定.txt`)
 
-		message('『'+scenario+'』の\nどこから開始するか選んでください')
+		message('『'+scenario+'』開始メニュー')
 		var script = yield new Promise( (ok, ng) => {
 
-			var opts = ['初めから', '続きから', '任意の場所から'].reduce( (opts, name) => {
-				opts.push({ name})
-				return opts
-			}, [])
+			var opts = ['初めから', '続きから', '任意の場所から', 'データ全消去'].map( name => ({name}) )
 
-			return View.setChoiceWindow(opts, {sys: true}).then( kind => {
+			return View.setChoiceWindow(opts, {sys: true, closeable: true}).then( kind => {
 
 				//message('シナリオを読み込んでいます...')
 				var base = setting['開始シナリオ']
 				if (!base || !(base = base[0])) return ng('開始シナリオが見つかりません。\n開始シナリオの設定は必須です。')
 
 				switch (kind) {
-					case '初めから': 
-						Player.fetchScriptData(base).then(ok, ng)
+					case '初めから': Player.fetchScriptData(base).then(ok, ng) ; break
 
-					break
-					case '続きから':
-						Player.loadSaveData().then(ok, ng)
+					case '続きから': Player.loadSaveData().then(ok, ng) ; break
 
-					break
 					case '任意の場所から':
 						var name = prompt('『<スクリプト名>』または『<スクリプト名>#<マーク名>』の形式で指定します。\n開始シナリオから始める場合は『#<マーク名>』の形式も使えます。')
-						if (!name) return message('作品選択メニューに戻ります。').delay(1000).then(setup)
-						Player.fetchScriptData(name, base).then(ok, err => {
-							message('指定されたファイルを読み込めません。').delay(1000).then(setup)
+						if (!name) return message('作品選択メニューに戻ります。').delay(1000).then(resetup)
+						Player.fetchScriptData(name, base).check().then(ok, err => {
+							message('指定されたファイルを読み込めません。').delay(1000).then(resetup)
 						})
-					
 					break
-					default: throw 'illegal start type'
 
+					case 'データ全消去':
+						Player.deleteSaveData().check().then(f => {
+							if (f) message('全消去しました').delay(1000).then(resetup)
+							else message('作品選択メニューに戻ります。').delay(1000).then(resetup)
+						}, err => { message('消去中にエラーが発生しました。').delay(1000).then(resetup) })
+					break
+
+					case '閉じる': resetup() ; break
+
+					default: ng('想定外の機能が呼び出されました。')
 
 				}
 
 			})
 
 		})
+
+		if (!script) return resetup()
 
 		return load(script)
 	})
@@ -134,12 +136,13 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 		View.clean()
 		Player.setRunPhase('エラー解決')
 
-		yield message(err + '\n作品選択メニューに戻ります。').delay(3000)
-		return setup().catch(restart)
+		yield message(err + '\n作品選択メニューに戻ります。').delay(1000)
+		return resetup()
 
 	})
 
 
+	var resetup = _ => setup().catch(restart)
 
 
 	var start = Util.co(function* () {
@@ -164,7 +167,7 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 			]).through( _ => startSE.fadeout() )
 		]).check()
 
-		return setup().catch(restart)
+		return resetup()
 	})
 
 
@@ -180,15 +183,18 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 	READY.Game.ready({
 
 		reset() {
-			setup()
+			resetup()
 		},
 
 		loadSaveData() {
+			var defer = Promise.defer()
 			Player.loadSaveData().then( script => {
+				if (!script) return defer.resolve()
 				Player.init()
 				Player.setScenario(script.scenario)
 				load(script)
 			} ).check()
+			return defer.promise
 		},
 
 	})
@@ -199,7 +205,6 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 
 
 /* TODO
-	・事前キャッシュ、効率化
 	・Worker分離
 	・エフェクト
 	・画像面のCanvas化

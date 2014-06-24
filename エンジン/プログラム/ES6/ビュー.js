@@ -144,11 +144,6 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 
 	var el_debugSub = createDdebugSub()
 	var el = el_debugSub.append(new DOM('button', bs))
-	el.append(new DOM('text', '右クリック'))
-	el.on('click', _ => {
-		fireEvent('Rclick')
-	})
-	var el = el_debugSub.append(new DOM('button', bs))
 	el.append(new DOM('text', 'サウンド有無'))
 	el.on('click', _ => {
 		var e = !Sound.soundEnabled
@@ -159,8 +154,6 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 		else
 			View.showNotice(`サウンドを${e?'有':'無'}効に設定しました`+'\nただしお使いの環境では音が出せません')
 	})
-
-	var el_debugSub = createDdebugSub()
 	var el = el_debugSub.append(new DOM('button', bs))
 	el.append(new DOM('text', 'キャシュ削除'))
 	el.on('click', _ => {
@@ -223,6 +216,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 	}
 
 
+
 	var METHODS = {}
 
 	METHODS = {
@@ -253,6 +247,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 			},
 
 			on: function (kind, onFulfilled, onRejected) {
+				//setAuto(kind)
 				var rehook = _ => View.on(kind, onFulfilled, onRejected)
 				return new Promise( resolve => hookInput(kind, resolve) ).then( _ => rehook ).then(onFulfilled).check().catch(onRejected)
 			},
@@ -270,6 +265,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 				})
 
 				hookClear()
+				stopAuto()
 				this.windows = {}
 
 				var height = opt.HEIGHT || 480
@@ -295,13 +291,15 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 					boxShadow		: 'rgba(100,100,0,0.5) 0px 0px 5px 5px',
 					borderRadius	: '2% / 10%',
 					textAlign		: 'center',
-					lineHeight		: '1.5em',
+					lineHeight		: '1.5',
 					opacity			: '0',
 					position		: 'absolute',
 					left			: 'calc((100% - 90%) / 2)',
 					top				: '20%',
 					zIndex			: '100',
 					width			: '90%',
+					fontFamily		: "'Hiragino Kaku Gothic ProN', Meiryo, sans-serif",
+					letterSpacing	: '0.1em',
 				})
 				el_player.append(noticeWindow).append(new DOM('pre', {margin: '5%'})).append(new DOM('text', message))
 				return new Promise(function (ok, ng) {
@@ -338,6 +336,8 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 					bottom			: '0%',
 					zIndex			: '900',
 				//	width			: 'auto',
+					fontFamily		: "'Hiragino Kaku Gothic ProN', Meiryo, sans-serif",
+					letterSpacing	: '0.1em',
 				})
 
 				var defer = Promise.defer()
@@ -389,15 +389,20 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 
 				this.mainMessageWindow = this.addMessageWindow({z:10})
 				this.imageFrame = this.addImageFrame({z:20})
+				this.logs = []
 
 				View.on('menu').then(_ => this.showMenu()).check()
+				View.on('Uwheel').then(_ => View.showLog())
 			},
 
 			messageWindowProto: {
-				nextPage: function (name, {sys = false} = {}) {		
+				nextPage: function (name, {sys = false, visited = false} = {}) {
+					View.logs.push(View.windows.message.cloneNode(true))
+					if (View.logs.length > 100) View.logs.shift()	
 					View.windows.message.setStyles({
 						background		:  sys ? 'rgba(0,100,50,0.5)' : 'rgba(0,0,100,0.5)',
 						boxShadow		: (sys ? 'rgba(0,100,50,0.5)' : 'rgba(0,0,100,0.5)') + ' 0 0 0.5em 0.5em',
+						color			: visited ? 'rgba(255,255,150,0.9)' : 'rgba(255,255,255,0.9)',
 					})
 					name = !name || name.match(/^\s+$/) ? '' : '【' +name+ '】' 
 					this.el_title.textContent = name
@@ -405,19 +410,19 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 
 				},
 
-				addSentence: function (text, opt) {
+				addSentence: function (text, {weight = 25, visited = false} = {}) {
 					text += '\n'
-					opt = Util.setDefaults(opt, {
-						weight: 25
-					})
-					
+	
 					var length = text.length
 					var at = 0, nl = 0
 					var el = this.el_body
-					var weight = opt.weight
 					var [aborted, cancelled] = [false, false]
 					var [abort, cancel] = [_ => aborted = true, _ => cancelled = true]
 					View.on('go').then(cancel)
+
+					function mul(str, n) { return (str||'100%').match(/[\d.]+/)[0]*n/100 + 'em' }
+
+					var css = {} 
 
 					var p = setAnimate( (delay, complete, pause) => {
 						if (aborted) return complete()
@@ -429,24 +434,61 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 						while (delay / weight >= at - nl) {
 							var str = text[at]
 							if (!str) return complete()
-							if (str == '\\' && /\[.+\]/.test(text.slice(at))) {
-								var nat = text.indexOf(']', at)
-								var name = text.slice(at+2, nat).trim()
-								if ($isWebkit) {
-									var img = el.append(new DOM('img', { height: '0.75em', width: '0.75em' }))
-									;((img, name) => Util.toBlobEmogiURL(name).then( url => {img.src = url} ).catch(LOG))(img, name)
+							if (str == '\\') {
+								var sub = text.slice(at+1)
+								if (/^.\[.*?\]/.test(sub)) {
+
+									var nat = text.indexOf(']', at)
+									var name = text.slice(at+3, nat).trim()
+									switch (sub[0]) {
+
+										case 'e':
+											if ($isWebkit) {
+												var img = el.append(new DOM('img', { height: mul(css.fontSize, 0.8), margin: '0 0.05em' }))
+												;((img, name) => Util.toBlobEmogiURL(name).then( url => {img.src = url} ).check())(img, name)
+											} else {
+												var img = el.append(new DOM('object', { height: mul(css.fontSize, 0.8), margin: '0 0.05em' }))
+												img.type = 'image/svg+xml'
+												;((img, name) => Util.toBlobEmogiURL(name).then( url => {img.data = url} ).check())(img, name)
+											}
+										break
+
+										case 'c': css.color = name || '' ; break
+										case 's': css.fontSize = Util.toSize(name) || '100%' ; break
+
+										default: LOG(`サポートされていないキーワードタイプ『${sub[0]}』`)
+
+									}
+
 								} else {
-									var img = el.append(new DOM('object', { height: '0.75em', width: '0.75em' }))
-									img.type = 'image/svg+xml'
-									;((img, name) => Util.toBlobEmogiURL(name).then( url => {img.data = url} ).catch(LOG))(img, name)
+
+									var nat = at + 1
+									switch (sub[0]) {
+
+										case 'n': el.append(new DOM('br')) ; break
+										case 'C': css.color = '' ; break
+										case 'S': css.fontSize = '100%' ; break
+										case 'b': css.fontWeight = 'bold' ; break
+										case 'B': css.fontWeight = '' ; break
+										
+
+										default: LOG(`サポートされていないキーワードタイプ『${sub[0]}』`)
+									}
+
 								}
+
 								nl += nat - at
 								at = nat
-							} else if (str != '\u200B') el.append(new DOM('text', str))
+							} else {
+								if (str == '\n') el.append(new DOM('br'))
+								else if (str != '\u200B') el.append(new DOM('span', css)).append(new DOM('text', str))
+							}
+							 
 							if (++at >= length) return complete()
 						}
 					})
 
+					setAuto(p, {visited})
 					p.abort = abort
 					p.cancel = cancel
 					return p
@@ -461,14 +503,16 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 					width			: 'calc(100% - 0.5em - (2% + 2%))',
 					height			: 'calc( 25% - 0.5em - (4% + 2%))',
 					fontSize		: '100%',
-					lineHeight		: '1.5em',
-					fontWeight		: 'bold',
+					lineHeight		: '1.5',
+					//fontWeight		: 'bold',
 					padding			: '4% 2% 2% 2%',
 					whiteSpace		: 'nowrap',
 					position		: 'absolute',
 					bottom			: '0.25em',
 					left			: '0.25em',
 					zIndex			: opt.z || 1400,
+					fontFamily		: "'Hiragino Kaku Gothic ProN', Meiryo, sans-serif",
+					letterSpacing	: '0.1em',
 
 				})
 				var el = new DOM('div', opt)
@@ -486,13 +530,20 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 				//	background		: 'rgba(255,100,200,0.5)',
 				//	padding			: '5px',
 				}))
+
+				el_title.onmousedown = evt => {
+					evt.preventDefault()
+					evt.stopImmediatePropagation()
+					eventFire('menu', false)
+				}
+
 				var el_body = el.append(new DOM('div', {
 					display			: 'inline-block',
 					width			: 'auto',
 					height			: '100%',
 				//	padding			: '15px',
-				})).append(new DOM('pre', {
-					margin			: '0',
+				})).append(new DOM('span', {
+					//margin			: '0',
 				}))
 
 				var mw = { __proto__: this.messageWindowProto,
@@ -517,7 +568,11 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 
 			},
 
-			setChoiceWindow: function (opts, {sys = false} = {}) {
+			setConfirmWindow: function (name, {sys = true} = {}) {
+				return View.setChoiceWindow([{name, value: true}, {name: 'キャンセル', value:false}], {sys})
+			},
+
+			setChoiceWindow: function (opts, {sys = false, closeable = false} = {}) {
 
 				var defer = Promise.defer()
 				var removed = false
@@ -561,6 +616,8 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 						height			: '2.5em',
 						margin			: '5% 0%',
 						textShadow		: 'rgba(0,0,0,0.9) 0em 0em 0.5em',
+						fontFamily		: "'Hiragino Kaku Gothic ProN', Meiryo, sans-serif",
+						letterSpacing	: '0.1em',
 					})
 					bt.disabled = !!opt.disabled
 					bt.append(new DOM('text', opt.name))
@@ -585,6 +642,10 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 						if (!sys) delete this.windows.choice
 						else delete this.windows.choiceBack
 						cw.remove()
+					}
+					bt.onmousedown = evt => {
+						evt.preventDefault()
+						evt.stopImmediatePropagation()
 					}
 					cw.append(bt)
 					if (!opt.disabled) var index = bts.push(bt) - 1
@@ -614,6 +675,33 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 					Promise.delay(100).then(rehook)
 				}
 
+				if (closeable) {
+					var img = new DOM('img', {
+						position		: 'absolute',
+						right			: '0.75em',
+						top				: '0.5em',
+						width			: '2em',
+						height			: '2em',
+						opacity			: '0.75',
+					})
+					if ($isWebkit) {
+						Util.toBlobSysPartsURL('閉じるボタン').then( url => {img.src = url} ).check()
+					} else {
+						img.src = 'エンジン/画像/閉じるボタン.svg'
+					}
+					img.onmousedown = evt => {
+						evt.preventDefault()
+						evt.stopImmediatePropagation()
+						removed = true
+						defer.resolve('閉じる')
+						if (!sys) delete this.windows.choice
+						else delete this.windows.choiceBack
+						cw.remove()
+					}
+					cw.append(img)
+				}
+
+
 				el_context.append(cw)
 
 
@@ -623,9 +711,27 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 
 
 			setBGImage: function (opt) {
-				var url = opt.url ? `url(${opt.url})` : 'none'
-				el_context.style.backgroundImage = url
-				el_context.style.backgroundSize = 'cover'
+				var defer = Promise.defer()
+				var url = opt.url
+				if (url) {
+					var img = new Image
+					img.onload = _ => {
+						el_context.setStyles({
+							backgroundImage: `url(${url})`,
+							backgroundSize: 'cover',
+						})
+						defer.resolve()
+					}
+					img.src = url
+					Data.active.BGImage = opt
+				} else {
+					el_context.setStyles({
+						backgroundImage: 'none',
+						backgroundSize: 'cover',
+					})
+					defer.resolve()
+				}
+				return defer.promise
 			},
 
 			setFDImages: function (opts) {
@@ -658,8 +764,9 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 					els.forEach( el => fr.append(el) )
 					defer.resolve()
 				})
+
+				Data.active.FDImages = opts
 				return defer.promise
-				
 			},
 
 			nextPage: function (name, opt) {
@@ -674,7 +781,8 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 				if (Data.phase != 'play' || View.menuIndex > 0) return View.on('Rclick').then(_ => View.showMenu())
 				//LOG('show')
 				View.menuIndex = (View.menuIndex||0)+1
-				blockEvent()
+				//eventBlock()
+				eventSysOnly(true)
 				View.on('menu').then( _ => {
 					if (this.windows.choiceBack) this.windows.choiceBack.remove()
 					View.hideMenu()
@@ -683,20 +791,36 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 					var el = View.windows[key]
 					el.hidden = !el.hidden
 				} )
-				View.setChoiceWindow([
-					{name: 'セーブ'}, {name: 'ロード'}
-				], {sys: true}).then( kind => {
+				View.setChoiceWindow(['セーブ', 'ロード', 'ウィンドウ消去', 'ログ表示', 'オート', '既読スキップ', 'リセット'
+					].map(name => ({name})), {sys: true, closeable: true}).then( kind => {
 
 					switch (kind) {
 						case 'セーブ':
-							Player.saveSaveData().check().through(View.hideMenu).then( _ => View.showNotice('セーブしました。'),
-								err => View.showNotice('セーブに失敗しました。') )
-
+							Player.saveSaveData().check().through(View.hideMenu)
+							.then(f => f && View.showNotice('セーブしました。'), err => View.showNotice('セーブに失敗しました。') )
 						break
-						case 'ロード':
-							Game.loadSaveData()
 
+						case 'ロード': Game.loadSaveData().then(View.hideMenu) ; break
+
+						case 'ウィンドウ消去':
+							eventSysOnly(false)
+							eventBlock() 
+							View.on('*', _ => {
+								View.hideMenu()
+								eventAllow()
+							})
 						break
+
+						case 'ログ表示': View.hideMenu(); eventFire('Uwheel') ; break
+
+						case 'オート': View.hideMenu(); startAuto() ; break
+
+						case '既読スキップ': View.hideMenu(); startSkip() ; break
+
+						case 'リセット': View.setConfirmWindow('リセットする').then(f => { if (f) Game.reset() ;else View.hideMenu() }) ; break
+
+						case '閉じる': View.hideMenu(); break
+
 						default: throw 'illegal choice type'
 					}
 				})
@@ -707,7 +831,8 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 				//LOG('hide')
 				if (!View.menuIndex) return
 				--View.menuIndex
-				allowEvent()
+				//eventAllow()
+				eventSysOnly(false)
 				View.on('menu').then(_ => View.showMenu())
 				Object.keys(View.windows).forEach( key => {
 					var el = View.windows[key]
@@ -715,13 +840,112 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 				} )
 			},
 
+			showLog: function (text) {
+
+				if (Data.phase != 'play' || this.windows.log) return
+				eventSysOnly(true)
+
+				var el = new DOM('div', {
+					position		: 'absolute',
+					left			: '1em',
+					top				: '1em',
+					width			: 'calc(100% - 1em * 2)',
+					height			: 'calc(100% - 1em * 2)',
+					overflowY		: 'scroll',
+					background		: 'rgba(50,50,50,0.9)',
+					boxShadow		: 'rgba(50,50,50,0.9) 0 0 1em 1em',
+					zIndex			: '1200',
+				})
+
+				var img = new DOM('img', {
+					position		: 'absolute',
+					right			: '1em',
+					top				: '0.5em',
+					width			: '3em',
+					height			: '3em',
+					opacity			: '0.75',
+				})
+				if ($isWebkit) {
+					Util.toBlobSysPartsURL('閉じるボタン').then( url => {img.src = url} ).check()
+				} else {
+					img.src = 'エンジン/画像/閉じるボタン.svg'
+				}
+				el.append(img)
+
+				img.onmousedown = evt => {
+					evt.preventDefault()
+					evt.stopImmediatePropagation()
+					if (this.windows.log) {
+						this.windows.log.remove()
+						delete this.windows.log
+					}
+					eventSysOnly(false)
+					View.on('Uwheel').then(_ => View.showLog())
+				}
+
+				View.logs.forEach(log => {
+					log.setStyles({
+						position		: '',
+						height			: '',
+						padding			: '',
+						borderRadius	: '',
+						width			: '',
+						background		: '',
+						boxShadow		: '',
+						marginBottom	: '0.5em',
+
+					})
+					el.append(log)
+				})
+				this.windows.log = el
+
+				el_context.append(el)
+
+			},
+
 		},
 
 	}
 
 
+	var {setAuto, startAuto, stopAuto, startSkip} = (_ => { 
 
-	var [hookInput, hookClear, blockEvent, allowEvent, fireEvent] = (_ => {
+		var enabled = false
+		var delay = 0
+		var wait = true
+
+		return {
+			setAuto(p = Promise.resolve(), {visited = false} = {}) {
+				if (!enabled) return
+				if (wait) p.delay(delay).then(_ => { if (enabled) eventFire('go') }).check()
+				else if (visited) {
+					eventFire('go')
+					p.delay(delay).then(_ => { if (enabled) eventFire('go') }).check()
+
+				}
+			},
+			startAuto() {
+				enabled = true
+				wait = true
+				delay = 1500
+				View.on('*', stopAuto)
+				setAuto()
+			},
+			stopAuto() {
+				enabled = false
+			},
+			startSkip() {
+				enabled = true
+				wait = false
+				delay = 150
+				View.on('*', stopAuto)
+				setAuto(p = Promise.reject(), {visited: 1})
+			},
+		}
+	})()
+
+
+	var {hookInput, hookClear, eventBlock, eventAllow, eventFire, eventSysOnly} = (_ => {
 
 		var keyboardTable = {
 			 8: 'backspace',
@@ -734,6 +958,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 		}
 
 		var hooks = []
+		var sysOnly = false
 		//var blocks = new Set
 
 		document.addEventListener('keydown', evt => {
@@ -744,17 +969,27 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 		el_wrapper.addEventListener('mousedown', evt => {
 			var type = 'LMR'[evt.button]
 			if (type) onEvent(type + 'click', evt)
-		}, true)
+		})
+
+		var wheeling = false
+		el_wrapper.addEventListener('wheel', evt => {
+			if (wheeling) return
+			wheeling = true
+			setTimeout( _ => { wheeling = false }, 50)
+			var type = evt.deltaY < 0 ? 'U' : 'D'
+			if (type) onEvent(type + 'wheel', evt)
+		})
 
 		el_wrapper.addEventListener('contextmenu', evt => {
 			onEvent('contextmenu', evt)
 		}, true)
 
-		function onEvent(type, evt) {
+		function onEvent(type, evt, sys) {
 			if (evt) {
 				evt.preventDefault()
 				evt.stopImmediatePropagation()
 			}
+			if (sysOnly && !sys) return
 			hooks = hooks.reduce( (ary, hook) => {
 				if (hook.indexOf(type) === -1 || hook.blocked > 0) ary.push(hook)
 				else hook.resolve()
@@ -764,31 +999,41 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 
 		function toHook(kind) {
 			switch (kind) {
+				case '*':
+					return ['*', 'Lclick', 'Rclick', 'Uwheel', 'Dwheel', 'enter', 'space', 'backspace']
 				case 'go':
-					return ['Lclick', 'enter', 'space']
+					return ['go', 'Lclick', 'Dwheel', 'enter', 'space']
 				case 'menu':
-					return ['Rclick', 'backspace']
-				case 'Rclick': case 'left': case 'up': case 'right': case 'down': case 'enter':
-					return [kind]
-				default: throw 'illegal hook event type'		
+					return ['menu', 'Rclick', 'backspace']
+				default: 
+					return [kind]	
 			}
 		}
 
-		return [function hookInput(kind, resolve) {
-			var hook = toHook(kind)
-			hook.resolve = resolve
-			hook.blocked = 0
-			hooks.push(hook)
-		}, function hookClear() {
-			hooks.length = 0
-		}, function blockEvent() {
-			hooks.forEach( hook => ++hook.blocked )
-		}, function allowEvent() {
-			hooks.forEach( hook => --hook.blocked )
-		}, function fireEvent(type) {
-			onEvent(type)
+		return {
+			hookInput(kind, resolve) {
+				var hook = toHook(kind)
+				hook.resolve = resolve
+				hook.blocked = 0
+				hooks.push(hook)
+			},
+			hookClear() {
+				hooks.length = 0
+				eventSysOnly(false)
+			},
+			eventBlock() {
+				hooks.forEach( hook => ++hook.blocked )
+			},
+			eventAllow() {
+				hooks.forEach( hook => --hook.blocked )
+			},
+			eventFire(type, sys = true) {
+				onEvent(type, null, sys)
+			},
+			eventSysOnly(flag) {
+				sysOnly = flag
+			}
 		}
-		]
 	})()
 
 

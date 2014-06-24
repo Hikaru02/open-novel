@@ -12,7 +12,9 @@ System.register("ES6/ヘルパー", [], function() {
       URL: {
         ContentsSetting: 'データ/作品.txt',
         EngineSetting: 'エンジン/エンジン定義.txt'
-      }
+      },
+      active: {},
+      current: {}
     };
     var Util = {
       setDefaults: function() {
@@ -69,6 +71,13 @@ System.register("ES6/ヘルパー", [], function() {
           return String.fromCharCode(char.charCodeAt(0) - 65248);
         }));
       },
+      toSize: function(str) {
+        if (!str)
+          return null;
+        str = Util.toHalfWidth(str);
+        var n = +(str.match(/[\d.]+/) || [0])[0];
+        return ((!(/[\d.]+%/.test(str)) && n < 10) ? n * 100 : n) + '%';
+      },
       NOP: function() {},
       error: function(message) {
         alert(message);
@@ -79,14 +88,19 @@ System.register("ES6/ヘルパー", [], function() {
           var defer = Promise.defer();
           var iter = func.apply(this, arguments);
           var loop = (function(val) {
-            var $__1 = $traceurRuntime.assertObject(iter.next(val)),
-                value = $__1.value,
-                done = $__1.done;
-            value = Promise.resolve(value);
-            if (done)
-              value.then(defer.resolve, defer.reject);
-            else
-              value.then(loop, defer.reject);
+            try {
+              var $__2 = $traceurRuntime.assertObject(iter.next(val)),
+                  value = $__2.value,
+                  done = $__2.done;
+              value = Promise.resolve(value);
+              if (done)
+                value.then(defer.resolve, defer.reject);
+              else
+                value.then(loop, defer.reject);
+            } catch (err) {
+              LOG(err);
+              defer.reject(err);
+            }
           });
           loop();
           return defer.promise;
@@ -100,7 +114,7 @@ System.register("ES6/ヘルパー", [], function() {
           return params[key] = value;
         }));
         var cacheSizeMB = ((Util.cacheGet('$size') || 0) / 1024 / 1024).toFixed(1);
-        var mark = Data.currentPoint && Data.currentPoint.mark || '（無し）';
+        var mark = Data.current.mark || '（無し）';
         var obj = {
           キャッシュサイズ: cacheSizeMB + 'MB',
           現在のマーク: mark,
@@ -110,6 +124,9 @@ System.register("ES6/ヘルパー", [], function() {
       },
       toBlobEmogiURL: function(name) {
         return Util.toBlobURL('絵文字', name, 'svg');
+      },
+      toBlobSysPartsURL: function(name) {
+        return Util.toBlobURL('画像', name, 'svg', true);
       },
       toBlobScriptURL: function(name) {
         return Util.toBlobURL('シナリオ', name, 'txt');
@@ -178,6 +195,24 @@ System.register("ES6/ヘルパー", [], function() {
         });
       }
     };
+    var BitArray = function BitArray() {};
+    ($traceurRuntime.createClass)(BitArray, {}, {
+      create: function(len) {
+        return new Uint32Array(Math.ceil(len / 32));
+      },
+      get: function(ba, no) {
+        var i = no / 32 | 0,
+            n = ba[i],
+            p = no % 32;
+        return (n & 1 << p) >>> p;
+      },
+      set: function(ba, no) {
+        var i = no / 32 | 0,
+            n = ba[i],
+            p = no % 32;
+        ba[i] = n | 1 << p;
+      }
+    });
     Util.setProperties(Util, ((function(_) {
       var cacheMap = new Map;
       cacheInit();
@@ -310,15 +345,15 @@ System.register("ES6/ヘルパー", [], function() {
         var _p = this;
         var $p = function() {
           for (var args = [],
-              $__0 = 0; $__0 < arguments.length; $__0++)
-            args[$__0] = arguments[$__0];
+              $__1 = 0; $__1 < arguments.length; $__1++)
+            args[$__1] = arguments[$__1];
           var len = args.length;
           if (len === 0)
             return $p;
-          var $__1 = $traceurRuntime.assertObject(args),
-              arg0 = $__1[0],
-              arg1 = $__1[1],
-              arg2 = $__1[2];
+          var $__2 = $traceurRuntime.assertObject(args),
+              arg0 = $__2[0],
+              arg1 = $__2[1],
+              arg2 = $__2[2];
           if (typeof arg0 == 'function') {
             switch (args.length) {
               case 1:
@@ -412,7 +447,8 @@ System.register("ES6/ヘルパー", [], function() {
       READY: READY,
       Util: Util,
       LOG: LOG,
-      Data: Data
+      Data: Data,
+      BitArray: BitArray
     });
   }))();
   return {};
@@ -424,7 +460,8 @@ System.register("ES6/ストレージ", [], function() {
   READY().then((function(_) {
     'use strict';
     var db,
-        scenario;
+        scenario,
+        VERSION = 4;
     var Storage = {
       add: function(key, val) {
         return new Promise((function(ok, ng) {
@@ -479,16 +516,20 @@ System.register("ES6/ストレージ", [], function() {
         }));
       },
       getSaveDatas: function(from, to) {
+        if (typeof from != 'number' || from < 0)
+          throw 'ロード用番号が不正';
+        if (typeof to != 'number' || to < 0)
+          throw 'ロード用番号が不正';
         var scenario = Data.scenarioName;
         return new Promise((function(ok, ng) {
-          var saves = new Array(to - from + 1);
+          var saves = new Array(to + 1);
           var ts = db.transaction('savedata', 'readonly');
           var os = ts.objectStore('savedata');
           for (var no = from; no <= to; ++no) {
             var rq = os.get(scenario + '/' + no);
             rq.onsuccess = ((function(rq, no) {
               return (function(_) {
-                saves[no - from] = rq.result;
+                saves[no] = rq.result;
               });
             }))(rq, no);
           }
@@ -501,7 +542,12 @@ System.register("ES6/ストレージ", [], function() {
         }));
       },
       setSaveData: function(no, data) {
+        if (typeof no != 'number' || no < 0)
+          throw 'セーブ用番号が不正';
+        if (!data)
+          throw 'セーブ用データが不正';
         var scenario = Data.scenarioName;
+        data.version = VERSION;
         return new Promise((function(ok, ng) {
           var ts = db.transaction('savedata', 'readwrite');
           var os = ts.objectStore('savedata');
@@ -511,6 +557,61 @@ System.register("ES6/ストレージ", [], function() {
           });
           ts.onabort = (function(_) {
             return ng(("ストレージの書込に失敗（" + ts.error.message + ")"));
+          });
+        }));
+      },
+      getGlobalData: function() {
+        var scenario = Data.scenarioName;
+        return new Promise((function(ok, ng) {
+          var ts = db.transaction('savedata', 'readonly');
+          var os = ts.objectStore('savedata');
+          var rq = os.get(scenario + '/global');
+          ts.oncomplete = (function(_) {
+            return ok(rq.result);
+          });
+          ts.onabort = (function(_) {
+            return ng(("ストレージの読込に失敗（" + ts.error.message + ")"));
+          });
+        }));
+      },
+      setGlobalData: function(data) {
+        if (!data)
+          throw 'セーブ用データが不正';
+        var scenario = Data.scenarioName;
+        data.version = VERSION;
+        return new Promise((function(ok, ng) {
+          var ts = db.transaction('savedata', 'readwrite');
+          var os = ts.objectStore('savedata');
+          var rq = os.put(data, scenario + '/global');
+          ts.oncomplete = (function(_) {
+            return ok();
+          });
+          ts.onabort = (function(_) {
+            return ng(("ストレージの書込に失敗（" + ts.error.message + ")"));
+          });
+        }));
+      },
+      deleteSaveDatas: function(con) {
+        if (!(con === true))
+          throw '誤消去防止セーフティ';
+        var scenario = Data.scenarioName;
+        return new Promise((function(ok, ng) {
+          var ts = db.transaction('savedata', 'readwrite');
+          var os = ts.objectStore('savedata');
+          var rg = IDBKeyRange.bound((scenario + "/"), (scenario + "/{"));
+          var rq = os.openCursor(rg);
+          rq.onsuccess = (function(_) {
+            var cs = rq.result;
+            if (!cs)
+              return;
+            cs.delete();
+            cs.continue();
+          });
+          ts.oncomplete = (function(_) {
+            return ok();
+          });
+          ts.onabort = (function(_) {
+            return ng(("ストレージの消去に失敗（" + ts.error.message + ")"));
           });
         }));
       },
@@ -541,7 +642,8 @@ System.register("ES6/ストレージ", [], function() {
             return ng(("ストレージのkey『" + key + "』の書込に失敗（" + ts.error.message + ")"));
           });
         }));
-      }
+      },
+      VERSION: VERSION
     };
     new Promise((function(ok, ng) {
       var rq = indexedDB.open("open-novel", 5);
@@ -560,7 +662,7 @@ System.register("ES6/ストレージ", [], function() {
         return ng(("ストレージが開けない（" + err.message + ")"));
       });
     })).then((function(val) {
-      db = val;
+      Storage.DB = db = val;
       READY.Storage.ready(Storage);
     }));
   })).check();
@@ -570,9 +672,9 @@ System.get("ES6/ストレージ" + '');
 System.register("ES6/プレーヤー", [], function() {
   "use strict";
   var __moduleName = "ES6/プレーヤー";
-  READY().then((function($__3) {
+  READY().then((function($__4) {
     'use strict';
-    var Util = $__3.Util;
+    var Util = $__4.Util;
     function setPhase(phase) {
       document.title = '【' + phase + '】';
     }
@@ -649,6 +751,57 @@ System.register("ES6/プレーヤー", [], function() {
       }
       return append;
     }))();
+    function flattenScript(script) {
+      var buf = [];
+      function flatten(script) {
+        var bk = [];
+        var q = 0;
+        script.forEach((function(prog) {
+          bk.forEach((function(n) {
+            buf[n] = buf.length - (q ? 1 : 0);
+          }));
+          bk = [];
+          if (q)
+            buf[q] = buf.length;
+          q = 0;
+          var $__5 = $traceurRuntime.assertObject(prog),
+              act = $__5[0],
+              data = $__5[1];
+          switch (act) {
+            case '繰返':
+            case '繰返し':
+            case '繰り返し':
+              q = buf.length + 2;
+            case '選択':
+            case '選択肢':
+            case '分岐':
+              var cp = buf.push(act, null) - 1;
+              if (q)
+                buf.push(-1);
+              buf[cp] = data.map((function($__5) {
+                var lab = $__5[0],
+                    val = $__5[1];
+                if (Array.isArray(val[0])) {
+                  var p = buf.length;
+                  bk.push(flatten(val));
+                  val = p;
+                }
+                return [lab, val];
+              }));
+              if (q) {
+                buf[cp].unshift(q);
+                buf.push(cp - 1);
+              }
+              break;
+            default:
+              buf.push(act, data);
+          }
+        }));
+        return buf.push(-1) - 1;
+      }
+      flatten(script);
+      return buf;
+    }
     function cacheScript(script) {
       var sname = arguments[1] !== (void 0) ? arguments[1] : script.sname;
       if (!Array.isArray(script)) {
@@ -656,74 +809,9 @@ System.register("ES6/プレーヤー", [], function() {
         LOG(script);
         return Promise.reject('不正なスクリプトのためキャッシュできない');
       }
-      var hashmark = $traceurRuntime.assertObject(script).hashmark;
       if (!sname)
         LOG('!!!sname');
       script = copyObject(script);
-      var cacheHandlers = {
-        会話: otherName('何もしない'),
-        背景: function(data) {
-          var name = data[0];
-          append(['背景', name, 'jpg']);
-        },
-        立絵: otherName('立ち絵'),
-        立ち絵: function(data) {
-          data.forEach((function(ary) {
-            if (Util.isNoneType(ary))
-              return;
-            var $__4 = $traceurRuntime.assertObject(ary),
-                position = $__4[0],
-                names = $__4[1];
-            if (!position)
-              return;
-            if (!names)
-              return;
-            var name = names[0];
-            append(['立ち絵', name, 'png']);
-          }));
-        },
-        分岐系: function(data) {
-          data.forEach((function(ary) {
-            var value = ary[1];
-            if (typeof value[0] == 'string')
-              cacheHandlers['ジャンプ'](value);
-            else
-              cacheScript(value, sname);
-          }));
-        },
-        選択: otherName('選択肢'),
-        選択肢: otherName('分岐系'),
-        ジャンプ: function(data) {
-          var $__5;
-          var to = data[0];
-          if (!to)
-            return;
-          var name = to,
-              base = sname;
-          var $__4 = $traceurRuntime.assertObject(name.replace(/＃/g, '#').split('#')),
-              name = $__4[0],
-              mark = ($__5 = $__4[1]) === void 0 ? '' : $__5;
-          if (!name)
-            name = base.replace(/＃/g, '#').split('#')[0];
-          var subkey = (Data.scenarioName + "/" + Util.forceName('シナリオ', name, 'txt'));
-          if (!Util.cacheHas(subkey))
-            fetchScriptData(to, base).then((function(script) {
-              return cacheScript(script);
-            })).check();
-        },
-        変数: otherName('パラメータ'),
-        パラメーター: otherName('パラメータ'),
-        パラメータ: otherName('何もしない'),
-        入力: otherName('何もしない'),
-        繰返: otherName('繰り返し'),
-        繰返し: otherName('繰り返し'),
-        繰り返し: otherName('分岐系'),
-        分岐: otherName('分岐系'),
-        マーク: otherName('何もしない'),
-        スクリプト: otherName('何もしない'),
-        コメント: otherName('何もしない'),
-        何もしない: function() {}
-      };
       var defer = Promise.defer();
       var caching = 0;
       function append(args) {
@@ -736,30 +824,79 @@ System.register("ES6/プレーヤー", [], function() {
           })).check();
         }));
       }
-      script.forEach((function(prog) {
+      for (var po = 0; po < script.length; po++) {
         try {
-          if (!prog)
-            return;
-          var act = prog[0].trim();
-          var data = prog[1];
-          if (act in cacheHandlers) {
-            cacheHandlers[act](data);
-          } else {
-            LOG('キャッシュ中にサポートされていないコマンド『' + act + '』に遭遇');
+          var act = script[po];
+          if (!act)
+            continue;
+          if (typeof act != 'string')
+            continue;
+          var data = script[++po];
+          switch (act) {
+            case '背景':
+              var name = data[0];
+              append(['背景', name, 'jpg']);
+              break;
+            case '立絵':
+            case '立ち絵':
+              data.forEach((function(ary) {
+                if (Util.isNoneType(ary))
+                  return;
+                var $__5 = $traceurRuntime.assertObject(ary),
+                    position = $__5[0],
+                    names = $__5[1];
+                if (!position)
+                  return;
+                if (!names)
+                  return;
+                var name = names[0];
+                append(['立ち絵', name, 'png']);
+              }));
+              break;
+            case '繰返':
+            case '繰返し':
+            case '繰り返し':
+            case '選択':
+            case '選択肢':
+            case '分岐':
+              data = data.reduce((function(base, ary) {
+                var val = ary[1];
+                if (val && typeof val[0] == 'string')
+                  base.push(val[0]);
+                return base;
+              }), []);
+            case 'ジャンプ':
+              data.forEach((function(to) {
+                var $__6;
+                if (!to)
+                  return;
+                var name = to,
+                    base = sname;
+                var $__5 = $traceurRuntime.assertObject(name.replace(/＃/g, '#').split('#')),
+                    name = $__5[0],
+                    mark = ($__6 = $__5[1]) === void 0 ? '' : $__6;
+                if (!name)
+                  name = base.replace(/＃/g, '#').split('#')[0];
+                var subkey = (Data.scenarioName + "/" + Util.forceName('シナリオ', name, 'txt'));
+                if (!Util.cacheHas(subkey))
+                  fetchScriptData(to, base).then((function(script) {
+                    return cacheScript(script);
+                  })).check();
+              }));
+              break;
           }
         } catch (err) {
           LOG(("キャッシュ中にコマンド『" + act + "』で『" + err + "』が起きた"));
         }
-      }));
+      }
       if (caching == 0)
         defer.resolve();
       return defer.promise;
     }
     function runScript(script) {
       var sname = arguments[1] !== (void 0) ? arguments[1] : script.sname;
-      var parentComp = arguments[2];
-      var masterComp = arguments[3];
-      var $__2;
+      var masterComp = arguments[2];
+      var $__3;
       if (!sname)
         LOG('!!!sname');
       sname = sname.split('#')[0];
@@ -767,49 +904,58 @@ System.register("ES6/プレーヤー", [], function() {
       Data.phase = 'play';
       document.title = ("【" + Data.scenarioName + "】");
       var run = Promise.defer();
-      if (!parentComp)
-        parentComp = run.resolve;
       if (!masterComp)
         masterComp = run.resolve;
-      var $__4 = $traceurRuntime.assertObject(script),
-          hashmark = $__4.mark,
-          params = $__4.params,
-          scenario = $__4.scenario;
-      var searching = !!hashmark;
+      var $__5 = $traceurRuntime.assertObject(script),
+          mark = $__5.mark,
+          hash = $__5.hash,
+          params = $__5.params,
+          scenario = $__5.scenario,
+          active = $__5.active;
+      if (mark)
+        Data.current.mark = mark;
+      var searching = !!hash;
       if (params)
         Object.keys(params).forEach((function(name) {
           return Util.paramSet(name, params[name]);
         }));
-      if (scenario)
-        Player.setScenario(scenario);
       script = copyObject(script);
-      function runSubScript(script) {
-        return runScript(script, sname, parentComp, masterComp);
-      }
+      var gsave = Data.current.setting;
+      var visited = $traceurRuntime.assertObject(gsave).visited;
+      if (!visited)
+        gsave.visited = visited = {};
+      var vBA = visited[sname];
+      if (!vBA)
+        visited[sname] = vBA = BitArray.create(script.length);
       function runChildScript(script) {
-        return runScript(script, undefined, undefined, masterComp);
+        return runScript(script, undefined, masterComp);
       }
-      var actHandlers = ($__2 = {}, Object.defineProperty($__2, "会話", {
+      var actHandlers = ($__3 = {}, Object.defineProperty($__3, "会話", {
         value: function(data, done, failed) {
+          save();
+          var visited = BitArray.get(vBA, po);
+          BitArray.set(vBA, po);
           function nextPage() {
             var ary = data.shift();
-            if (!ary)
+            if (!ary) {
+              autosave(false);
               return done();
+            }
             var name = ary[0],
                 texts = ary[1];
             if (Util.isNoneType(name))
               name = '';
             name = replaceEffect(name);
-            View.nextPage(name);
+            View.nextPage(name, {visited: visited});
             function nextSentence() {
               var text = texts.shift();
               if (!text)
                 return nextPage();
-              text = text.replace(/\\w(\d+)/g, (function(_, num) {
-                return '\u200B'.repeat(num);
-              })).replace(/\\n/g, '\n');
+              text = text.replace(/\\w\[(\d*)\]/g, (function(_, num) {
+                return '\u200B'.repeat(+num || 1);
+              }));
               text = replaceEffect(text);
-              View.addSentence(text).on('go', nextSentence, failed);
+              View.addSentence(text, {visited: visited}).on('go', nextSentence, failed);
             }
             nextSentence();
           }
@@ -818,33 +964,36 @@ System.register("ES6/プレーヤー", [], function() {
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__2, "背景", {
+      }), Object.defineProperty($__3, "背景", {
         value: function(data, done, failed) {
           var name = replaceEffect(data[0]);
           Util.toBlobURL('背景', name, 'jpg').then((function(url) {
-            return View.setBGImage({url: url});
+            return View.setBGImage({
+              name: name,
+              url: url
+            });
           })).then(done, failed);
         },
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__2, "立絵", {
+      }), Object.defineProperty($__3, "立絵", {
         value: otherName('立ち絵'),
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__2, "立ち絵", {
+      }), Object.defineProperty($__3, "立ち絵", {
         value: function(data, done, failed) {
           Promise.all(data.reduce((function(base, ary) {
-            var $__5,
-                $__6;
+            var $__6,
+                $__7;
             if (!base)
               return;
             if (Util.isNoneType(ary))
               return base;
-            var $__4 = $traceurRuntime.assertObject(ary),
-                position = $__4[0],
-                names = $__4[1];
+            var $__5 = $traceurRuntime.assertObject(ary),
+                position = $__5[0],
+                names = $__5[1];
             if (!position)
               return failed('不正な位置検出');
             if (!names)
@@ -853,47 +1002,52 @@ System.register("ES6/プレーヤー", [], function() {
             var name = replaceEffect(names[0]);
             var a_type = ['left', 'right']['左右'.indexOf(position)];
             var v_type = 'top';
-            var $__4 = [0, 0],
-                a_per = $__4[0],
-                v_per = $__4[1];
+            var $__5 = [0, 0],
+                a_per = $__5[0],
+                v_per = $__5[1];
             var height = null;
             if (!a_type) {
               var pos = Util.toHalfWidth(position).match(/[+\-0-9.]+/g);
               if (!pos)
                 return failed('不正な位置検出');
-              var $__4 = $traceurRuntime.assertObject(pos),
-                  a_pos = $__4[0],
-                  v_pos = ($__5 = $__4[1]) === void 0 ? '0' : $__5,
-                  height = ($__6 = $__4[2]) === void 0 ? null : $__6;
+              var $__5 = $traceurRuntime.assertObject(pos),
+                  a_pos = $__5[0],
+                  v_pos = ($__6 = $__5[1]) === void 0 ? '0' : $__6,
+                  height = ($__7 = $__5[2]) === void 0 ? null : $__7;
               a_per = Math.abs(+a_pos);
               v_per = Math.abs(+v_pos);
               a_type = a_pos.match('-') ? 'right' : 'left';
               v_type = v_pos.match('-') ? 'bottom' : 'top';
-              height = height != null ? (+height + "%") : null;
+              height = Util.toSize(height);
             }
             base.push(Util.toBlobURL('立ち絵', name, 'png').then((function(url) {
-              var $__2;
-              return (($__2 = {}, Object.defineProperty($__2, "url", {
+              var $__3;
+              return (($__3 = {}, Object.defineProperty($__3, "name", {
+                value: name,
+                configurable: true,
+                enumerable: true,
+                writable: true
+              }), Object.defineProperty($__3, "url", {
                 value: url,
                 configurable: true,
                 enumerable: true,
                 writable: true
-              }), Object.defineProperty($__2, "height", {
+              }), Object.defineProperty($__3, "height", {
                 value: height,
                 configurable: true,
                 enumerable: true,
                 writable: true
-              }), Object.defineProperty($__2, a_type, {
+              }), Object.defineProperty($__3, a_type, {
                 value: (a_per + "%"),
                 configurable: true,
                 enumerable: true,
                 writable: true
-              }), Object.defineProperty($__2, v_type, {
+              }), Object.defineProperty($__3, v_type, {
                 value: (v_per + "%"),
                 configurable: true,
                 enumerable: true,
                 writable: true
-              }), $__2));
+              }), $__3));
             })));
             return base;
           }), [])).then((function(opt) {
@@ -903,12 +1057,12 @@ System.register("ES6/プレーヤー", [], function() {
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__2, "選択", {
+      }), Object.defineProperty($__3, "選択", {
         value: otherName('選択肢'),
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__2, "選択肢", {
+      }), Object.defineProperty($__3, "選択肢", {
         value: function(data, done, failed) {
           View.setChoiceWindow(data.map((function(ary) {
             return {
@@ -918,14 +1072,16 @@ System.register("ES6/プレーヤー", [], function() {
           }))).then((function(value) {
             if (typeof value[0] == 'string')
               actHandlers['ジャンプ'](value, done, failed);
-            else
-              runSubScript(value).then(done, failed);
+            else {
+              po = value;
+              done();
+            }
           }));
         },
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__2, "ジャンプ", {
+      }), Object.defineProperty($__3, "ジャンプ", {
         value: function(data, done, failed) {
           var to = replaceEffect(data[0]);
           fetchScriptData(to, sname).then((function(script) {
@@ -935,17 +1091,17 @@ System.register("ES6/プレーヤー", [], function() {
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__2, "変数", {
+      }), Object.defineProperty($__3, "変数", {
         value: otherName('パラメータ'),
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__2, "パラメーター", {
+      }), Object.defineProperty($__3, "パラメーター", {
         value: otherName('パラメータ'),
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__2, "パラメータ", {
+      }), Object.defineProperty($__3, "パラメータ", {
         value: function(data, done, failed) {
           data.forEach((function(str) {
             str = Util.toHalfWidth(str);
@@ -964,7 +1120,7 @@ System.register("ES6/プレーヤー", [], function() {
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__2, "入力", {
+      }), Object.defineProperty($__3, "入力", {
         value: function(data, done, failed) {
           str = Util.toHalfWidth(data[0]);
           if (!str)
@@ -980,93 +1136,73 @@ System.register("ES6/プレーヤー", [], function() {
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__2, "繰返", {
+      }), Object.defineProperty($__3, "繰返", {
         value: otherName('繰り返し'),
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__2, "繰返し", {
+      }), Object.defineProperty($__3, "繰返し", {
         value: otherName('繰り返し'),
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__2, "繰り返し", {
+      }), Object.defineProperty($__3, "繰り返し", {
         value: function(data, done, failed) {
-          var i = arguments[3] !== (void 0) ? arguments[3] : 0;
-          i++;
-          if (i > 10000)
-            return failed('繰り返し回数が多すぎる(10000回超え)');
-          new Promise((function(ok, ng) {
-            if (!data.some((function($__4) {
-              var effect = $__4[0],
-                  acts = $__4[1];
-              if (!effect)
-                return failed('不正なパラメータ指定検出');
-              var flag = !!evalEffect(effect, ng);
-              if (flag)
-                runSubScript(acts).then(ok, ng);
-              return flag;
-            })))
-              done();
-          })).then((function(_) {
-            return actHandlers['繰り返し'](data, done, failed, i);
-          })).catch(failed);
-        },
-        configurable: true,
-        enumerable: true,
-        writable: true
-      }), Object.defineProperty($__2, "分岐", {
-        value: function(data, done, failed) {
-          if (!data.some((function($__4) {
-            var effect = $__4[0],
-                acts = $__4[1];
+          var q = data[0];
+          data = data.slice(1);
+          if (!data.some((function($__5) {
+            var effect = $__5[0],
+                acts = $__5[1];
             if (!effect)
               return failed('不正なパラメータ指定検出');
             var flag = !!evalEffect(effect, failed);
             if (flag)
-              runSubScript(acts).then(done, failed);
+              po = acts;
             return flag;
           })))
-            done();
-        },
-        configurable: true,
-        enumerable: true,
-        writable: true
-      }), Object.defineProperty($__2, "マーク", {
-        value: function(data, done, failed) {
-          if (parentComp != run.resolve)
-            return failed('このコマンドはトップレベルにおいてください');
-          var params = {};
-          Util.paramForEach((function(value, key) {
-            return params[key] = value;
-          }));
-          var cp = {
-            script: sname,
-            mark: data[0],
-            params: params
-          };
-          Data.currentPoint = cp;
+            po = q;
           done();
-          Util.updateDebugWindow();
         },
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__2, "スクリプト", {
+      }), Object.defineProperty($__3, "分岐", {
+        value: function(data, done, failed) {
+          data.some((function($__5) {
+            var effect = $__5[0],
+                acts = $__5[1];
+            if (!effect)
+              return failed('不正なパラメータ指定検出');
+            var flag = !!evalEffect(effect, failed);
+            if (flag)
+              po = acts;
+            return flag;
+          }));
+          done();
+        },
+        configurable: true,
+        enumerable: true,
+        writable: true
+      }), Object.defineProperty($__3, "マーク", {
+        value: function(data, done, failed) {
+          Data.current.mark = data[0];
+          autosave();
+          done();
+        },
+        configurable: true,
+        enumerable: true,
+        writable: true
+      }), Object.defineProperty($__3, "スクリプト", {
         value: function(data, done, failed) {
           var act = data[0];
           if (Util.isNoneType(act))
             return done();
           switch (act) {
-            case '抜ける':
-            case 'ぬける':
-              run.resolve();
-              break;
             case '戻る':
             case 'もどる':
             case '帰る':
             case 'かえる':
-              parentComp();
+              run.resolve();
               break;
             case '終わる':
             case '終る':
@@ -1074,33 +1210,72 @@ System.register("ES6/プレーヤー", [], function() {
               masterComp();
               break;
             default:
-              failed(("制御コマンド『" + act + "』"));
+              failed(("不正なスクリプトコマンド『" + act + "』"));
           }
         },
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__2, "コメント", {
+      }), Object.defineProperty($__3, "コメント", {
         value: function(data, done, failed) {
           done();
         },
         configurable: true,
         enumerable: true,
         writable: true
-      }), $__2);
+      }), $__3);
+      function save() {
+        var params = {};
+        Util.paramForEach((function(value, key) {
+          return params[key] = value;
+        }));
+        var cp = {
+          script: sname,
+          params: params,
+          active: Data.active,
+          point: po - 2,
+          mark: Data.current.mark
+        };
+        Data.current.point = cp;
+      }
+      function autosave(full) {
+        var p = Storage.setGlobalData(Data.current.setting);
+        if (!full)
+          return p;
+        save();
+        Util.updateDebugWindow();
+        return Promise.all([p, Storage.getSaveDatas(101, 110).then((function(saves) {
+          saves.pop();
+          saves.unshift(Data.current.point);
+          saves.forEach((function(save, i) {
+            if (save)
+              Storage.setSaveData(i, save);
+          }));
+        }))]);
+      }
       function main_loop() {
         var act,
             loop = new Promise((function(resolve, reject) {
-              var prog = script.shift();
-              if (!prog) {
-                return searching ? run.reject(("マーク『" + hashmark + "』が見つかりません。")) : run.resolve();
+              var act = script[po];
+              if (!act) {
+                return searching ? run.reject(("マーク『" + hash + "』が見つかりません。")) : run.resolve();
               }
-              act = prog[0].trim();
-              var data = prog[1];
+              if (typeof act == 'number') {
+                if (searching && (+hash === po))
+                  searching = false;
+                else
+                  po = act;
+                return resolve();
+              }
+              var data = script[++po];
+              ++po;
               if (searching) {
-                if (act == 'マーク') {
+                if (+hash === (po - 2)) {
+                  searching = false;
+                  po -= 2;
+                } else if (act == 'マーク') {
                   var mark = data[0];
-                  if (mark == hashmark) {
+                  if (mark == hash) {
                     searching = false;
                     return actHandlers['マーク']([mark], resolve, reject);
                   }
@@ -1118,7 +1293,34 @@ System.register("ES6/プレーヤー", [], function() {
               return main_loop();
             }));
       }
-      main_loop();
+      var po = 0;
+      new Promise((function(ok) {
+        if (active) {
+          var p = [];
+          var obj = active.BGImage;
+          if (obj && obj.name) {
+            p.push(Util.toBlobURL('背景', obj.name, 'jpg').then((function(url) {
+              obj.url = url;
+              return obj;
+            })).then((function(obj) {
+              return View.setBGImage(obj);
+            })));
+          }
+          var ary = active.FDImages;
+          if (ary) {
+            p.push(Promise.all(ary.map((function(obj) {
+              return obj.name ? Util.toBlobURL('立ち絵', obj.name, 'png').then((function(url) {
+                obj.url = url;
+                return obj;
+              })) : 1;
+            }))).then((function(opts) {
+              return View.setFDImages(opts);
+            })));
+          }
+          Promise.all(p).then(ok).check();
+        } else
+          ok();
+      })).then(main_loop);
       return run.promise;
     }
     function replaceEffect(str) {
@@ -1156,51 +1358,71 @@ System.register("ES6/プレーヤー", [], function() {
       View.print(message);
     }
     function loadSaveData() {
-      return Util.co($traceurRuntime.initGeneratorFunction(function $__7() {
+      return Util.co($traceurRuntime.initGeneratorFunction(function $__8() {
         var saves,
             opts,
             save,
-            $__4,
-            mark,
+            $__5,
             params,
-            script;
+            script,
+            point,
+            active,
+            mark;
         return $traceurRuntime.createGeneratorInstance(function($ctx) {
           while (true)
             switch ($ctx.state) {
               case 0:
                 $ctx.state = 2;
-                return Storage.getSaveDatas(0, 100);
+                return Storage.getSaveDatas(1, 110);
               case 2:
                 saves = $ctx.sent;
                 $ctx.state = 4;
                 break;
               case 4:
                 opts = saves.map((function(save, i) {
-                  var mark = save ? save.mark : '----------';
-                  var name = i === 0 ? 'Q' : i;
+                  if (!save)
+                    var mark = '------------';
+                  else if (save.version !== Storage.VERSION) {
+                    save = null;
+                    mark = '--old data--';
+                  } else
+                    mark = save.mark;
+                  var name = i > 100 ? 'A' + (i - 100) : i;
                   return {
                     name: (name + "．" + mark),
                     value: save,
                     disabled: !save
                   };
                 }));
-                $ctx.state = 12;
+                $ctx.state = 15;
                 break;
-              case 12:
+              case 15:
                 $ctx.state = 6;
-                return View.setChoiceWindow(opts, {sys: true});
+                return View.setChoiceWindow(opts, {
+                  sys: true,
+                  closeable: true
+                });
               case 6:
                 save = $ctx.sent;
                 $ctx.state = 8;
                 break;
               case 8:
-                $__4 = $traceurRuntime.assertObject(save), mark = $__4.mark, params = $__4.params, script = $__4.script;
-                $ctx.state = 14;
+                $ctx.state = (save == '閉じる') ? 9 : 10;
                 break;
-              case 14:
-                $ctx.returnValue = Player.fetchScriptData((script + "#" + mark)).then((function(script) {
+              case 9:
+                $ctx.returnValue = false;
+                $ctx.state = -2;
+                break;
+              case 10:
+                $__5 = $traceurRuntime.assertObject(save), params = $__5.params, script = $__5.script, point = $__5.point, active = $__5.active, mark = $__5.mark;
+                $ctx.state = 17;
+                break;
+              case 17:
+                $ctx.returnValue = Player.fetchScriptData((script + "#" + point)).then((function(script) {
                   script.params = params;
                   script.scenario = Data.scenarioName;
+                  script.active = active;
+                  script.mark = mark;
                   return script;
                 }));
                 $ctx.state = -2;
@@ -1208,17 +1430,17 @@ System.register("ES6/プレーヤー", [], function() {
               default:
                 return $ctx.end();
             }
-        }, $__7, this);
+        }, $__8, this);
       }))();
     }
     function saveSaveData() {
-      return Util.co($traceurRuntime.initGeneratorFunction(function $__7() {
+      return Util.co($traceurRuntime.initGeneratorFunction(function $__8() {
         var saves,
             opts,
             no,
+            con,
             params,
             save,
-            $__8,
             $__9,
             $__10,
             $__11,
@@ -1229,66 +1451,149 @@ System.register("ES6/プレーヤー", [], function() {
             switch ($ctx.state) {
               case 0:
                 $ctx.state = 2;
-                return Storage.getSaveDatas(0, 100);
+                return Storage.getSaveDatas(1, 100);
               case 2:
                 saves = $ctx.sent;
                 $ctx.state = 4;
                 break;
               case 4:
                 opts = saves.map((function(save, i) {
-                  var mark = save ? save.mark : '----------';
-                  var name = i === 0 ? 'Q' : i;
+                  if (!save)
+                    var mark = '----------';
+                  else if (save.version !== Storage.VERSION) {
+                    mark = '--old data--';
+                  } else
+                    mark = save.mark;
+                  var name = i;
                   return {
                     name: (name + "．" + mark),
                     value: i
                   };
                 }));
-                $ctx.state = 22;
+                $ctx.state = 41;
                 break;
-              case 22:
-                $__8 = View.setChoiceWindow;
-                $__9 = $__8.call(View, opts, {sys: true});
-                $ctx.state = 10;
-                break;
-              case 10:
+              case 41:
                 $ctx.state = 6;
-                return $__9;
+                return View.setChoiceWindow(opts, {
+                  sys: true,
+                  closeable: true
+                });
               case 6:
-                $__10 = $ctx.sent;
+                no = $ctx.sent;
                 $ctx.state = 8;
                 break;
               case 8:
-                no = $__10 + 0;
-                $ctx.state = 12;
+                $ctx.state = (no == '閉じる') ? 9 : 10;
                 break;
-              case 12:
+              case 9:
+                $ctx.returnValue = false;
+                $ctx.state = -2;
+                break;
+              case 10:
+                $__9 = saves[no];
+                $ctx.state = 24;
+                break;
+              case 24:
+                $ctx.state = ($__9) ? 16 : 20;
+                break;
+              case 16:
+                $__10 = View.setConfirmWindow;
+                $__11 = $__10.call(View, '上書きする');
+                $ctx.state = 17;
+                break;
+              case 17:
+                $ctx.state = 13;
+                return $__11;
+              case 13:
+                $__12 = $ctx.sent;
+                $ctx.state = 15;
+                break;
+              case 15:
+                $__13 = $__12;
+                $ctx.state = 19;
+                break;
+              case 20:
+                $__13 = true;
+                $ctx.state = 19;
+                break;
+              case 19:
+                con = $__13;
+                $ctx.state = 26;
+                break;
+              case 26:
+                $ctx.state = (!con) ? 27 : 28;
+                break;
+              case 27:
+                $ctx.returnValue = false;
+                $ctx.state = -2;
+                break;
+              case 28:
                 params = {};
                 Util.paramForEach((function(value, key) {
                   return params[key] = value;
                 }));
-                save = Data.currentPoint;
-                $ctx.state = 24;
+                save = Data.current.point;
+                $ctx.state = 43;
                 break;
-              case 24:
-                $__11 = Storage.setSaveData;
-                $__12 = $__11.call(Storage, no, save);
-                $ctx.state = 18;
+              case 43:
+                $ctx.state = 31;
+                return Storage.setSaveData(no, save);
+              case 31:
+                $ctx.maybeThrow();
+                $ctx.state = 33;
                 break;
-              case 18:
-                $ctx.state = 14;
-                return $__12;
-              case 14:
-                $__13 = $ctx.sent;
-                $ctx.state = 16;
+              case 33:
+                $ctx.state = 35;
+                return Storage.setGlobalData(Data.current.setting);
+              case 35:
+                $ctx.maybeThrow();
+                $ctx.state = 37;
                 break;
-              case 16:
-                $ctx.returnValue = $__13;
+              case 37:
+                $ctx.returnValue = true;
                 $ctx.state = -2;
                 break;
               default:
                 return $ctx.end();
             }
-        }, $__7, this);
+        }, $__8, this);
+      }))();
+    }
+    function deleteSaveData() {
+      return Util.co($traceurRuntime.initGeneratorFunction(function $__8() {
+        var con;
+        return $traceurRuntime.createGeneratorInstance(function($ctx) {
+          while (true)
+            switch ($ctx.state) {
+              case 0:
+                $ctx.state = 2;
+                return View.setConfirmWindow('全消去する');
+              case 2:
+                con = $ctx.sent;
+                $ctx.state = 4;
+                break;
+              case 4:
+                $ctx.state = (!con) ? 5 : 6;
+                break;
+              case 5:
+                $ctx.returnValue = false;
+                $ctx.state = -2;
+                break;
+              case 6:
+                $ctx.state = 9;
+                return Storage.deleteSaveDatas(true);
+              case 9:
+                $ctx.maybeThrow();
+                $ctx.state = 11;
+                break;
+              case 11:
+                $ctx.returnValue = true;
+                $ctx.state = -2;
+                break;
+              default:
+                return $ctx.end();
+            }
+        }, $__8, this);
       }))();
     }
     function init() {
@@ -1298,7 +1603,45 @@ System.register("ES6/プレーヤー", [], function() {
       View.clean();
     }
     function setScenario(scenario) {
-      Data.scenarioName = scenario;
+      return Util.co($traceurRuntime.initGeneratorFunction(function $__8() {
+        var gsave;
+        return $traceurRuntime.createGeneratorInstance(function($ctx) {
+          while (true)
+            switch ($ctx.state) {
+              case 0:
+                Data.scenarioName = scenario;
+                $ctx.state = 13;
+                break;
+              case 13:
+                $ctx.state = 2;
+                return Storage.getGlobalData();
+              case 2:
+                gsave = $ctx.sent;
+                $ctx.state = 4;
+                break;
+              case 4:
+                $ctx.state = (!gsave) ? 9 : 8;
+                break;
+              case 9:
+                gsave = {};
+                $ctx.state = 10;
+                break;
+              case 10:
+                $ctx.state = 6;
+                return Storage.setGlobalData(gsave);
+              case 6:
+                $ctx.maybeThrow();
+                $ctx.state = 8;
+                break;
+              case 8:
+                Data.current.setting = gsave;
+                $ctx.state = -2;
+                break;
+              default:
+                return $ctx.end();
+            }
+        }, $__8, this);
+      }))();
     }
     function fetchSettingData(url) {
       return Util.loadText(url).then((function(text) {
@@ -1311,22 +1654,19 @@ System.register("ES6/プレーヤー", [], function() {
       }));
     }
     function fetchScriptData(name, base) {
-      var $__5;
+      var $__6;
       if (!name)
         return Promise.reject('子スクリプト名が不正');
-      var $__4 = $traceurRuntime.assertObject(name.replace(/＃/g, '#').split('#')),
-          name = $__4[0],
-          mark = ($__5 = $__4[1]) === void 0 ? '' : $__5;
+      var $__5 = $traceurRuntime.assertObject(name.replace(/＃/g, '#').split('#')),
+          name = $__5[0],
+          hash = ($__6 = $__5[1]) === void 0 ? '' : $__6;
       if (!name) {
         if (!base)
           return Promise.reject('親スクリプト名が必要');
         name = base.replace(/＃/g, '#').split('#')[0];
       }
-      return Util.toBlobScriptURL(name).then(Util.loadText).then((function(text) {
-        return parseScript(text);
-      })).then((function(script) {
-        script.unshift(['マーク', ['']]);
-        script.mark = mark;
+      return Util.toBlobScriptURL(name).then(Util.loadText).then(parseScript).then(flattenScript).then((function(script) {
+        script.hash = hash;
         script.sname = name;
         return script;
       }));
@@ -1340,6 +1680,7 @@ System.register("ES6/プレーヤー", [], function() {
       print: print,
       loadSaveData: loadSaveData,
       saveSaveData: saveSaveData,
+      deleteSaveData: deleteSaveData,
       evalEffect: evalEffect,
       init: init,
       setScenario: setScenario,
@@ -1486,11 +1827,6 @@ System.register("ES6/ビュー", [], function() {
     }));
     var el_debugSub = createDdebugSub();
     var el = el_debugSub.append(new DOM('button', bs));
-    el.append(new DOM('text', '右クリック'));
-    el.on('click', (function(_) {
-      fireEvent('Rclick');
-    }));
-    var el = el_debugSub.append(new DOM('button', bs));
     el.append(new DOM('text', 'サウンド有無'));
     el.on('click', (function(_) {
       var e = !Sound.soundEnabled;
@@ -1501,7 +1837,6 @@ System.register("ES6/ビュー", [], function() {
       else
         View.showNotice(("サウンドを" + (e ? '有' : '無') + "効に設定しました") + '\nただしお使いの環境では音が出せません');
     }));
-    var el_debugSub = createDdebugSub();
     var el = el_debugSub.append(new DOM('button', bs));
     el.append(new DOM('text', 'キャシュ削除'));
     el.on('click', (function(_) {
@@ -1601,6 +1936,7 @@ System.register("ES6/ビュー", [], function() {
             overflow: 'hidden'
           });
           hookClear();
+          stopAuto();
           this.windows = {};
           var height = opt.HEIGHT || 480;
           opt.height = opt.width = '100%';
@@ -1636,13 +1972,15 @@ System.register("ES6/ビュー", [], function() {
             boxShadow: 'rgba(100,100,0,0.5) 0px 0px 5px 5px',
             borderRadius: '2% / 10%',
             textAlign: 'center',
-            lineHeight: '1.5em',
+            lineHeight: '1.5',
             opacity: '0',
             position: 'absolute',
             left: 'calc((100% - 90%) / 2)',
             top: '20%',
             zIndex: '100',
-            width: '90%'
+            width: '90%',
+            fontFamily: "'Hiragino Kaku Gothic ProN', Meiryo, sans-serif",
+            letterSpacing: '0.1em'
           });
           el_player.append(noticeWindow).append(new DOM('pre', {margin: '5%'})).append(new DOM('text', message));
           return new Promise(function(ok, ng) {
@@ -1674,7 +2012,9 @@ System.register("ES6/ビュー", [], function() {
             position: 'absolute',
             right: '0%',
             bottom: '0%',
-            zIndex: '900'
+            zIndex: '900',
+            fontFamily: "'Hiragino Kaku Gothic ProN', Meiryo, sans-serif",
+            letterSpacing: '0.1em'
           });
           var defer = Promise.defer();
           Promise.resolve().delay(100).then(defer.resolve);
@@ -1723,31 +2063,42 @@ System.register("ES6/ビュー", [], function() {
           this.__proto__.__proto__.initDisplay(opt);
           this.mainMessageWindow = this.addMessageWindow({z: 10});
           this.imageFrame = this.addImageFrame({z: 20});
+          this.logs = [];
           View.on('menu').then((function(_) {
             return $__14.showMenu();
           })).check();
+          View.on('Uwheel').then((function(_) {
+            return View.showLog();
+          }));
         },
         messageWindowProto: {
           nextPage: function(name) {
             var $__18;
             var $__17 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
-                sys = ($__18 = $__17.sys) === void 0 ? false : $__18;
+                sys = ($__18 = $__17.sys) === void 0 ? false : $__18,
+                visited = ($__18 = $__17.visited) === void 0 ? false : $__18;
+            View.logs.push(View.windows.message.cloneNode(true));
+            if (View.logs.length > 100)
+              View.logs.shift();
             View.windows.message.setStyles({
               background: sys ? 'rgba(0,100,50,0.5)' : 'rgba(0,0,100,0.5)',
-              boxShadow: (sys ? 'rgba(0,100,50,0.5)' : 'rgba(0,0,100,0.5)') + ' 0 0 0.5em 0.5em'
+              boxShadow: (sys ? 'rgba(0,100,50,0.5)' : 'rgba(0,0,100,0.5)') + ' 0 0 0.5em 0.5em',
+              color: visited ? 'rgba(255,255,150,0.9)' : 'rgba(255,255,255,0.9)'
             });
             name = !name || name.match(/^\s+$/) ? '' : '【' + name + '】';
             this.el_title.textContent = name;
             this.el_body.removeChildren();
           },
-          addSentence: function(text, opt) {
+          addSentence: function(text) {
+            var $__18;
+            var $__17 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
+                weight = ($__18 = $__17.weight) === void 0 ? 25 : $__18,
+                visited = ($__18 = $__17.visited) === void 0 ? false : $__18;
             text += '\n';
-            opt = Util.setDefaults(opt, {weight: 25});
             var length = text.length;
             var at = 0,
                 nl = 0;
             var el = this.el_body;
-            var weight = opt.weight;
             var $__17 = [false, false],
                 aborted = $__17[0],
                 cancelled = $__17[1];
@@ -1759,6 +2110,10 @@ System.register("ES6/ビュー", [], function() {
                 abort = $__17[0],
                 cancel = $__17[1];
             View.on('go').then(cancel);
+            function mul(str, n) {
+              return (str || '100%').match(/[\d.]+/)[0] * n / 100 + 'em';
+            }
+            var css = {};
             var p = setAnimate((function(delay, complete, pause) {
               if (aborted)
                 return complete();
@@ -1769,41 +2124,82 @@ System.register("ES6/ビュー", [], function() {
                 var str = text[at];
                 if (!str)
                   return complete();
-                if (str == '\\' && /\[.+\]/.test(text.slice(at))) {
-                  var nat = text.indexOf(']', at);
-                  var name = text.slice(at + 2, nat).trim();
-                  if ($isWebkit) {
-                    var img = el.append(new DOM('img', {
-                      height: '0.75em',
-                      width: '0.75em'
-                    }));
-                    ;
-                    ((function(img, name) {
-                      return Util.toBlobEmogiURL(name).then((function(url) {
-                        img.src = url;
-                      })).catch(LOG);
-                    }))(img, name);
+                if (str == '\\') {
+                  var sub = text.slice(at + 1);
+                  if (/^.\[.*?\]/.test(sub)) {
+                    var nat = text.indexOf(']', at);
+                    var name = text.slice(at + 3, nat).trim();
+                    switch (sub[0]) {
+                      case 'e':
+                        if ($isWebkit) {
+                          var img = el.append(new DOM('img', {
+                            height: mul(css.fontSize, 0.8),
+                            margin: '0 0.05em'
+                          }));
+                          ;
+                          ((function(img, name) {
+                            return Util.toBlobEmogiURL(name).then((function(url) {
+                              img.src = url;
+                            })).check();
+                          }))(img, name);
+                        } else {
+                          var img = el.append(new DOM('object', {
+                            height: mul(css.fontSize, 0.8),
+                            margin: '0 0.05em'
+                          }));
+                          img.type = 'image/svg+xml';
+                          ;
+                          ((function(img, name) {
+                            return Util.toBlobEmogiURL(name).then((function(url) {
+                              img.data = url;
+                            })).check();
+                          }))(img, name);
+                        }
+                        break;
+                      case 'c':
+                        css.color = name || '';
+                        break;
+                      case 's':
+                        css.fontSize = Util.toSize(name) || '100%';
+                        break;
+                      default:
+                        LOG(("サポートされていないキーワードタイプ『" + sub[0] + "』"));
+                    }
                   } else {
-                    var img = el.append(new DOM('object', {
-                      height: '0.75em',
-                      width: '0.75em'
-                    }));
-                    img.type = 'image/svg+xml';
-                    ;
-                    ((function(img, name) {
-                      return Util.toBlobEmogiURL(name).then((function(url) {
-                        img.data = url;
-                      })).catch(LOG);
-                    }))(img, name);
+                    var nat = at + 1;
+                    switch (sub[0]) {
+                      case 'n':
+                        el.append(new DOM('br'));
+                        break;
+                      case 'C':
+                        css.color = '';
+                        break;
+                      case 'S':
+                        css.fontSize = '100%';
+                        break;
+                      case 'b':
+                        css.fontWeight = 'bold';
+                        break;
+                      case 'B':
+                        css.fontWeight = '';
+                        break;
+                      default:
+                        LOG(("サポートされていないキーワードタイプ『" + sub[0] + "』"));
+                    }
                   }
                   nl += nat - at;
                   at = nat;
-                } else if (str != '\u200B')
-                  el.append(new DOM('text', str));
+                } else {
+                  if (str == '\n')
+                    el.append(new DOM('br'));
+                  else if (str != '\u200B')
+                    el.append(new DOM('span', css)).append(new DOM('text', str));
+                }
                 if (++at >= length)
                   return complete();
               }
             }));
+            setAuto(p, {visited: visited});
             p.abort = abort;
             p.cancel = cancel;
             return p;
@@ -1817,14 +2213,15 @@ System.register("ES6/ビュー", [], function() {
             width: 'calc(100% - 0.5em - (2% + 2%))',
             height: 'calc( 25% - 0.5em - (4% + 2%))',
             fontSize: '100%',
-            lineHeight: '1.5em',
-            fontWeight: 'bold',
+            lineHeight: '1.5',
             padding: '4% 2% 2% 2%',
             whiteSpace: 'nowrap',
             position: 'absolute',
             bottom: '0.25em',
             left: '0.25em',
-            zIndex: opt.z || 1400
+            zIndex: opt.z || 1400,
+            fontFamily: "'Hiragino Kaku Gothic ProN', Meiryo, sans-serif",
+            letterSpacing: '0.1em'
           });
           var el = new DOM('div', opt);
           this.windows.message = el;
@@ -1837,11 +2234,16 @@ System.register("ES6/ビュー", [], function() {
             width: '15%',
             height: '100%'
           }));
+          el_title.onmousedown = (function(evt) {
+            evt.preventDefault();
+            evt.stopImmediatePropagation();
+            eventFire('menu', false);
+          });
           var el_body = el.append(new DOM('div', {
             display: 'inline-block',
             width: 'auto',
             height: '100%'
-          })).append(new DOM('pre', {margin: '0'}));
+          })).append(new DOM('span', {}));
           var mw = {
             __proto__: this.messageWindowProto,
             el: el,
@@ -1859,10 +2261,24 @@ System.register("ES6/ビュー", [], function() {
           el_context.append(fr);
           return fr;
         },
+        setConfirmWindow: function(name) {
+          var $__18;
+          var $__17 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
+              sys = ($__18 = $__17.sys) === void 0 ? true : $__18;
+          return View.setChoiceWindow([{
+            name: name,
+            value: true
+          }, {
+            name: 'キャンセル',
+            value: false
+          }], {sys: sys});
+        },
         setChoiceWindow: function(opts) {
           var $__18;
           var $__17 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
-              sys = ($__18 = $__17.sys) === void 0 ? false : $__18;
+              sys = ($__18 = $__17.sys) === void 0 ? false : $__18,
+              closeable = ($__18 = $__17.closeable) === void 0 ? false : $__18;
+          var $__14 = this;
           var defer = Promise.defer();
           var removed = false;
           var focusbt;
@@ -1903,7 +2319,9 @@ System.register("ES6/ビュー", [], function() {
               width: '100%',
               height: '2.5em',
               margin: '5% 0%',
-              textShadow: 'rgba(0,0,0,0.9) 0em 0em 0.5em'
+              textShadow: 'rgba(0,0,0,0.9) 0em 0em 0.5em',
+              fontFamily: "'Hiragino Kaku Gothic ProN', Meiryo, sans-serif",
+              letterSpacing: '0.1em'
             });
             bt.disabled = !!opt.disabled;
             bt.append(new DOM('text', opt.name));
@@ -1931,6 +2349,10 @@ System.register("ES6/ビュー", [], function() {
               else
                 delete $__14.windows.choiceBack;
               cw.remove();
+            });
+            bt.onmousedown = (function(evt) {
+              evt.preventDefault();
+              evt.stopImmediatePropagation();
             });
             cw.append(bt);
             if (!opt.disabled)
@@ -1971,13 +2393,60 @@ System.register("ES6/ビュー", [], function() {
               return bts[focusindex].click();
             Promise.delay(100).then(rehook);
           }
+          if (closeable) {
+            var img = new DOM('img', {
+              position: 'absolute',
+              right: '0.75em',
+              top: '0.5em',
+              width: '2em',
+              height: '2em',
+              opacity: '0.75'
+            });
+            if ($isWebkit) {
+              Util.toBlobSysPartsURL('閉じるボタン').then((function(url) {
+                img.src = url;
+              })).check();
+            } else {
+              img.src = 'エンジン/画像/閉じるボタン.svg';
+            }
+            img.onmousedown = (function(evt) {
+              evt.preventDefault();
+              evt.stopImmediatePropagation();
+              removed = true;
+              defer.resolve('閉じる');
+              if (!sys)
+                delete $__14.windows.choice;
+              else
+                delete $__14.windows.choiceBack;
+              cw.remove();
+            });
+            cw.append(img);
+          }
           el_context.append(cw);
           return defer.promise;
         },
         setBGImage: function(opt) {
-          var url = opt.url ? ("url(" + opt.url + ")") : 'none';
-          el_context.style.backgroundImage = url;
-          el_context.style.backgroundSize = 'cover';
+          var defer = Promise.defer();
+          var url = opt.url;
+          if (url) {
+            var img = new Image;
+            img.onload = (function(_) {
+              el_context.setStyles({
+                backgroundImage: ("url(" + url + ")"),
+                backgroundSize: 'cover'
+              });
+              defer.resolve();
+            });
+            img.src = url;
+            Data.active.BGImage = opt;
+          } else {
+            el_context.setStyles({
+              backgroundImage: 'none',
+              backgroundSize: 'cover'
+            });
+            defer.resolve();
+          }
+          return defer.promise;
         },
         setFDImages: function(opts) {
           var defer = Promise.defer();
@@ -2012,6 +2481,7 @@ System.register("ES6/ビュー", [], function() {
             }));
             defer.resolve();
           }));
+          Data.active.FDImages = opts;
           return defer.promise;
         },
         nextPage: function(name, opt) {
@@ -2027,7 +2497,7 @@ System.register("ES6/ビュー", [], function() {
               return View.showMenu();
             }));
           View.menuIndex = (View.menuIndex || 0) + 1;
-          blockEvent();
+          eventSysOnly(true);
           View.on('menu').then((function(_) {
             if ($__14.windows.choiceBack)
               $__14.windows.choiceBack.remove();
@@ -2037,17 +2507,53 @@ System.register("ES6/ビュー", [], function() {
             var el = View.windows[key];
             el.hidden = !el.hidden;
           }));
-          View.setChoiceWindow([{name: 'セーブ'}, {name: 'ロード'}], {sys: true}).then((function(kind) {
+          View.setChoiceWindow(['セーブ', 'ロード', 'ウィンドウ消去', 'ログ表示', 'オート', '既読スキップ', 'リセット'].map((function(name) {
+            return ({name: name});
+          })), {
+            sys: true,
+            closeable: true
+          }).then((function(kind) {
             switch (kind) {
               case 'セーブ':
-                Player.saveSaveData().check().through(View.hideMenu).then((function(_) {
-                  return View.showNotice('セーブしました。');
+                Player.saveSaveData().check().through(View.hideMenu).then((function(f) {
+                  return f && View.showNotice('セーブしました。');
                 }), (function(err) {
                   return View.showNotice('セーブに失敗しました。');
                 }));
                 break;
               case 'ロード':
-                Game.loadSaveData();
+                Game.loadSaveData().then(View.hideMenu);
+                break;
+              case 'ウィンドウ消去':
+                eventSysOnly(false);
+                eventBlock();
+                View.on('*', (function(_) {
+                  View.hideMenu();
+                  eventAllow();
+                }));
+                break;
+              case 'ログ表示':
+                View.hideMenu();
+                eventFire('Uwheel');
+                break;
+              case 'オート':
+                View.hideMenu();
+                startAuto();
+                break;
+              case '既読スキップ':
+                View.hideMenu();
+                startSkip();
+                break;
+              case 'リセット':
+                View.setConfirmWindow('リセットする').then((function(f) {
+                  if (f)
+                    Game.reset();
+                  else
+                    View.hideMenu();
+                }));
+                break;
+              case '閉じる':
+                View.hideMenu();
                 break;
               default:
                 throw 'illegal choice type';
@@ -2058,7 +2564,7 @@ System.register("ES6/ビュー", [], function() {
           if (!View.menuIndex)
             return;
           --View.menuIndex;
-          allowEvent();
+          eventSysOnly(false);
           View.on('menu').then((function(_) {
             return View.showMenu();
           }));
@@ -2066,9 +2572,117 @@ System.register("ES6/ビュー", [], function() {
             var el = View.windows[key];
             el.hidden = !el.hidden;
           }));
+        },
+        showLog: function(text) {
+          var $__14 = this;
+          if (Data.phase != 'play' || this.windows.log)
+            return;
+          eventSysOnly(true);
+          var el = new DOM('div', {
+            position: 'absolute',
+            left: '1em',
+            top: '1em',
+            width: 'calc(100% - 1em * 2)',
+            height: 'calc(100% - 1em * 2)',
+            overflowY: 'scroll',
+            background: 'rgba(50,50,50,0.9)',
+            boxShadow: 'rgba(50,50,50,0.9) 0 0 1em 1em',
+            zIndex: '1200'
+          });
+          var img = new DOM('img', {
+            position: 'absolute',
+            right: '1em',
+            top: '0.5em',
+            width: '3em',
+            height: '3em',
+            opacity: '0.75'
+          });
+          if ($isWebkit) {
+            Util.toBlobSysPartsURL('閉じるボタン').then((function(url) {
+              img.src = url;
+            })).check();
+          } else {
+            img.src = 'エンジン/画像/閉じるボタン.svg';
+          }
+          el.append(img);
+          img.onmousedown = (function(evt) {
+            evt.preventDefault();
+            evt.stopImmediatePropagation();
+            if ($__14.windows.log) {
+              $__14.windows.log.remove();
+              delete $__14.windows.log;
+            }
+            eventSysOnly(false);
+            View.on('Uwheel').then((function(_) {
+              return View.showLog();
+            }));
+          });
+          View.logs.forEach((function(log) {
+            log.setStyles({
+              position: '',
+              height: '',
+              padding: '',
+              borderRadius: '',
+              width: '',
+              background: '',
+              boxShadow: '',
+              marginBottom: '0.5em'
+            });
+            el.append(log);
+          }));
+          this.windows.log = el;
+          el_context.append(el);
         }
       }
     };
+    var $__17 = $traceurRuntime.assertObject(((function(_) {
+      var enabled = false;
+      var delay = 0;
+      var wait = true;
+      return {
+        setAuto: function() {
+          var $__19;
+          var p = arguments[0] !== (void 0) ? arguments[0] : Promise.resolve();
+          var $__18 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
+              visited = ($__19 = $__18.visited) === void 0 ? false : $__19;
+          if (!enabled)
+            return;
+          if (wait)
+            p.delay(delay).then((function(_) {
+              if (enabled)
+                eventFire('go');
+            })).check();
+          else if (visited) {
+            eventFire('go');
+            p.delay(delay).then((function(_) {
+              if (enabled)
+                eventFire('go');
+            })).check();
+          }
+        },
+        startAuto: function() {
+          enabled = true;
+          wait = true;
+          delay = 1500;
+          View.on('*', stopAuto);
+          setAuto();
+        },
+        stopAuto: function() {
+          enabled = false;
+        },
+        startSkip: function() {
+          enabled = true;
+          wait = false;
+          delay = 150;
+          View.on('*', stopAuto);
+          setAuto(p = Promise.reject(), {visited: 1});
+        }
+      };
+    }))()),
+        setAuto = $__17.setAuto,
+        startAuto = $__17.startAuto,
+        stopAuto = $__17.stopAuto,
+        startSkip = $__17.startSkip;
     var $__17 = $traceurRuntime.assertObject(((function(_) {
       var keyboardTable = {
         8: 'backspace',
@@ -2080,6 +2694,7 @@ System.register("ES6/ビュー", [], function() {
         40: 'down'
       };
       var hooks = [];
+      var sysOnly = false;
       document.addEventListener('keydown', (function(evt) {
         var type = keyboardTable[evt.keyCode];
         if (type)
@@ -2089,15 +2704,29 @@ System.register("ES6/ビュー", [], function() {
         var type = 'LMR'[evt.button];
         if (type)
           onEvent(type + 'click', evt);
-      }), true);
+      }));
+      var wheeling = false;
+      el_wrapper.addEventListener('wheel', (function(evt) {
+        if (wheeling)
+          return;
+        wheeling = true;
+        setTimeout((function(_) {
+          wheeling = false;
+        }), 50);
+        var type = evt.deltaY < 0 ? 'U' : 'D';
+        if (type)
+          onEvent(type + 'wheel', evt);
+      }));
       el_wrapper.addEventListener('contextmenu', (function(evt) {
         onEvent('contextmenu', evt);
       }), true);
-      function onEvent(type, evt) {
+      function onEvent(type, evt, sys) {
         if (evt) {
           evt.preventDefault();
           evt.stopImmediatePropagation();
         }
+        if (sysOnly && !sys)
+          return;
         hooks = hooks.reduce((function(ary, hook) {
           if (hook.indexOf(type) === -1 || hook.blocked > 0)
             ary.push(hook);
@@ -2108,52 +2737,59 @@ System.register("ES6/ビュー", [], function() {
       }
       function toHook(kind) {
         switch (kind) {
+          case '*':
+            return ['*', 'Lclick', 'Rclick', 'Uwheel', 'Dwheel', 'enter', 'space', 'backspace'];
           case 'go':
-            return ['Lclick', 'enter', 'space'];
+            return ['go', 'Lclick', 'Dwheel', 'enter', 'space'];
           case 'menu':
-            return ['Rclick', 'backspace'];
-          case 'Rclick':
-          case 'left':
-          case 'up':
-          case 'right':
-          case 'down':
-          case 'enter':
-            return [kind];
+            return ['menu', 'Rclick', 'backspace'];
           default:
-            throw 'illegal hook event type';
+            return [kind];
         }
       }
-      return [function hookInput(kind, resolve) {
-        var hook = toHook(kind);
-        hook.resolve = resolve;
-        hook.blocked = 0;
-        hooks.push(hook);
-      }, function hookClear() {
-        hooks.length = 0;
-      }, function blockEvent() {
-        hooks.forEach((function(hook) {
-          return ++hook.blocked;
-        }));
-      }, function allowEvent() {
-        hooks.forEach((function(hook) {
-          return --hook.blocked;
-        }));
-      }, function fireEvent(type) {
-        onEvent(type);
-      }];
+      return {
+        hookInput: function(kind, resolve) {
+          var hook = toHook(kind);
+          hook.resolve = resolve;
+          hook.blocked = 0;
+          hooks.push(hook);
+        },
+        hookClear: function() {
+          hooks.length = 0;
+          eventSysOnly(false);
+        },
+        eventBlock: function() {
+          hooks.forEach((function(hook) {
+            return ++hook.blocked;
+          }));
+        },
+        eventAllow: function() {
+          hooks.forEach((function(hook) {
+            return --hook.blocked;
+          }));
+        },
+        eventFire: function(type) {
+          var sys = arguments[1] !== (void 0) ? arguments[1] : true;
+          onEvent(type, null, sys);
+        },
+        eventSysOnly: function(flag) {
+          sysOnly = flag;
+        }
+      };
     }))()),
-        hookInput = $__17[0],
-        hookClear = $__17[1],
-        blockEvent = $__17[2],
-        allowEvent = $__17[3],
-        fireEvent = $__17[4];
+        hookInput = $__17.hookInput,
+        hookClear = $__17.hookClear,
+        eventBlock = $__17.eventBlock,
+        eventAllow = $__17.eventAllow,
+        eventFire = $__17.eventFire,
+        eventSysOnly = $__17.eventSysOnly;
     function vibrate() {
-      var $__19;
+      var $__20;
       for (var args = [],
           $__15 = 0; $__15 < arguments.length; $__15++)
         args[$__15] = arguments[$__15];
       if (typeof navigator.vibrate == 'function')
-        ($__19 = navigator).vibrate.apply($__19, $traceurRuntime.toObject(args));
+        ($__20 = navigator).vibrate.apply($__20, $traceurRuntime.toObject(args));
     }
     var $full = false;
     var $ratio = 16 / 9;
@@ -2172,10 +2808,10 @@ System.get("ES6/ビュー" + '');
 System.register("ES6/サウンド", [], function() {
   "use strict";
   var __moduleName = "ES6/サウンド";
-  READY('Storage', 'Player').then((function($__22) {
+  READY('Storage', 'Player').then((function($__23) {
     'use strict';
-    var Util = $__22.Util;
-    var init = Util.co($traceurRuntime.initGeneratorFunction(function $__24() {
+    var Util = $__23.Util;
+    var init = Util.co($traceurRuntime.initGeneratorFunction(function $__25() {
       var soundEnabled;
       return $traceurRuntime.createGeneratorInstance(function($ctx) {
         while (true)
@@ -2194,22 +2830,54 @@ System.register("ES6/サウンド", [], function() {
             default:
               return $ctx.end();
           }
-      }, $__24, this);
+      }, $__25, this);
     }));
     var setup = (function(config) {
       var soundEnabled = $traceurRuntime.assertObject(config).soundEnabled;
       var ctx = null;
       var bufferMap = new Map;
+      var GainChanger = function GainChanger(gain) {
+        this.gain = gain;
+      };
+      ($traceurRuntime.createClass)(GainChanger, {
+        up: function() {
+          var duration = arguments[0] !== (void 0) ? arguments[0] : 0.5;
+          var t0 = ctx.currentTime,
+              gain = this.gain.gain;
+          gain.cancelScheduledValues(t0);
+          gain.setValueAtTime(gain.value, t0);
+          gain.linearRampToValueAtTime(1, t0 + duration);
+        },
+        off: function() {
+          var t0 = ctx.currentTime,
+              gain = this.gain.gain;
+          gain.cancelScheduledValues(t0);
+          gain.value = 0;
+        }
+      }, {});
       var soundAvailability = !!global.AudioContext;
       if (soundAvailability) {
         ctx = new AudioContext();
-        var comp = ctx.createDynamicsCompressor();
+        var gainRoot = ctx.createGain();
+        gainRoot.connect(ctx.destination);
+        var compMaster = ctx.createDynamicsCompressor();
+        compMaster.connect(gainRoot);
         var gainMaster = ctx.createGain();
-        var gainSysSE = ctx.createGain();
-        comp.connect(ctx.destination);
-        gainMaster.connect(comp);
-        gainSysSE.connect(gainMaster);
+        gainMaster.connect(compMaster);
         gainMaster.gain.value = 0.5;
+        var gainSysSE = ctx.createGain();
+        gainSysSE.connect(gainMaster);
+        var gainBGM = ctx.createGain();
+        gainBGM.connect(gainMaster);
+        var rootVolume = new GainChanger(gainRoot);
+        document.addEventListener('visibilitychange', (function(_) {
+          if (document.hidden)
+            rootVolume.off();
+          else
+            rootVolume.up();
+        }));
+        if (document.hidden)
+          rootVolume.off();
       }
       function canplay() {
         return ctx && soundAvailability && soundEnabled;
@@ -2225,6 +2893,7 @@ System.register("ES6/サウンド", [], function() {
           case 'sysSE':
             var url = ("エンジン/効果音/" + name + ".ogg");
             var des = gainSysSE;
+            var type = 'SE';
             break;
           default:
             throw ("想定外のタイプ『" + kind + "』");
@@ -2232,6 +2901,7 @@ System.register("ES6/サウンド", [], function() {
         var gain = ctx.createGain();
         gain.connect(des);
         this.readyState = 0;
+        this.type = type;
         this.url = url;
         this.buf = null;
         this.src = null;
@@ -2240,41 +2910,41 @@ System.register("ES6/サウンド", [], function() {
       };
       ($traceurRuntime.createClass)(Sound, {
         load: function() {
-          var $__20 = this;
+          var $__21 = this;
           var url = this.url;
           var buf = bufferMap.get(url);
           if (buf)
             return Promise.resolve(buf);
           return Util.load(url, 'arraybuffer').then((function(buf) {
             bufferMap.set(url, buf);
-            $__20.buf = buf;
+            $__21.buf = buf;
           }));
         },
         prepare: function() {
-          var $__20 = this;
+          var $__21 = this;
           var buf = this.buf;
           if (!buf)
             return this.load().then((function(_) {
-              return $__20.prepare();
+              return $__21.prepare();
             }));
           return new Promise((function(ok, ng) {
             ctx.decodeAudioData(buf.slice(), (function(buf) {
               var src = ctx.createBufferSource();
               src.buffer = buf;
-              src.connect($__20.gain);
-              $__20.src = src;
+              src.connect($__21.gain);
+              $__21.src = src;
               ok();
             }), ng);
           }));
         },
         play: function() {
-          var $__20 = this;
+          var $__21 = this;
           if (!canplay())
             return Promise.resolve(null);
           var src = this.src;
           if (!src)
             return this.prepare().then((function(_) {
-              return $__20.play();
+              return $__21.play();
             }));
           src.start();
           this.src = null;
@@ -2289,13 +2959,17 @@ System.register("ES6/サウンド", [], function() {
             return;
           var t0 = ctx.currentTime,
               gain = this.gain.gain;
+          gain.cancelScheduledValues(t0);
           gain.setValueAtTime(gain.value, t0);
           gain.linearRampToValueAtTime(0, t0 + duration);
         }
       }, {});
       Object.assign(Sound, {
         soundEnabled: soundEnabled,
-        soundAvailability: soundAvailability
+        soundAvailability: soundAvailability,
+        CTX: ctx,
+        gainRoot: gainRoot,
+        gainMaster: gainMaster
       });
       READY.Sound.ready(Sound);
     });
@@ -2307,9 +2981,9 @@ System.get("ES6/サウンド" + '');
 System.register("ES6/ゲーム", [], function() {
   "use strict";
   var __moduleName = "ES6/ゲーム";
-  READY('Player', 'View', 'Sound').then((function($__25) {
+  READY('Player', 'View', 'Sound').then((function($__26) {
     'use strict';
-    var Util = $__25.Util;
+    var Util = $__26.Util;
     var message = ((function(_) {
       var abort = Util.NOP;
       return (function(text) {
@@ -2321,7 +2995,7 @@ System.register("ES6/ゲーム", [], function() {
         return p;
       });
     }))();
-    var setup = Util.co($traceurRuntime.initGeneratorFunction(function $__26() {
+    var setup = Util.co($traceurRuntime.initGeneratorFunction(function $__27() {
       var setting,
           scenario,
           script;
@@ -2331,9 +3005,9 @@ System.register("ES6/ゲーム", [], function() {
             case 0:
               Player.init();
               setSysBG();
-              $ctx.state = 20;
+              $ctx.state = 27;
               break;
-            case 20:
+            case 27:
               $ctx.state = 2;
               return Player.fetchSettingData(Data.URL.ContentsSetting);
             case 2:
@@ -2343,14 +3017,14 @@ System.register("ES6/ゲーム", [], function() {
             case 4:
               View.on('menu').then(setup);
               message('再生する作品を選んでください');
-              $ctx.state = 22;
+              $ctx.state = 29;
               break;
-            case 22:
+            case 29:
               $ctx.state = 6;
               return new Promise((function(ok, ng) {
                 var novels = setting['作品'];
                 if (!novels || !novels.length)
-                  return message('再生できる作品がありません。\n『データ/作品.txt』を見なおしてください');
+                  return message('再生できる作品がありません。\n『データ/作品.txt』を確認してください。');
                 if (novels.length === 1)
                   return ok(novels[0]);
                 var opts = novels.reduce((function(opts, name) {
@@ -2364,28 +3038,33 @@ System.register("ES6/ゲーム", [], function() {
               $ctx.state = 8;
               break;
             case 8:
-              Player.setScenario(scenario);
-              $ctx.state = 24;
-              break;
-            case 24:
               $ctx.state = 10;
-              return Player.fetchSettingData(("データ/" + scenario + "/設定.txt"));
+              return Player.setScenario(scenario);
             case 10:
-              setting = $ctx.sent;
+              $ctx.maybeThrow();
               $ctx.state = 12;
               break;
             case 12:
-              message('『' + scenario + '』の\nどこから開始するか選んでください');
-              $ctx.state = 26;
-              break;
-            case 26:
               $ctx.state = 14;
+              return Player.fetchSettingData(("データ/" + scenario + "/設定.txt"));
+            case 14:
+              setting = $ctx.sent;
+              $ctx.state = 16;
+              break;
+            case 16:
+              message('『' + scenario + '』開始メニュー');
+              $ctx.state = 31;
+              break;
+            case 31:
+              $ctx.state = 18;
               return new Promise((function(ok, ng) {
-                var opts = ['初めから', '続きから', '任意の場所から'].reduce((function(opts, name) {
-                  opts.push({name: name});
-                  return opts;
-                }), []);
-                return View.setChoiceWindow(opts, {sys: true}).then((function(kind) {
+                var opts = ['初めから', '続きから', '任意の場所から', 'データ全消去'].map((function(name) {
+                  return ({name: name});
+                }));
+                return View.setChoiceWindow(opts, {
+                  sys: true,
+                  closeable: true
+                }).then((function(kind) {
                   var base = setting['開始シナリオ'];
                   if (!base || !(base = base[0]))
                     return ng('開始シナリオが見つかりません。\n開始シナリオの設定は必須です。');
@@ -2399,30 +3078,50 @@ System.register("ES6/ゲーム", [], function() {
                     case '任意の場所から':
                       var name = prompt('『<スクリプト名>』または『<スクリプト名>#<マーク名>』の形式で指定します。\n開始シナリオから始める場合は『#<マーク名>』の形式も使えます。');
                       if (!name)
-                        return message('作品選択メニューに戻ります。').delay(1000).then(setup);
-                      Player.fetchScriptData(name, base).then(ok, (function(err) {
-                        message('指定されたファイルを読み込めません。').delay(1000).then(setup);
+                        return message('作品選択メニューに戻ります。').delay(1000).then(resetup);
+                      Player.fetchScriptData(name, base).check().then(ok, (function(err) {
+                        message('指定されたファイルを読み込めません。').delay(1000).then(resetup);
                       }));
                       break;
+                    case 'データ全消去':
+                      Player.deleteSaveData().check().then((function(f) {
+                        if (f)
+                          message('全消去しました').delay(1000).then(resetup);
+                        else
+                          message('作品選択メニューに戻ります。').delay(1000).then(resetup);
+                      }), (function(err) {
+                        message('消去中にエラーが発生しました。').delay(1000).then(resetup);
+                      }));
+                      break;
+                    case '閉じる':
+                      resetup();
+                      break;
                     default:
-                      throw 'illegal start type';
+                      ng('想定外の機能が呼び出されました。');
                   }
                 }));
               }));
-            case 14:
+            case 18:
               script = $ctx.sent;
-              $ctx.state = 16;
+              $ctx.state = 20;
               break;
-            case 16:
+            case 20:
+              $ctx.state = (!script) ? 21 : 22;
+              break;
+            case 21:
+              $ctx.returnValue = resetup();
+              $ctx.state = -2;
+              break;
+            case 22:
               $ctx.returnValue = load(script);
               $ctx.state = -2;
               break;
             default:
               return $ctx.end();
           }
-      }, $__26, this);
+      }, $__27, this);
     }));
-    var load = Util.co($traceurRuntime.initGeneratorFunction(function $__27(script) {
+    var load = Util.co($traceurRuntime.initGeneratorFunction(function $__28(script) {
       return $traceurRuntime.createGeneratorInstance(function($ctx) {
         while (true)
           switch ($ctx.state) {
@@ -2466,9 +3165,9 @@ System.register("ES6/ゲーム", [], function() {
             default:
               return $ctx.end();
           }
-      }, $__27, this);
+      }, $__28, this);
     }));
-    var restart = Util.co($traceurRuntime.initGeneratorFunction(function $__28(err) {
+    var restart = Util.co($traceurRuntime.initGeneratorFunction(function $__29(err) {
       return $traceurRuntime.createGeneratorInstance(function($ctx) {
         while (true)
           switch ($ctx.state) {
@@ -2482,21 +3181,24 @@ System.register("ES6/ゲーム", [], function() {
               break;
             case 8:
               $ctx.state = 2;
-              return message(err + '\n作品選択メニューに戻ります。').delay(3000);
+              return message(err + '\n作品選択メニューに戻ります。').delay(1000);
             case 2:
               $ctx.maybeThrow();
               $ctx.state = 4;
               break;
             case 4:
-              $ctx.returnValue = setup().catch(restart);
+              $ctx.returnValue = resetup();
               $ctx.state = -2;
               break;
             default:
               return $ctx.end();
           }
-      }, $__28, this);
+      }, $__29, this);
     }));
-    var start = Util.co($traceurRuntime.initGeneratorFunction(function $__29() {
+    var resetup = (function(_) {
+      return setup().catch(restart);
+    });
+    var start = Util.co($traceurRuntime.initGeneratorFunction(function $__30() {
       var setting,
           startSE;
       return $traceurRuntime.createGeneratorInstance(function($ctx) {
@@ -2529,13 +3231,13 @@ System.register("ES6/ゲーム", [], function() {
               $ctx.state = 8;
               break;
             case 8:
-              $ctx.returnValue = setup().catch(restart);
+              $ctx.returnValue = resetup();
               $ctx.state = -2;
               break;
             default:
               return $ctx.end();
           }
-      }, $__29, this);
+      }, $__30, this);
     }));
     function setSysBG() {
       var view = arguments[0] !== (void 0) ? arguments[0] : true;
@@ -2547,14 +3249,18 @@ System.register("ES6/ゲーム", [], function() {
     start().check();
     READY.Game.ready({
       reset: function() {
-        setup();
+        resetup();
       },
       loadSaveData: function() {
+        var defer = Promise.defer();
         Player.loadSaveData().then((function(script) {
+          if (!script)
+            return defer.resolve();
           Player.init();
           Player.setScenario(script.scenario);
           load(script);
         })).check();
+        return defer.promise;
       }
     });
   })).check();
