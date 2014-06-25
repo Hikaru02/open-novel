@@ -2640,7 +2640,7 @@ System.register("ES6/ビュー", [], function() {
           }));
           this.windows.log = el;
           el_context.append(el);
-          el.scrollByPages(1 < 29);
+          el.scrollTop = 1 << 15 - 1;
         }
       }
     };

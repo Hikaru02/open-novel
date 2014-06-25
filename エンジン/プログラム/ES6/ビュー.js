@@ -913,7 +913,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 				this.windows.log = el
 
 				el_context.append(el)
-				el.scrollByPages(1<29)
+				el.scrollTop = 1<<15-1
 
 			},
 
