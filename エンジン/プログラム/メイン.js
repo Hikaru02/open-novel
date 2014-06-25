@@ -1977,7 +1977,7 @@ System.register("ES6/ビュー", [], function() {
             position: 'absolute',
             left: 'calc((100% - 90%) / 2)',
             top: '20%',
-            zIndex: '100',
+            zIndex: '500',
             width: '90%',
             fontFamily: "'Hiragino Kaku Gothic ProN', Meiryo, sans-serif",
             letterSpacing: '0.1em'
@@ -2012,7 +2012,7 @@ System.register("ES6/ビュー", [], function() {
             position: 'absolute',
             right: '0%',
             bottom: '0%',
-            zIndex: '900',
+            zIndex: '700',
             fontFamily: "'Hiragino Kaku Gothic ProN', Meiryo, sans-serif",
             letterSpacing: '0.1em'
           });
@@ -2061,8 +2061,8 @@ System.register("ES6/ビュー", [], function() {
             overflow: 'hidden'
           });
           this.__proto__.__proto__.initDisplay(opt);
-          this.mainMessageWindow = this.addMessageWindow({z: 10});
-          this.imageFrame = this.addImageFrame({z: 20});
+          this.mainMessageWindow = this.addMessageWindow();
+          this.imageFrame = this.addImageFrame();
           this.logs = [];
           View.on('menu').then((function(_) {
             return $__14.showMenu();
@@ -2205,7 +2205,8 @@ System.register("ES6/ビュー", [], function() {
             return p;
           }
         },
-        addMessageWindow: function(opt) {
+        addMessageWindow: function() {
+          var opt = arguments[0] !== (void 0) ? arguments[0] : {};
           Util.setDefaults(opt, {
             background: 'rgba(50,50,50,0.5)',
             boxShadow: 'rgba(50,50,50,0.5) 0 0 0.5em 0.5em',
@@ -2219,7 +2220,7 @@ System.register("ES6/ビュー", [], function() {
             position: 'absolute',
             bottom: '0.25em',
             left: '0.25em',
-            zIndex: opt.z || 1400,
+            zIndex: '2500',
             fontFamily: "'Hiragino Kaku Gothic ProN', Meiryo, sans-serif",
             letterSpacing: '0.1em'
           });
@@ -2252,11 +2253,12 @@ System.register("ES6/ビュー", [], function() {
           };
           return mw;
         },
-        addImageFrame: function(opt) {
+        addImageFrame: function() {
+          var opt = arguments[0] !== (void 0) ? arguments[0] : {};
           var fr = new DOM('div', {
             height: '100%',
             width: '100%',
-            zIndex: opt.z || 1500
+            zIndex: '2300'
           });
           el_context.append(fr);
           return fr;
@@ -2278,7 +2280,6 @@ System.register("ES6/ビュー", [], function() {
           var $__17 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
               sys = ($__18 = $__17.sys) === void 0 ? false : $__18,
               closeable = ($__18 = $__17.closeable) === void 0 ? false : $__18;
-          var $__14 = this;
           var defer = Promise.defer();
           var removed = false;
           var focusbt;
@@ -2297,16 +2298,15 @@ System.register("ES6/ビュー", [], function() {
             maxHeight: '70%'
           });
           if (!sys) {
-            if (this.windows.choice)
-              this.windows.choice.remove();
-            this.windows.choice = cw;
+            if (View.windows.choice)
+              View.windows.choice.remove();
+            View.windows.choice = cw;
           } else {
-            if (this.windows.choiceBack)
-              this.windows.choiceBack.remove();
-            this.windows.choiceBack = cw;
+            if (View.windows.choiceBack)
+              View.windows.choiceBack.remove();
+            View.windows.choiceBack = cw;
           }
           opts.forEach(function(opt) {
-            var $__14 = this;
             if (!('value' in opt))
               opt.value = opt.name;
             var bt = new DOM('button', {
@@ -2339,16 +2339,10 @@ System.register("ES6/ビュー", [], function() {
               if (elm)
                 elm.blur();
             });
-            bt.onclick = (function(_) {
+            bt.onclick = (function(evt) {
               clickSE.play();
               vibrate([50]);
-              removed = true;
-              defer.resolve(opt.value);
-              if (!sys)
-                delete $__14.windows.choice;
-              else
-                delete $__14.windows.choiceBack;
-              cw.remove();
+              close(evt, opt.value);
             });
             bt.onmousedown = (function(evt) {
               evt.preventDefault();
@@ -2358,6 +2352,17 @@ System.register("ES6/ビュー", [], function() {
             if (!opt.disabled)
               var index = bts.push(bt) - 1;
           }, this);
+          function close(evt, val) {
+            removed = true;
+            defer.resolve(val);
+            if (!sys)
+              delete View.windows.choice;
+            else
+              delete View.windows.choiceBack;
+            cw.remove();
+            if (img)
+              img.remove();
+          }
           View.on('up', (function(rehook) {
             return focusmove(rehook, -1);
           }));
@@ -2396,11 +2401,12 @@ System.register("ES6/ビュー", [], function() {
           if (closeable) {
             var img = new DOM('img', {
               position: 'absolute',
-              right: '0.75em',
-              top: '0.5em',
-              width: '2em',
-              height: '2em',
-              opacity: '0.75'
+              right: '5em',
+              top: '1.5em',
+              width: '2.5em',
+              height: '2.5em',
+              opacity: '0.75',
+              zIndex: '1000'
             });
             if ($isWebkit) {
               Util.toBlobSysPartsURL('閉じるボタン').then((function(url) {
@@ -2410,17 +2416,9 @@ System.register("ES6/ビュー", [], function() {
               img.src = 'エンジン/画像/閉じるボタン.svg';
             }
             img.onmousedown = (function(evt) {
-              evt.preventDefault();
-              evt.stopImmediatePropagation();
-              removed = true;
-              defer.resolve('閉じる');
-              if (!sys)
-                delete $__14.windows.choice;
-              else
-                delete $__14.windows.choiceBack;
-              cw.remove();
+              close(evt, '閉じる');
             });
-            cw.append(img);
+            el_context.append(img);
           }
           el_context.append(cw);
           return defer.promise;
@@ -2578,24 +2576,29 @@ System.register("ES6/ビュー", [], function() {
           if (Data.phase != 'play' || this.windows.log)
             return;
           eventSysOnly(true);
+          Object.keys(View.windows).forEach((function(key) {
+            var el = View.windows[key];
+            el.hidden = !el.hidden;
+          }));
           var el = new DOM('div', {
             position: 'absolute',
             left: '1em',
             top: '1em',
             width: 'calc(100% - 1em * 2)',
             height: 'calc(100% - 1em * 2)',
+            overflowX: 'hidden',
             overflowY: 'scroll',
             background: 'rgba(50,50,50,0.9)',
-            boxShadow: 'rgba(50,50,50,0.9) 0 0 1em 1em',
-            zIndex: '1200'
+            boxShadow: 'rgba(50,50,50,0.9) 0 0 1em 1em'
           });
           var img = new DOM('img', {
             position: 'absolute',
-            right: '1em',
-            top: '0.5em',
+            right: '2em',
+            top: '1em',
             width: '3em',
             height: '3em',
-            opacity: '0.75'
+            opacity: '0.5',
+            zIndex: '1000'
           });
           if ($isWebkit) {
             Util.toBlobSysPartsURL('閉じるボタン').then((function(url) {
@@ -2604,14 +2607,19 @@ System.register("ES6/ビュー", [], function() {
           } else {
             img.src = 'エンジン/画像/閉じるボタン.svg';
           }
-          el.append(img);
+          el_context.append(img);
           img.onmousedown = (function(evt) {
             evt.preventDefault();
             evt.stopImmediatePropagation();
+            img.remove();
             if ($__14.windows.log) {
               $__14.windows.log.remove();
               delete $__14.windows.log;
             }
+            Object.keys(View.windows).forEach((function(key) {
+              var el = View.windows[key];
+              el.hidden = !el.hidden;
+            }));
             eventSysOnly(false);
             View.on('Uwheel').then((function(_) {
               return View.showLog();
@@ -2632,6 +2640,7 @@ System.register("ES6/ビュー", [], function() {
           }));
           this.windows.log = el;
           el_context.append(el);
+          el.scrollByPages(1 < 29);
         }
       }
     };

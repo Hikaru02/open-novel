@@ -296,7 +296,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 					position		: 'absolute',
 					left			: 'calc((100% - 90%) / 2)',
 					top				: '20%',
-					zIndex			: '100',
+					zIndex			: '500',
 					width			: '90%',
 					fontFamily		: "'Hiragino Kaku Gothic ProN', Meiryo, sans-serif",
 					letterSpacing	: '0.1em',
@@ -334,7 +334,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 					position		: 'absolute',
 					right			: '0%',
 					bottom			: '0%',
-					zIndex			: '900',
+					zIndex			: '700',
 				//	width			: 'auto',
 					fontFamily		: "'Hiragino Kaku Gothic ProN', Meiryo, sans-serif",
 					letterSpacing	: '0.1em',
@@ -387,8 +387,8 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 				})
 				this.__proto__.__proto__.initDisplay(opt)
 
-				this.mainMessageWindow = this.addMessageWindow({z:10})
-				this.imageFrame = this.addImageFrame({z:20})
+				this.mainMessageWindow = this.addMessageWindow()
+				this.imageFrame = this.addImageFrame()
 				this.logs = []
 
 				View.on('menu').then(_ => this.showMenu()).check()
@@ -495,7 +495,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 				},
 			},
 
-			addMessageWindow: function (opt) {
+			addMessageWindow: function (opt = {}) {
 				Util.setDefaults(opt, {
 					background		: 'rgba(50,50,50,0.5)',
 					boxShadow		: 'rgba(50,50,50,0.5) 0 0 0.5em 0.5em',
@@ -510,7 +510,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 					position		: 'absolute',
 					bottom			: '0.25em',
 					left			: '0.25em',
-					zIndex			: opt.z || 1400,
+					zIndex			: '2500',
 					fontFamily		: "'Hiragino Kaku Gothic ProN', Meiryo, sans-serif",
 					letterSpacing	: '0.1em',
 
@@ -555,12 +555,12 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 				return mw
 			},
 
-			addImageFrame: function (opt) {
+			addImageFrame: function (opt = {}) {
 
 				var fr = new DOM('div', {
 					height			: '100%',
 					width			: '100%',
-					zIndex			: opt.z || 1500,
+					zIndex			: '2300',
 				})
 
 				el_context.append(fr)
@@ -593,14 +593,15 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 					padding			: '0% 5%',
 					overflowY		: opts.length > 3 ? 'scroll' : 'hidden',
 					maxHeight		: '70%',
+					//zIndex			: '1500',
 				//	verticalAlign	: 'middle',
 				})
 				if (!sys) {
-					if (this.windows.choice) this.windows.choice.remove()
-					this.windows.choice = cw
+					if (View.windows.choice) View.windows.choice.remove()
+					View.windows.choice = cw
 				} else {
-					if (this.windows.choiceBack) this.windows.choiceBack.remove()
-					this.windows.choiceBack = cw
+					if (View.windows.choiceBack) View.windows.choiceBack.remove()
+					View.windows.choiceBack = cw
 				}
 
 				opts.forEach(function (opt) {
@@ -634,14 +635,10 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 						if (elm) elm.blur()
 						//focusindex = -10000
 					}
-					bt.onclick = _ => {
+					bt.onclick = evt => {
 						clickSE.play()
 						vibrate([50])
-						removed = true
-						defer.resolve(opt.value)
-						if (!sys) delete this.windows.choice
-						else delete this.windows.choiceBack
-						cw.remove()
+						close(evt, opt.value)
 					}
 					bt.onmousedown = evt => {
 						evt.preventDefault()
@@ -650,6 +647,15 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 					cw.append(bt)
 					if (!opt.disabled) var index = bts.push(bt) - 1
 				}, this)
+
+				function close(evt, val) {
+					removed = true
+					defer.resolve(val)
+					if (!sys) delete View.windows.choice
+					else delete View.windows.choiceBack
+					cw.remove()
+					if (img) img.remove()
+				}
 
 				View.on('up', rehook => focusmove(rehook, -1) )
 				View.on('down', rehook => focusmove(rehook, +1) )
@@ -678,11 +684,12 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 				if (closeable) {
 					var img = new DOM('img', {
 						position		: 'absolute',
-						right			: '0.75em',
-						top				: '0.5em',
-						width			: '2em',
-						height			: '2em',
+						right			: '5em',
+						top				: '1.5em',
+						width			: '2.5em',
+						height			: '2.5em',
 						opacity			: '0.75',
+						zIndex			: '1000',
 					})
 					if ($isWebkit) {
 						Util.toBlobSysPartsURL('閉じるボタン').then( url => {img.src = url} ).check()
@@ -690,15 +697,9 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 						img.src = 'エンジン/画像/閉じるボタン.svg'
 					}
 					img.onmousedown = evt => {
-						evt.preventDefault()
-						evt.stopImmediatePropagation()
-						removed = true
-						defer.resolve('閉じる')
-						if (!sys) delete this.windows.choice
-						else delete this.windows.choiceBack
-						cw.remove()
+						close(evt, '閉じる')
 					}
-					cw.append(img)
+					el_context.append(img)
 				}
 
 
@@ -845,40 +846,52 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 				if (Data.phase != 'play' || this.windows.log) return
 				eventSysOnly(true)
 
+				Object.keys(View.windows).forEach( key => {
+					var el = View.windows[key]
+					el.hidden = !el.hidden
+				} )
+
 				var el = new DOM('div', {
 					position		: 'absolute',
 					left			: '1em',
 					top				: '1em',
 					width			: 'calc(100% - 1em * 2)',
 					height			: 'calc(100% - 1em * 2)',
+					overflowX		: 'hidden',
 					overflowY		: 'scroll',
 					background		: 'rgba(50,50,50,0.9)',
 					boxShadow		: 'rgba(50,50,50,0.9) 0 0 1em 1em',
-					zIndex			: '1200',
+					//zIndex			: '1500',
 				})
 
 				var img = new DOM('img', {
 					position		: 'absolute',
-					right			: '1em',
-					top				: '0.5em',
+					right			: '2em',
+					top				: '1em',
 					width			: '3em',
 					height			: '3em',
-					opacity			: '0.75',
+					opacity			: '0.5',
+					zIndex			: '1000'
 				})
 				if ($isWebkit) {
 					Util.toBlobSysPartsURL('閉じるボタン').then( url => {img.src = url} ).check()
 				} else {
 					img.src = 'エンジン/画像/閉じるボタン.svg'
 				}
-				el.append(img)
+				el_context.append(img)
 
 				img.onmousedown = evt => {
 					evt.preventDefault()
 					evt.stopImmediatePropagation()
+					img.remove()
 					if (this.windows.log) {
 						this.windows.log.remove()
 						delete this.windows.log
 					}
+					Object.keys(View.windows).forEach( key => {
+						var el = View.windows[key]
+						el.hidden = !el.hidden
+					} )
 					eventSysOnly(false)
 					View.on('Uwheel').then(_ => View.showLog())
 				}
@@ -900,6 +913,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 				this.windows.log = el
 
 				el_context.append(el)
+				el.scrollByPages(1<29)
 
 			},
 
