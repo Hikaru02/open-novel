@@ -199,6 +199,13 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 	}
 
 
+	function cancelEvent(evt) {
+		if (!evt) return
+		evt.preventDefault()
+		evt.stopImmediatePropagation()
+	}
+
+
 
 
 	var fitScreen = Util.NOP
@@ -296,7 +303,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 					position		: 'absolute',
 					left			: 'calc((100% - 90%) / 2)',
 					top				: '20%',
-					zIndex			: '500',
+					zIndex			: '5000',
 					width			: '90%',
 					fontFamily		: "'Hiragino Kaku Gothic ProN', Meiryo, sans-serif",
 					letterSpacing	: '0.1em',
@@ -334,7 +341,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 					position		: 'absolute',
 					right			: '0%',
 					bottom			: '0%',
-					zIndex			: '700',
+					zIndex			: '4000',
 				//	width			: 'auto',
 					fontFamily		: "'Hiragino Kaku Gothic ProN', Meiryo, sans-serif",
 					letterSpacing	: '0.1em',
@@ -510,7 +517,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 					position		: 'absolute',
 					bottom			: '0.25em',
 					left			: '0.25em',
-					zIndex			: '2500',
+					zIndex			: '1500',
 					fontFamily		: "'Hiragino Kaku Gothic ProN', Meiryo, sans-serif",
 					letterSpacing	: '0.1em',
 
@@ -558,9 +565,12 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 			addImageFrame: function (opt = {}) {
 
 				var fr = new DOM('div', {
+					position		: 'absolute',
+					left			: '0',
+					top				: '0',
 					height			: '100%',
 					width			: '100%',
-					zIndex			: '2300',
+					zIndex			: '1000',
 				})
 
 				el_context.append(fr)
@@ -593,7 +603,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 					padding			: '0% 5%',
 					overflowY		: opts.length > 3 ? 'scroll' : 'hidden',
 					maxHeight		: '70%',
-					//zIndex			: '1500',
+					zIndex			: '2500',
 				//	verticalAlign	: 'middle',
 				})
 				if (!sys) {
@@ -640,15 +650,13 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 						vibrate([50])
 						close(evt, opt.value)
 					}
-					bt.onmousedown = evt => {
-						evt.preventDefault()
-						evt.stopImmediatePropagation()
-					}
+					bt.onmousedown = cancelEvent
 					cw.append(bt)
 					if (!opt.disabled) var index = bts.push(bt) - 1
 				}, this)
 
 				function close(evt, val) {
+					cancelEvent(evt)
 					removed = true
 					defer.resolve(val)
 					if (!sys) delete View.windows.choice
@@ -689,7 +697,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 						width			: '2.5em',
 						height			: '2.5em',
 						opacity			: '0.75',
-						zIndex			: '1000',
+						zIndex			: '3000',
 					})
 					if ($isWebkit) {
 						Util.toBlobSysPartsURL('閉じるボタン').then( url => {img.src = url} ).check()
@@ -699,6 +707,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 					img.onmousedown = evt => {
 						close(evt, '閉じる')
 					}
+
 					el_context.append(img)
 				}
 
@@ -713,20 +722,21 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 
 			setBGImage: function (opt) {
 				var defer = Promise.defer()
-				var url = opt.url
+				var {url, sys} = opt
+				var fr = View.imageFrame
 				if (url) {
 					var img = new Image
 					img.onload = _ => {
-						el_context.setStyles({
+						fr.setStyles({
 							backgroundImage: `url(${url})`,
 							backgroundSize: 'cover',
 						})
 						defer.resolve()
 					}
 					img.src = url
-					Data.active.BGImage = opt
+					if (!sys) Data.current.active.BGImage = opt
 				} else {
-					el_context.setStyles({
+					fr.setStyles({
 						backgroundImage: 'none',
 						backgroundSize: 'cover',
 					})
@@ -735,11 +745,11 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 				return defer.promise
 			},
 
-			setFDImages: function (opts) {
+			setFDImages: function (ary) {
 				var defer = Promise.defer()
-				var fr = this.imageFrame
+				var fr = View.imageFrame
 				//var ch = [].slice.call(el.children)
-				Promise.all(opts.map( opt => new Promise( ok => {
+				Promise.all(ary.map( opt => new Promise( ok => {
 					Util.setDefaults(opt, {
 						left	: null,
 						right	: null,
@@ -766,10 +776,67 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 					defer.resolve()
 				})
 
-				Data.active.FDImages = opts
+				Data.current.active.FDImages = ary
 				return defer.promise
 			},
 
+
+			// エフェクト
+			prepareFade: function (opts) {
+				if (View.fake) return Promise.reject('２重にエフェクトの準備をしようとした')
+				var fr = View.imageFrame
+				var fake = View.fake = fr.cloneNode(true)
+				el_context.append(fake)
+				//fr.style.opacity = 0
+				Data.saveDisabled = true
+				return Promise.resolve()
+			},
+
+			fade: function ({msec = 1000, visited = false} = {}) {
+				//debugger
+				if (!View.fake) return Promise.reject('このエフェクトには事前準備が必要')
+				var fr = View.imageFrame, fake = View.fake
+				var cancelled = false
+				View.on('go').then(_ => cancelled = true)
+				if (visited) setAuto(null, {visited: true})
+				return setAnimate( (delay, complete, pause) => {
+					var per = delay/msec
+					if (per >= 1 || cancelled) {
+						per = 1
+						complete()
+					}
+					fake.style.opacity = 1 - per
+					//fr.style.opacity = per 
+				}).then( _ => {
+					fake.remove()
+					delete View.fake
+					Data.saveDisabled = false
+				})
+			},
+
+			flash: function ({msec = 300, color = 'white', visited = false} = {}) {
+				var fake = View.imageFrame.cloneNode(false)
+				fake.style.background = ''
+				fake.style.backgroundColor = color
+				fake.style.opacity = '0'
+				el_context.append(fake)
+				var cancelled = false
+				View.on('go').then(_ => cancelled = true)
+				if (visited) setAuto(null, {visited: true})
+				return setAnimate( (delay, complete, pause) => {
+					var per = delay/msec
+					if (per >= 1 || cancelled) {
+						per = 1
+						complete()
+					}
+					fake.style.opacity = per < 0.5 ? per*2 : 2-per*2 
+				}).then( _ => {
+					fake.remove()
+				})
+			},
+
+
+			//会話
 			nextPage: function (name, opt) {
 				this.mainMessageWindow.nextPage(name, opt)
 			},
@@ -792,8 +859,10 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 					var el = View.windows[key]
 					el.hidden = !el.hidden
 				} )
-				View.setChoiceWindow(['セーブ', 'ロード', 'ウィンドウ消去', 'ログ表示', 'オート', '既読スキップ', 'リセット'
-					].map(name => ({name})), {sys: true, closeable: true}).then( kind => {
+				
+				var ary = ['セーブ', 'ロード', 'ウィンドウ消去', 'ログ表示', 'オート', '既読スキップ', 'リセット'].map(name => ({name}))
+				if (Data.saveDisabled) ary[0].disabled = true
+				View.setChoiceWindow(ary, {sys: true, closeable: true}).then( kind => {
 
 					switch (kind) {
 						case 'セーブ':
@@ -861,7 +930,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 					overflowY		: 'scroll',
 					background		: 'rgba(50,50,50,0.9)',
 					boxShadow		: 'rgba(50,50,50,0.9) 0 0 1em 1em',
-					//zIndex			: '1500',
+					zIndex			: '2500',
 				})
 
 				var img = new DOM('img', {
@@ -871,7 +940,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 					width			: '3em',
 					height			: '3em',
 					opacity			: '0.5',
-					zIndex			: '1000'
+					zIndex			: '3000'
 				})
 				if ($isWebkit) {
 					Util.toBlobSysPartsURL('閉じるボタン').then( url => {img.src = url} ).check()
@@ -929,12 +998,12 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 		var wait = true
 
 		return {
-			setAuto(p = Promise.resolve(), {visited = false} = {}) {
+			setAuto(p, {visited = false} = {}) {
 				if (!enabled) return
-				if (wait) p.delay(delay).then(_ => { if (enabled) eventFire('go') }).check()
+				if (wait && p) p.delay(delay).then(_ => { if (enabled) eventFire('go') }).check()
 				else if (visited) {
 					eventFire('go')
-					p.delay(delay).then(_ => { if (enabled) eventFire('go') }).check()
+					if (p) p.delay(delay).then(_ => { if (enabled) eventFire('go') }).check()
 
 				}
 			},
@@ -943,7 +1012,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 				wait = true
 				delay = 1500
 				View.on('*', stopAuto)
-				setAuto()
+				setAuto(Promise.resolve())
 			},
 			stopAuto() {
 				enabled = false
@@ -953,7 +1022,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 				wait = false
 				delay = 150
 				View.on('*', stopAuto)
-				setAuto(p = Promise.reject(), {visited: 1})
+				setAuto(null, {visited: 1})
 			},
 		}
 	})()
@@ -999,10 +1068,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 		}, true)
 
 		function onEvent(type, evt, sys) {
-			if (evt) {
-				evt.preventDefault()
-				evt.stopImmediatePropagation()
-			}
+			cancelEvent(evt)
 			if (sysOnly && !sys) return
 			hooks = hooks.reduce( (ary, hook) => {
 				if (hook.indexOf(type) === -1 || hook.blocked > 0) ary.push(hook)

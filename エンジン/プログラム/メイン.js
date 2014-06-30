@@ -13,7 +13,6 @@ System.register("ES6/ヘルパー", [], function() {
         ContentsSetting: 'データ/作品.txt',
         EngineSetting: 'エンジン/エンジン定義.txt'
       },
-      active: {},
       current: {}
     };
     var Util = {
@@ -46,7 +45,8 @@ System.register("ES6/ヘルパー", [], function() {
           name = (name + "." + type);
         return (kind + "/" + name);
       },
-      toHalfWidth: function(str) {
+      toHalfWidth: function() {
+        var str = arguments[0] !== (void 0) ? arguments[0] : '';
         var table = {
           '。': '.',
           '―': '-',
@@ -111,8 +111,11 @@ System.register("ES6/ヘルパー", [], function() {
           return;
         var params = {};
         Util.paramForEach((function(value, key) {
-          return params[key] = value;
-        }));
+          params[key] = value;
+        }), false);
+        Util.paramForEach((function(value, key) {
+          params[key] = value;
+        }), true);
         var cacheSizeMB = ((Util.cacheGet('$size') || 0) / 1024 / 1024).toFixed(1);
         var mark = Data.current.mark || '（無し）';
         var obj = {
@@ -248,26 +251,53 @@ System.register("ES6/ヘルパー", [], function() {
     }))());
     Util.setProperties(Util, ((function(_) {
       var paramMap = new Map;
-      return {
+      var configMap = new Map;
+      function normalizeKey(key) {
+        key = key.replace(/＄/g, '$');
+        return key;
+      }
+      var my = {
         paramSet: function(key, val) {
-          paramMap.set(key, val);
+          var sFlag = arguments[2] !== (void 0) ? arguments[2] : true;
+          key = normalizeKey(key);
+          if (key[0] == '$') {
+            configMap.set(key, val);
+            if (!sFlag)
+              return;
+            var globalParams = {};
+            my.paramForEach((function(value, key) {
+              globalParams[key] = value;
+            }), true);
+            Data.current.setting.params = globalParams;
+            Storage.setGlobalData(Data.current.setting).check();
+          } else {
+            paramMap.set(key, val);
+          }
           Util.updateDebugWindow();
         },
         paramGet: function(key) {
-          if (!paramMap.has(key)) {
-            paramMap.set(key, 0);
+          key = normalizeKey(key);
+          var map = (key[0] == '$') ? configMap : paramMap;
+          if (!map.has(key)) {
+            my.paramSet(key, 0);
             Util.updateDebugWindow();
           }
-          return paramMap.get(key);
+          return map.get(key);
         },
-        paramClear: function() {
+        paramClear: function(gFlag) {
           paramMap.clear();
+          if (gFlag)
+            configMap.clear();
           Util.updateDebugWindow();
         },
-        paramForEach: function(func) {
-          paramMap.forEach(func);
+        paramForEach: function(func, gFlag) {
+          if (gFlag)
+            configMap.forEach(func);
+          else
+            paramMap.forEach(func);
         }
       };
+      return my;
     }))());
     Util.setDefaults(String.prototype, {repeat: function repeat(num) {
         return new Array(num + 1).join(this);
@@ -461,7 +491,7 @@ System.register("ES6/ストレージ", [], function() {
     'use strict';
     var db,
         scenario,
-        VERSION = 4;
+        VERSION = 5;
     var Storage = {
       add: function(key, val) {
         return new Promise((function(ok, ng) {
@@ -520,13 +550,13 @@ System.register("ES6/ストレージ", [], function() {
           throw 'ロード用番号が不正';
         if (typeof to != 'number' || to < 0)
           throw 'ロード用番号が不正';
-        var scenario = Data.scenarioName;
+        var name = getSaveName();
         return new Promise((function(ok, ng) {
           var saves = new Array(to + 1);
           var ts = db.transaction('savedata', 'readonly');
           var os = ts.objectStore('savedata');
           for (var no = from; no <= to; ++no) {
-            var rq = os.get(scenario + '/' + no);
+            var rq = os.get(name + '/' + no);
             rq.onsuccess = ((function(rq, no) {
               return (function(_) {
                 saves[no] = rq.result;
@@ -546,12 +576,11 @@ System.register("ES6/ストレージ", [], function() {
           throw 'セーブ用番号が不正';
         if (!data)
           throw 'セーブ用データが不正';
-        var scenario = Data.scenarioName;
-        data.version = VERSION;
+        var name = getSaveName();
         return new Promise((function(ok, ng) {
           var ts = db.transaction('savedata', 'readwrite');
           var os = ts.objectStore('savedata');
-          var rq = os.put(data, scenario + '/' + no);
+          var rq = os.put(data, name + '/' + no);
           ts.oncomplete = (function(_) {
             return ok();
           });
@@ -561,11 +590,11 @@ System.register("ES6/ストレージ", [], function() {
         }));
       },
       getGlobalData: function() {
-        var scenario = Data.scenarioName;
+        var name = getSaveName();
         return new Promise((function(ok, ng) {
           var ts = db.transaction('savedata', 'readonly');
           var os = ts.objectStore('savedata');
-          var rq = os.get(scenario + '/global');
+          var rq = os.get(name + '/global');
           ts.oncomplete = (function(_) {
             return ok(rq.result);
           });
@@ -577,12 +606,12 @@ System.register("ES6/ストレージ", [], function() {
       setGlobalData: function(data) {
         if (!data)
           throw 'セーブ用データが不正';
-        var scenario = Data.scenarioName;
+        var name = getSaveName();
         data.version = VERSION;
         return new Promise((function(ok, ng) {
           var ts = db.transaction('savedata', 'readwrite');
           var os = ts.objectStore('savedata');
-          var rq = os.put(data, scenario + '/global');
+          var rq = os.put(data, name + '/global');
           ts.oncomplete = (function(_) {
             return ok();
           });
@@ -594,11 +623,11 @@ System.register("ES6/ストレージ", [], function() {
       deleteSaveDatas: function(con) {
         if (!(con === true))
           throw '誤消去防止セーフティ';
-        var scenario = Data.scenarioName;
+        var name = getSaveName();
         return new Promise((function(ok, ng) {
           var ts = db.transaction('savedata', 'readwrite');
           var os = ts.objectStore('savedata');
-          var rg = IDBKeyRange.bound((scenario + "/"), (scenario + "/{"));
+          var rg = IDBKeyRange.bound((name + "/"), (name + "/{"));
           var rq = os.openCursor(rg);
           rq.onsuccess = (function(_) {
             var cs = rq.result;
@@ -645,6 +674,9 @@ System.register("ES6/ストレージ", [], function() {
       },
       VERSION: VERSION
     };
+    function getSaveName() {
+      return Data.dataSaveName || Data.scenarioName;
+    }
     new Promise((function(ok, ng) {
       var rq = indexedDB.open("open-novel", 5);
       rq.onupgradeneeded = (function(evt) {
@@ -669,1033 +701,12 @@ System.register("ES6/ストレージ", [], function() {
   return {};
 });
 System.get("ES6/ストレージ" + '');
-System.register("ES6/プレーヤー", [], function() {
-  "use strict";
-  var __moduleName = "ES6/プレーヤー";
-  READY().then((function($__4) {
-    'use strict';
-    var Util = $__4.Util;
-    function setPhase(phase) {
-      document.title = '【' + phase + '】';
-    }
-    function setRunPhase(kind) {
-      setPhase((kind + "中..."));
-    }
-    function setErrorPhase(kind) {
-      setPhase((kind + "エラー"));
-    }
-    function parseScript(text) {
-      text = text.replace(/\r\n/g, '\n').replace(/\n+/g, '\n').replace(/\n/g, '\r\n') + '\r\n';
-      text = text.replace(/^\/\/.*/gm, '');
-      text = text.replace(/^\#(.*)/gm, (function(_, str) {
-        return ("・マーク\r\n\t" + str);
-      }));
-      function parseOne(base, text) {
-        var chanks = text.match(/[^\n]+?\n(\t+[\s\S]+?\n)+/g) || [];
-        chanks.forEach((function(chank) {
-          var blocks = chank.replace(/^\t/gm, '').replace(/\n$/, '').match(/.+/g);
-          var act = blocks.shift().trim();
-          var data = '\n' + blocks.join('\n') + '\n';
-          var ary = [];
-          if (act[0] !== '・') {
-            base.push(['会話', [[act, blocks]]]);
-            return;
-          } else
-            act = act.slice(1);
-          if (data.match(/\t/)) {
-            base.push([act, ary]);
-            parseOne(ary, data);
-          } else
-            base.push([act, blocks]);
-        }));
-      }
-      var base = [];
-      cacheEmogi(text);
-      parseOne(base, text);
-      return base;
-    }
-    function copyObject(obj) {
-      return JSON.parse(JSON.stringify(obj));
-    }
-    function otherName(name) {
-      return function() {
-        return this[name].apply(this, arguments);
-      };
-    }
-    function cacheEmogi(text) {
-      ;
-      (text.match(/\\\[.+\]/g) || []).forEach((function(eff) {
-        var name = eff.slice(2, -1);
-        Util.toBlobEmogiURL(name);
-      }));
-    }
-    var preloadAppend = ((function(_) {
-      var buffer = [];
-      var max = 2;
-      var n = 0;
-      function next() {
-        while (n < max) {
-          var func = buffer.shift();
-          if (!func)
-            return;
-          ++n;
-          Promise.resolve(func()).through((function(_) {
-            --n;
-            next();
-          })).check();
-        }
-      }
-      function append(func) {
-        buffer.push(func);
-        next();
-      }
-      return append;
-    }))();
-    function flattenScript(script) {
-      var buf = [];
-      function flatten(script) {
-        var bk = [];
-        var q = 0;
-        script.forEach((function(prog) {
-          bk.forEach((function(n) {
-            buf[n] = buf.length - (q ? 1 : 0);
-          }));
-          bk = [];
-          if (q)
-            buf[q] = buf.length;
-          q = 0;
-          var $__5 = $traceurRuntime.assertObject(prog),
-              act = $__5[0],
-              data = $__5[1];
-          switch (act) {
-            case '繰返':
-            case '繰返し':
-            case '繰り返し':
-              q = buf.length + 2;
-            case '選択':
-            case '選択肢':
-            case '分岐':
-              var cp = buf.push(act, null) - 1;
-              if (q)
-                buf.push(-1);
-              buf[cp] = data.map((function($__5) {
-                var lab = $__5[0],
-                    val = $__5[1];
-                if (Array.isArray(val[0])) {
-                  var p = buf.length;
-                  bk.push(flatten(val));
-                  val = p;
-                }
-                return [lab, val];
-              }));
-              if (q) {
-                buf[cp].unshift(q);
-                buf.push(cp - 1);
-              }
-              break;
-            default:
-              buf.push(act, data);
-          }
-        }));
-        return buf.push(-1) - 1;
-      }
-      flatten(script);
-      return buf;
-    }
-    function cacheScript(script) {
-      var sname = arguments[1] !== (void 0) ? arguments[1] : script.sname;
-      if (!Array.isArray(script)) {
-        LOG('不正なスクリプトのためキャッシュできない');
-        LOG(script);
-        return Promise.reject('不正なスクリプトのためキャッシュできない');
-      }
-      if (!sname)
-        LOG('!!!sname');
-      script = copyObject(script);
-      var defer = Promise.defer();
-      var caching = 0;
-      function append(args) {
-        var toURL = arguments[1] !== (void 0) ? arguments[1] : Util.toBlobURL;
-        ++caching;
-        preloadAppend((function(_) {
-          return toURL.apply(null, $traceurRuntime.toObject(args)).through((function(_) {
-            if (--caching <= 0)
-              defer.resolve();
-          })).check();
-        }));
-      }
-      for (var po = 0; po < script.length; po++) {
-        try {
-          var act = script[po];
-          if (!act)
-            continue;
-          if (typeof act != 'string')
-            continue;
-          var data = script[++po];
-          switch (act) {
-            case '背景':
-              var name = data[0];
-              append(['背景', name, 'jpg']);
-              break;
-            case '立絵':
-            case '立ち絵':
-              data.forEach((function(ary) {
-                if (Util.isNoneType(ary))
-                  return;
-                var $__5 = $traceurRuntime.assertObject(ary),
-                    position = $__5[0],
-                    names = $__5[1];
-                if (!position)
-                  return;
-                if (!names)
-                  return;
-                var name = names[0];
-                append(['立ち絵', name, 'png']);
-              }));
-              break;
-            case '繰返':
-            case '繰返し':
-            case '繰り返し':
-            case '選択':
-            case '選択肢':
-            case '分岐':
-              data = data.reduce((function(base, ary) {
-                var val = ary[1];
-                if (val && typeof val[0] == 'string')
-                  base.push(val[0]);
-                return base;
-              }), []);
-            case 'ジャンプ':
-              data.forEach((function(to) {
-                var $__6;
-                if (!to)
-                  return;
-                var name = to,
-                    base = sname;
-                var $__5 = $traceurRuntime.assertObject(name.replace(/＃/g, '#').split('#')),
-                    name = $__5[0],
-                    mark = ($__6 = $__5[1]) === void 0 ? '' : $__6;
-                if (!name)
-                  name = base.replace(/＃/g, '#').split('#')[0];
-                var subkey = (Data.scenarioName + "/" + Util.forceName('シナリオ', name, 'txt'));
-                if (!Util.cacheHas(subkey))
-                  fetchScriptData(to, base).then((function(script) {
-                    return cacheScript(script);
-                  })).check();
-              }));
-              break;
-          }
-        } catch (err) {
-          LOG(("キャッシュ中にコマンド『" + act + "』で『" + err + "』が起きた"));
-        }
-      }
-      if (caching == 0)
-        defer.resolve();
-      return defer.promise;
-    }
-    function runScript(script) {
-      var sname = arguments[1] !== (void 0) ? arguments[1] : script.sname;
-      var masterComp = arguments[2];
-      var $__3;
-      if (!sname)
-        LOG('!!!sname');
-      sname = sname.split('#')[0];
-      View.changeModeIfNeeded('NOVEL');
-      Data.phase = 'play';
-      document.title = ("【" + Data.scenarioName + "】");
-      var run = Promise.defer();
-      if (!masterComp)
-        masterComp = run.resolve;
-      var $__5 = $traceurRuntime.assertObject(script),
-          mark = $__5.mark,
-          hash = $__5.hash,
-          params = $__5.params,
-          scenario = $__5.scenario,
-          active = $__5.active;
-      if (mark)
-        Data.current.mark = mark;
-      var searching = !!hash;
-      if (params)
-        Object.keys(params).forEach((function(name) {
-          return Util.paramSet(name, params[name]);
-        }));
-      script = copyObject(script);
-      var gsave = Data.current.setting;
-      var visited = $traceurRuntime.assertObject(gsave).visited;
-      if (!visited)
-        gsave.visited = visited = {};
-      var vBA = visited[sname];
-      if (!vBA)
-        visited[sname] = vBA = BitArray.create(script.length);
-      function runChildScript(script) {
-        return runScript(script, undefined, masterComp);
-      }
-      var actHandlers = ($__3 = {}, Object.defineProperty($__3, "会話", {
-        value: function(data, done, failed) {
-          save();
-          var visited = BitArray.get(vBA, po);
-          BitArray.set(vBA, po);
-          function nextPage() {
-            var ary = data.shift();
-            if (!ary) {
-              autosave(false);
-              return done();
-            }
-            var name = ary[0],
-                texts = ary[1];
-            if (Util.isNoneType(name))
-              name = '';
-            name = replaceEffect(name);
-            View.nextPage(name, {visited: visited});
-            function nextSentence() {
-              var text = texts.shift();
-              if (!text)
-                return nextPage();
-              text = text.replace(/\\w\[(\d*)\]/g, (function(_, num) {
-                return '\u200B'.repeat(+num || 1);
-              }));
-              text = replaceEffect(text);
-              View.addSentence(text, {visited: visited}).on('go', nextSentence, failed);
-            }
-            nextSentence();
-          }
-          nextPage();
-        },
-        configurable: true,
-        enumerable: true,
-        writable: true
-      }), Object.defineProperty($__3, "背景", {
-        value: function(data, done, failed) {
-          var name = replaceEffect(data[0]);
-          Util.toBlobURL('背景', name, 'jpg').then((function(url) {
-            return View.setBGImage({
-              name: name,
-              url: url
-            });
-          })).then(done, failed);
-        },
-        configurable: true,
-        enumerable: true,
-        writable: true
-      }), Object.defineProperty($__3, "立絵", {
-        value: otherName('立ち絵'),
-        configurable: true,
-        enumerable: true,
-        writable: true
-      }), Object.defineProperty($__3, "立ち絵", {
-        value: function(data, done, failed) {
-          Promise.all(data.reduce((function(base, ary) {
-            var $__6,
-                $__7;
-            if (!base)
-              return;
-            if (Util.isNoneType(ary))
-              return base;
-            var $__5 = $traceurRuntime.assertObject(ary),
-                position = $__5[0],
-                names = $__5[1];
-            if (!position)
-              return failed('不正な位置検出');
-            if (!names)
-              return failed('不正な画像名検出');
-            position = replaceEffect(position);
-            var name = replaceEffect(names[0]);
-            var a_type = ['left', 'right']['左右'.indexOf(position)];
-            var v_type = 'top';
-            var $__5 = [0, 0],
-                a_per = $__5[0],
-                v_per = $__5[1];
-            var height = null;
-            if (!a_type) {
-              var pos = Util.toHalfWidth(position).match(/[+\-0-9.]+/g);
-              if (!pos)
-                return failed('不正な位置検出');
-              var $__5 = $traceurRuntime.assertObject(pos),
-                  a_pos = $__5[0],
-                  v_pos = ($__6 = $__5[1]) === void 0 ? '0' : $__6,
-                  height = ($__7 = $__5[2]) === void 0 ? null : $__7;
-              a_per = Math.abs(+a_pos);
-              v_per = Math.abs(+v_pos);
-              a_type = a_pos.match('-') ? 'right' : 'left';
-              v_type = v_pos.match('-') ? 'bottom' : 'top';
-              height = Util.toSize(height);
-            }
-            base.push(Util.toBlobURL('立ち絵', name, 'png').then((function(url) {
-              var $__3;
-              return (($__3 = {}, Object.defineProperty($__3, "name", {
-                value: name,
-                configurable: true,
-                enumerable: true,
-                writable: true
-              }), Object.defineProperty($__3, "url", {
-                value: url,
-                configurable: true,
-                enumerable: true,
-                writable: true
-              }), Object.defineProperty($__3, "height", {
-                value: height,
-                configurable: true,
-                enumerable: true,
-                writable: true
-              }), Object.defineProperty($__3, a_type, {
-                value: (a_per + "%"),
-                configurable: true,
-                enumerable: true,
-                writable: true
-              }), Object.defineProperty($__3, v_type, {
-                value: (v_per + "%"),
-                configurable: true,
-                enumerable: true,
-                writable: true
-              }), $__3));
-            })));
-            return base;
-          }), [])).then((function(opt) {
-            return View.setFDImages(opt);
-          })).then(done, failed);
-        },
-        configurable: true,
-        enumerable: true,
-        writable: true
-      }), Object.defineProperty($__3, "選択", {
-        value: otherName('選択肢'),
-        configurable: true,
-        enumerable: true,
-        writable: true
-      }), Object.defineProperty($__3, "選択肢", {
-        value: function(data, done, failed) {
-          View.setChoiceWindow(data.map((function(ary) {
-            return {
-              name: replaceEffect(ary[0]),
-              value: ary[1]
-            };
-          }))).then((function(value) {
-            if (typeof value[0] == 'string')
-              actHandlers['ジャンプ'](value, done, failed);
-            else {
-              po = value;
-              done();
-            }
-          }));
-        },
-        configurable: true,
-        enumerable: true,
-        writable: true
-      }), Object.defineProperty($__3, "ジャンプ", {
-        value: function(data, done, failed) {
-          var to = replaceEffect(data[0]);
-          fetchScriptData(to, sname).then((function(script) {
-            return runChildScript(script);
-          })).then(done, failed);
-        },
-        configurable: true,
-        enumerable: true,
-        writable: true
-      }), Object.defineProperty($__3, "変数", {
-        value: otherName('パラメータ'),
-        configurable: true,
-        enumerable: true,
-        writable: true
-      }), Object.defineProperty($__3, "パラメーター", {
-        value: otherName('パラメータ'),
-        configurable: true,
-        enumerable: true,
-        writable: true
-      }), Object.defineProperty($__3, "パラメータ", {
-        value: function(data, done, failed) {
-          data.forEach((function(str) {
-            str = Util.toHalfWidth(str);
-            str = str.match(/(.+)\:(.+)/);
-            if (!str)
-              return failed('不正なパラメータ指定検出');
-            var name = replaceEffect(str[1]);
-            var effect = str[2];
-            if (!name)
-              return failed('不正なパラメータ指定検出');
-            var eff = evalEffect(effect, failed);
-            Util.paramSet(name, eff);
-          }));
-          done();
-        },
-        configurable: true,
-        enumerable: true,
-        writable: true
-      }), Object.defineProperty($__3, "入力", {
-        value: function(data, done, failed) {
-          str = Util.toHalfWidth(data[0]);
-          if (!str)
-            return failed('不正なパラメータ指定検出');
-          var str = /.+\:/.test(str) ? str.match(/(.+)\:(.*)/) : [, str, '""'];
-          var name = replaceEffect(str[1]);
-          var effect = str[2];
-          var eff = evalEffect(effect, failed);
-          var rv = prompt('', eff) || eff;
-          Util.paramSet(name, rv);
-          done();
-        },
-        configurable: true,
-        enumerable: true,
-        writable: true
-      }), Object.defineProperty($__3, "繰返", {
-        value: otherName('繰り返し'),
-        configurable: true,
-        enumerable: true,
-        writable: true
-      }), Object.defineProperty($__3, "繰返し", {
-        value: otherName('繰り返し'),
-        configurable: true,
-        enumerable: true,
-        writable: true
-      }), Object.defineProperty($__3, "繰り返し", {
-        value: function(data, done, failed) {
-          var q = data[0];
-          data = data.slice(1);
-          if (!data.some((function($__5) {
-            var effect = $__5[0],
-                acts = $__5[1];
-            if (!effect)
-              return failed('不正なパラメータ指定検出');
-            var flag = !!evalEffect(effect, failed);
-            if (flag)
-              po = acts;
-            return flag;
-          })))
-            po = q;
-          done();
-        },
-        configurable: true,
-        enumerable: true,
-        writable: true
-      }), Object.defineProperty($__3, "分岐", {
-        value: function(data, done, failed) {
-          data.some((function($__5) {
-            var effect = $__5[0],
-                acts = $__5[1];
-            if (!effect)
-              return failed('不正なパラメータ指定検出');
-            var flag = !!evalEffect(effect, failed);
-            if (flag)
-              po = acts;
-            return flag;
-          }));
-          done();
-        },
-        configurable: true,
-        enumerable: true,
-        writable: true
-      }), Object.defineProperty($__3, "マーク", {
-        value: function(data, done, failed) {
-          Data.current.mark = data[0];
-          autosave();
-          done();
-        },
-        configurable: true,
-        enumerable: true,
-        writable: true
-      }), Object.defineProperty($__3, "スクリプト", {
-        value: function(data, done, failed) {
-          var act = data[0];
-          if (Util.isNoneType(act))
-            return done();
-          switch (act) {
-            case '戻る':
-            case 'もどる':
-            case '帰る':
-            case 'かえる':
-              run.resolve();
-              break;
-            case '終わる':
-            case '終る':
-            case 'おわる':
-              masterComp();
-              break;
-            default:
-              failed(("不正なスクリプトコマンド『" + act + "』"));
-          }
-        },
-        configurable: true,
-        enumerable: true,
-        writable: true
-      }), Object.defineProperty($__3, "コメント", {
-        value: function(data, done, failed) {
-          done();
-        },
-        configurable: true,
-        enumerable: true,
-        writable: true
-      }), $__3);
-      function save() {
-        var params = {};
-        Util.paramForEach((function(value, key) {
-          return params[key] = value;
-        }));
-        var cp = {
-          script: sname,
-          params: params,
-          active: Data.active,
-          point: po - 2,
-          mark: Data.current.mark
-        };
-        Data.current.point = cp;
-      }
-      function autosave(full) {
-        var p = Storage.setGlobalData(Data.current.setting);
-        if (!full)
-          return p;
-        save();
-        Util.updateDebugWindow();
-        return Promise.all([p, Storage.getSaveDatas(101, 110).then((function(saves) {
-          saves.pop();
-          saves.unshift(Data.current.point);
-          saves.forEach((function(save, i) {
-            if (save)
-              Storage.setSaveData(i, save);
-          }));
-        }))]);
-      }
-      function main_loop() {
-        var act,
-            loop = new Promise((function(resolve, reject) {
-              var act = script[po];
-              if (!act) {
-                return searching ? run.reject(("マーク『" + hash + "』が見つかりません。")) : run.resolve();
-              }
-              if (typeof act == 'number') {
-                if (searching && (+hash === po))
-                  searching = false;
-                else
-                  po = act;
-                return resolve();
-              }
-              var data = script[++po];
-              ++po;
-              if (searching) {
-                if (+hash === (po - 2)) {
-                  searching = false;
-                  po -= 2;
-                } else if (act == 'マーク') {
-                  var mark = data[0];
-                  if (mark == hash) {
-                    searching = false;
-                    return actHandlers['マーク']([mark], resolve, reject);
-                  }
-                }
-                resolve();
-              } else if (act in actHandlers) {
-                actHandlers[act](data, resolve, reject);
-              } else {
-                Util.error('サポートされていないコマンド『' + act + '』を検出しました。\n\nこのコマンドを飛ばして再生が継続されます。');
-                resolve();
-              }
-            })).then(main_loop, (function(err) {
-              var message = err ? ("コマンド『" + act + "』で『" + err + "』が起こりました。") : ("コマンド『" + act + "』が原因かもしれません。");
-              Util.error('スクリプトを解析中にエラーが発生しました。\n\n' + message + '\n\nこのコマンドを保証せず再生が継続されます。');
-              return main_loop();
-            }));
-      }
-      var po = 0;
-      new Promise((function(ok) {
-        if (active) {
-          var p = [];
-          var obj = active.BGImage;
-          if (obj && obj.name) {
-            p.push(Util.toBlobURL('背景', obj.name, 'jpg').then((function(url) {
-              obj.url = url;
-              return obj;
-            })).then((function(obj) {
-              return View.setBGImage(obj);
-            })));
-          }
-          var ary = active.FDImages;
-          if (ary) {
-            p.push(Promise.all(ary.map((function(obj) {
-              return obj.name ? Util.toBlobURL('立ち絵', obj.name, 'png').then((function(url) {
-                obj.url = url;
-                return obj;
-              })) : 1;
-            }))).then((function(opts) {
-              return View.setFDImages(opts);
-            })));
-          }
-          Promise.all(p).then(ok).check();
-        } else
-          ok();
-      })).then(main_loop);
-      return run.promise;
-    }
-    function replaceEffect(str) {
-      return str.replace(/\\{(.+?)}/g, (function(_, efect) {
-        return evalEffect(efect);
-      }));
-    }
-    function evalEffect(effect, failed) {
-      effect = effect.trim();
-      if (Util.isNoneType(effect))
-        return true;
-      effect = Util.toHalfWidth(effect).replace(/\\/g, '\\\\').replace(/\=\=/g, '=').replace(/[^!><=]\=/g, (function(str) {
-        return str.replace('=', '==');
-      })).replace(/\&\&/g, '&').replace(/[^!><&]\&/g, (function(str) {
-        return str.replace('&', '&&');
-      })).replace(/\|\|/g, '|').replace(/[^!><|]\|/g, (function(str) {
-        return str.replace('|', '||');
-      })).replace(/^ー/, '-').replace(/([\u1-\u1000\s])(ー)/g, '$1-').replace(/(ー)([\u1-\u1000\s])/g, '-$2');
-      if (!effect)
-        return failed('不正なパラメータ指定検出');
-      if (/\'/.test(effect))
-        return failed('危険な記号の検出');
-      effect = effect.replace(/[^+\-*/%><!=?:()&|\s]+/g, (function(str) {
-        if (/^[0-9.]+$/.test(str))
-          return str;
-        if (/^"[^"]*"$/.test(str))
-          return str;
-        return ("Util.paramGet('" + str + "')");
-      }));
-      return eval(effect);
-    }
-    function print(message) {
-      if (!View.print)
-        View.changeMode('TEST');
-      View.print(message);
-    }
-    function loadSaveData() {
-      return Util.co($traceurRuntime.initGeneratorFunction(function $__8() {
-        var saves,
-            opts,
-            save,
-            $__5,
-            params,
-            script,
-            point,
-            active,
-            mark;
-        return $traceurRuntime.createGeneratorInstance(function($ctx) {
-          while (true)
-            switch ($ctx.state) {
-              case 0:
-                $ctx.state = 2;
-                return Storage.getSaveDatas(1, 110);
-              case 2:
-                saves = $ctx.sent;
-                $ctx.state = 4;
-                break;
-              case 4:
-                opts = saves.map((function(save, i) {
-                  if (!save)
-                    var mark = '------------';
-                  else if (save.version !== Storage.VERSION) {
-                    save = null;
-                    mark = '--old data--';
-                  } else
-                    mark = save.mark;
-                  var name = i > 100 ? 'A' + (i - 100) : i;
-                  return {
-                    name: (name + "．" + mark),
-                    value: save,
-                    disabled: !save
-                  };
-                }));
-                $ctx.state = 15;
-                break;
-              case 15:
-                $ctx.state = 6;
-                return View.setChoiceWindow(opts, {
-                  sys: true,
-                  closeable: true
-                });
-              case 6:
-                save = $ctx.sent;
-                $ctx.state = 8;
-                break;
-              case 8:
-                $ctx.state = (save == '閉じる') ? 9 : 10;
-                break;
-              case 9:
-                $ctx.returnValue = false;
-                $ctx.state = -2;
-                break;
-              case 10:
-                $__5 = $traceurRuntime.assertObject(save), params = $__5.params, script = $__5.script, point = $__5.point, active = $__5.active, mark = $__5.mark;
-                $ctx.state = 17;
-                break;
-              case 17:
-                $ctx.returnValue = Player.fetchScriptData((script + "#" + point)).then((function(script) {
-                  script.params = params;
-                  script.scenario = Data.scenarioName;
-                  script.active = active;
-                  script.mark = mark;
-                  return script;
-                }));
-                $ctx.state = -2;
-                break;
-              default:
-                return $ctx.end();
-            }
-        }, $__8, this);
-      }))();
-    }
-    function saveSaveData() {
-      return Util.co($traceurRuntime.initGeneratorFunction(function $__8() {
-        var saves,
-            opts,
-            no,
-            con,
-            params,
-            save,
-            $__9,
-            $__10,
-            $__11,
-            $__12,
-            $__13;
-        return $traceurRuntime.createGeneratorInstance(function($ctx) {
-          while (true)
-            switch ($ctx.state) {
-              case 0:
-                $ctx.state = 2;
-                return Storage.getSaveDatas(1, 100);
-              case 2:
-                saves = $ctx.sent;
-                $ctx.state = 4;
-                break;
-              case 4:
-                opts = saves.map((function(save, i) {
-                  if (!save)
-                    var mark = '----------';
-                  else if (save.version !== Storage.VERSION) {
-                    mark = '--old data--';
-                  } else
-                    mark = save.mark;
-                  var name = i;
-                  return {
-                    name: (name + "．" + mark),
-                    value: i
-                  };
-                }));
-                $ctx.state = 41;
-                break;
-              case 41:
-                $ctx.state = 6;
-                return View.setChoiceWindow(opts, {
-                  sys: true,
-                  closeable: true
-                });
-              case 6:
-                no = $ctx.sent;
-                $ctx.state = 8;
-                break;
-              case 8:
-                $ctx.state = (no == '閉じる') ? 9 : 10;
-                break;
-              case 9:
-                $ctx.returnValue = false;
-                $ctx.state = -2;
-                break;
-              case 10:
-                $__9 = saves[no];
-                $ctx.state = 24;
-                break;
-              case 24:
-                $ctx.state = ($__9) ? 16 : 20;
-                break;
-              case 16:
-                $__10 = View.setConfirmWindow;
-                $__11 = $__10.call(View, '上書きする');
-                $ctx.state = 17;
-                break;
-              case 17:
-                $ctx.state = 13;
-                return $__11;
-              case 13:
-                $__12 = $ctx.sent;
-                $ctx.state = 15;
-                break;
-              case 15:
-                $__13 = $__12;
-                $ctx.state = 19;
-                break;
-              case 20:
-                $__13 = true;
-                $ctx.state = 19;
-                break;
-              case 19:
-                con = $__13;
-                $ctx.state = 26;
-                break;
-              case 26:
-                $ctx.state = (!con) ? 27 : 28;
-                break;
-              case 27:
-                $ctx.returnValue = false;
-                $ctx.state = -2;
-                break;
-              case 28:
-                params = {};
-                Util.paramForEach((function(value, key) {
-                  return params[key] = value;
-                }));
-                save = Data.current.point;
-                $ctx.state = 43;
-                break;
-              case 43:
-                $ctx.state = 31;
-                return Storage.setSaveData(no, save);
-              case 31:
-                $ctx.maybeThrow();
-                $ctx.state = 33;
-                break;
-              case 33:
-                $ctx.state = 35;
-                return Storage.setGlobalData(Data.current.setting);
-              case 35:
-                $ctx.maybeThrow();
-                $ctx.state = 37;
-                break;
-              case 37:
-                $ctx.returnValue = true;
-                $ctx.state = -2;
-                break;
-              default:
-                return $ctx.end();
-            }
-        }, $__8, this);
-      }))();
-    }
-    function deleteSaveData() {
-      return Util.co($traceurRuntime.initGeneratorFunction(function $__8() {
-        var con;
-        return $traceurRuntime.createGeneratorInstance(function($ctx) {
-          while (true)
-            switch ($ctx.state) {
-              case 0:
-                $ctx.state = 2;
-                return View.setConfirmWindow('全消去する');
-              case 2:
-                con = $ctx.sent;
-                $ctx.state = 4;
-                break;
-              case 4:
-                $ctx.state = (!con) ? 5 : 6;
-                break;
-              case 5:
-                $ctx.returnValue = false;
-                $ctx.state = -2;
-                break;
-              case 6:
-                $ctx.state = 9;
-                return Storage.deleteSaveDatas(true);
-              case 9:
-                $ctx.maybeThrow();
-                $ctx.state = 11;
-                break;
-              case 11:
-                $ctx.returnValue = true;
-                $ctx.state = -2;
-                break;
-              default:
-                return $ctx.end();
-            }
-        }, $__8, this);
-      }))();
-    }
-    function init() {
-      Data.phase = 'pause';
-      Player.setRunPhase('準備');
-      Util.paramClear();
-      View.clean();
-    }
-    function setScenario(scenario) {
-      return Util.co($traceurRuntime.initGeneratorFunction(function $__8() {
-        var gsave;
-        return $traceurRuntime.createGeneratorInstance(function($ctx) {
-          while (true)
-            switch ($ctx.state) {
-              case 0:
-                Data.scenarioName = scenario;
-                $ctx.state = 13;
-                break;
-              case 13:
-                $ctx.state = 2;
-                return Storage.getGlobalData();
-              case 2:
-                gsave = $ctx.sent;
-                $ctx.state = 4;
-                break;
-              case 4:
-                $ctx.state = (!gsave) ? 9 : 8;
-                break;
-              case 9:
-                gsave = {};
-                $ctx.state = 10;
-                break;
-              case 10:
-                $ctx.state = 6;
-                return Storage.setGlobalData(gsave);
-              case 6:
-                $ctx.maybeThrow();
-                $ctx.state = 8;
-                break;
-              case 8:
-                Data.current.setting = gsave;
-                $ctx.state = -2;
-                break;
-              default:
-                return $ctx.end();
-            }
-        }, $__8, this);
-      }))();
-    }
-    function fetchSettingData(url) {
-      return Util.loadText(url).then((function(text) {
-        var setting = parseScript(text);
-        var data = {};
-        setting.forEach((function(ary) {
-          data[ary[0]] = ary[1];
-        }));
-        return data;
-      }));
-    }
-    function fetchScriptData(name, base) {
-      var $__6;
-      if (!name)
-        return Promise.reject('子スクリプト名が不正');
-      var $__5 = $traceurRuntime.assertObject(name.replace(/＃/g, '#').split('#')),
-          name = $__5[0],
-          hash = ($__6 = $__5[1]) === void 0 ? '' : $__6;
-      if (!name) {
-        if (!base)
-          return Promise.reject('親スクリプト名が必要');
-        name = base.replace(/＃/g, '#').split('#')[0];
-      }
-      return Util.toBlobScriptURL(name).then(Util.loadText).then(parseScript).then(flattenScript).then((function(script) {
-        script.hash = hash;
-        script.sname = name;
-        return script;
-      }));
-    }
-    READY.Player.ready({
-      setRunPhase: setRunPhase,
-      setErrorPhase: setErrorPhase,
-      fetchSettingData: fetchSettingData,
-      fetchScriptData: fetchScriptData,
-      runScript: runScript,
-      print: print,
-      loadSaveData: loadSaveData,
-      saveSaveData: saveSaveData,
-      deleteSaveData: deleteSaveData,
-      evalEffect: evalEffect,
-      init: init,
-      setScenario: setScenario,
-      cacheScript: cacheScript
-    });
-  })).check();
-  return {};
-});
-System.get("ES6/プレーヤー" + '');
 System.register("ES6/ビュー", [], function() {
   "use strict";
   var __moduleName = "ES6/ビュー";
-  READY('Storage', 'Player', 'DOM', 'Sound').then((function($__16) {
+  READY('Storage', 'Player', 'DOM', 'Sound').then((function($__5) {
     'use strict';
-    var Util = $__16.Util;
+    var Util = $__5.Util;
     var View = null;
     var clickSE = new Sound('sysSE', '選択');
     var focusSE = new Sound('sysSE', 'フォーカス');
@@ -1712,11 +723,11 @@ System.register("ES6/ビュー", [], function() {
         return this;
       },
       setStyles: function(styles) {
-        var $__14 = this;
+        var $__3 = this;
         styles = styles || {};
         Object.keys(styles).forEach((function(key) {
           if (styles[key] != null)
-            $__14.style[key] = styles[key];
+            $__3.style[key] = styles[key];
         }), this);
         return this;
       }
@@ -1882,6 +893,12 @@ System.register("ES6/ビュー", [], function() {
         requestAnimationFrame(loop);
       }));
     }
+    function cancelEvent(evt) {
+      if (!evt)
+        return;
+      evt.preventDefault();
+      evt.stopImmediatePropagation();
+    }
     var fitScreen = Util.NOP;
     window.onresize = (function(_) {
       return fitScreen();
@@ -1977,7 +994,7 @@ System.register("ES6/ビュー", [], function() {
             position: 'absolute',
             left: 'calc((100% - 90%) / 2)',
             top: '20%',
-            zIndex: '500',
+            zIndex: '5000',
             width: '90%',
             fontFamily: "'Hiragino Kaku Gothic ProN', Meiryo, sans-serif",
             letterSpacing: '0.1em'
@@ -2012,7 +1029,7 @@ System.register("ES6/ビュー", [], function() {
             position: 'absolute',
             right: '0%',
             bottom: '0%',
-            zIndex: '700',
+            zIndex: '4000',
             fontFamily: "'Hiragino Kaku Gothic ProN', Meiryo, sans-serif",
             letterSpacing: '0.1em'
           });
@@ -2054,7 +1071,7 @@ System.register("ES6/ビュー", [], function() {
       NOVEL: {
         __proto__: METHODS.COMMON,
         initDisplay: function(opt) {
-          var $__14 = this;
+          var $__3 = this;
           Util.setDefaults(opt, {
             color: 'rgba(255,255,255,0.9)',
             textShadow: 'rgba(0,0,0,0.9) 0.1em 0.1em 0.1em',
@@ -2065,7 +1082,7 @@ System.register("ES6/ビュー", [], function() {
           this.imageFrame = this.addImageFrame();
           this.logs = [];
           View.on('menu').then((function(_) {
-            return $__14.showMenu();
+            return $__3.showMenu();
           })).check();
           View.on('Uwheel').then((function(_) {
             return View.showLog();
@@ -2073,10 +1090,10 @@ System.register("ES6/ビュー", [], function() {
         },
         messageWindowProto: {
           nextPage: function(name) {
-            var $__18;
-            var $__17 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
-                sys = ($__18 = $__17.sys) === void 0 ? false : $__18,
-                visited = ($__18 = $__17.visited) === void 0 ? false : $__18;
+            var $__7;
+            var $__6 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
+                sys = ($__7 = $__6.sys) === void 0 ? false : $__7,
+                visited = ($__7 = $__6.visited) === void 0 ? false : $__7;
             View.logs.push(View.windows.message.cloneNode(true));
             if (View.logs.length > 100)
               View.logs.shift();
@@ -2090,25 +1107,25 @@ System.register("ES6/ビュー", [], function() {
             this.el_body.removeChildren();
           },
           addSentence: function(text) {
-            var $__18;
-            var $__17 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
-                weight = ($__18 = $__17.weight) === void 0 ? 25 : $__18,
-                visited = ($__18 = $__17.visited) === void 0 ? false : $__18;
+            var $__7;
+            var $__6 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
+                weight = ($__7 = $__6.weight) === void 0 ? 25 : $__7,
+                visited = ($__7 = $__6.visited) === void 0 ? false : $__7;
             text += '\n';
             var length = text.length;
             var at = 0,
                 nl = 0;
             var el = this.el_body;
-            var $__17 = [false, false],
-                aborted = $__17[0],
-                cancelled = $__17[1];
-            var $__17 = [(function(_) {
+            var $__6 = [false, false],
+                aborted = $__6[0],
+                cancelled = $__6[1];
+            var $__6 = [(function(_) {
               return aborted = true;
             }), (function(_) {
               return cancelled = true;
             })],
-                abort = $__17[0],
-                cancel = $__17[1];
+                abort = $__6[0],
+                cancel = $__6[1];
             View.on('go').then(cancel);
             function mul(str, n) {
               return (str || '100%').match(/[\d.]+/)[0] * n / 100 + 'em';
@@ -2220,7 +1237,7 @@ System.register("ES6/ビュー", [], function() {
             position: 'absolute',
             bottom: '0.25em',
             left: '0.25em',
-            zIndex: '2500',
+            zIndex: '1500',
             fontFamily: "'Hiragino Kaku Gothic ProN', Meiryo, sans-serif",
             letterSpacing: '0.1em'
           });
@@ -2256,17 +1273,20 @@ System.register("ES6/ビュー", [], function() {
         addImageFrame: function() {
           var opt = arguments[0] !== (void 0) ? arguments[0] : {};
           var fr = new DOM('div', {
+            position: 'absolute',
+            left: '0',
+            top: '0',
             height: '100%',
             width: '100%',
-            zIndex: '2300'
+            zIndex: '1000'
           });
           el_context.append(fr);
           return fr;
         },
         setConfirmWindow: function(name) {
-          var $__18;
-          var $__17 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
-              sys = ($__18 = $__17.sys) === void 0 ? true : $__18;
+          var $__7;
+          var $__6 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
+              sys = ($__7 = $__6.sys) === void 0 ? true : $__7;
           return View.setChoiceWindow([{
             name: name,
             value: true
@@ -2276,10 +1296,10 @@ System.register("ES6/ビュー", [], function() {
           }], {sys: sys});
         },
         setChoiceWindow: function(opts) {
-          var $__18;
-          var $__17 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
-              sys = ($__18 = $__17.sys) === void 0 ? false : $__18,
-              closeable = ($__18 = $__17.closeable) === void 0 ? false : $__18;
+          var $__7;
+          var $__6 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
+              sys = ($__7 = $__6.sys) === void 0 ? false : $__7,
+              closeable = ($__7 = $__6.closeable) === void 0 ? false : $__7;
           var defer = Promise.defer();
           var removed = false;
           var focusbt;
@@ -2295,7 +1315,8 @@ System.register("ES6/ビュー", [], function() {
             background: sys ? 'rgba(100, 255, 150, 0.5)' : 'rgba(100, 100, 255, 0.3)',
             padding: '0% 5%',
             overflowY: opts.length > 3 ? 'scroll' : 'hidden',
-            maxHeight: '70%'
+            maxHeight: '70%',
+            zIndex: '2500'
           });
           if (!sys) {
             if (View.windows.choice)
@@ -2344,15 +1365,13 @@ System.register("ES6/ビュー", [], function() {
               vibrate([50]);
               close(evt, opt.value);
             });
-            bt.onmousedown = (function(evt) {
-              evt.preventDefault();
-              evt.stopImmediatePropagation();
-            });
+            bt.onmousedown = cancelEvent;
             cw.append(bt);
             if (!opt.disabled)
               var index = bts.push(bt) - 1;
           }, this);
           function close(evt, val) {
+            cancelEvent(evt);
             removed = true;
             defer.resolve(val);
             if (!sys)
@@ -2406,7 +1425,7 @@ System.register("ES6/ビュー", [], function() {
               width: '2.5em',
               height: '2.5em',
               opacity: '0.75',
-              zIndex: '1000'
+              zIndex: '3000'
             });
             if ($isWebkit) {
               Util.toBlobSysPartsURL('閉じるボタン').then((function(url) {
@@ -2425,20 +1444,24 @@ System.register("ES6/ビュー", [], function() {
         },
         setBGImage: function(opt) {
           var defer = Promise.defer();
-          var url = opt.url;
+          var $__6 = $traceurRuntime.assertObject(opt),
+              url = $__6.url,
+              sys = $__6.sys;
+          var fr = View.imageFrame;
           if (url) {
             var img = new Image;
             img.onload = (function(_) {
-              el_context.setStyles({
+              fr.setStyles({
                 backgroundImage: ("url(" + url + ")"),
                 backgroundSize: 'cover'
               });
               defer.resolve();
             });
             img.src = url;
-            Data.active.BGImage = opt;
+            if (!sys)
+              Data.current.active.BGImage = opt;
           } else {
-            el_context.setStyles({
+            fr.setStyles({
               backgroundImage: 'none',
               backgroundSize: 'cover'
             });
@@ -2446,10 +1469,10 @@ System.register("ES6/ビュー", [], function() {
           }
           return defer.promise;
         },
-        setFDImages: function(opts) {
+        setFDImages: function(ary) {
           var defer = Promise.defer();
-          var fr = this.imageFrame;
-          Promise.all(opts.map((function(opt) {
+          var fr = View.imageFrame;
+          Promise.all(ary.map((function(opt) {
             return new Promise((function(ok) {
               Util.setDefaults(opt, {
                 left: null,
@@ -2479,8 +1502,73 @@ System.register("ES6/ビュー", [], function() {
             }));
             defer.resolve();
           }));
-          Data.active.FDImages = opts;
+          Data.current.active.FDImages = ary;
           return defer.promise;
+        },
+        prepareFade: function(opts) {
+          if (View.fake)
+            return Promise.reject('２重にエフェクトの準備をしようとした');
+          var fr = View.imageFrame;
+          var fake = View.fake = fr.cloneNode(true);
+          el_context.append(fake);
+          Data.saveDisabled = true;
+          return Promise.resolve();
+        },
+        fade: function() {
+          var $__7;
+          var $__6 = $traceurRuntime.assertObject(arguments[0] !== (void 0) ? arguments[0] : {}),
+              msec = ($__7 = $__6.msec) === void 0 ? 1000 : $__7,
+              visited = ($__7 = $__6.visited) === void 0 ? false : $__7;
+          if (!View.fake)
+            return Promise.reject('このエフェクトには事前準備が必要');
+          var fr = View.imageFrame,
+              fake = View.fake;
+          var cancelled = false;
+          View.on('go').then((function(_) {
+            return cancelled = true;
+          }));
+          if (visited)
+            setAuto(null, {visited: true});
+          return setAnimate((function(delay, complete, pause) {
+            var per = delay / msec;
+            if (per >= 1 || cancelled) {
+              per = 1;
+              complete();
+            }
+            fake.style.opacity = 1 - per;
+          })).then((function(_) {
+            fake.remove();
+            delete View.fake;
+            Data.saveDisabled = false;
+          }));
+        },
+        flash: function() {
+          var $__7;
+          var $__6 = $traceurRuntime.assertObject(arguments[0] !== (void 0) ? arguments[0] : {}),
+              msec = ($__7 = $__6.msec) === void 0 ? 300 : $__7,
+              color = ($__7 = $__6.color) === void 0 ? 'white' : $__7,
+              visited = ($__7 = $__6.visited) === void 0 ? false : $__7;
+          var fake = View.imageFrame.cloneNode(false);
+          fake.style.background = '';
+          fake.style.backgroundColor = color;
+          fake.style.opacity = '0';
+          el_context.append(fake);
+          var cancelled = false;
+          View.on('go').then((function(_) {
+            return cancelled = true;
+          }));
+          if (visited)
+            setAuto(null, {visited: true});
+          return setAnimate((function(delay, complete, pause) {
+            var per = delay / msec;
+            if (per >= 1 || cancelled) {
+              per = 1;
+              complete();
+            }
+            fake.style.opacity = per < 0.5 ? per * 2 : 2 - per * 2;
+          })).then((function(_) {
+            fake.remove();
+          }));
         },
         nextPage: function(name, opt) {
           this.mainMessageWindow.nextPage(name, opt);
@@ -2489,7 +1577,7 @@ System.register("ES6/ビュー", [], function() {
           return this.mainMessageWindow.addSentence(text, opt);
         },
         showMenu: function() {
-          var $__14 = this;
+          var $__3 = this;
           if (Data.phase != 'play' || View.menuIndex > 0)
             return View.on('Rclick').then((function(_) {
               return View.showMenu();
@@ -2497,17 +1585,20 @@ System.register("ES6/ビュー", [], function() {
           View.menuIndex = (View.menuIndex || 0) + 1;
           eventSysOnly(true);
           View.on('menu').then((function(_) {
-            if ($__14.windows.choiceBack)
-              $__14.windows.choiceBack.remove();
+            if ($__3.windows.choiceBack)
+              $__3.windows.choiceBack.remove();
             View.hideMenu();
           })).check();
           Object.keys(View.windows).forEach((function(key) {
             var el = View.windows[key];
             el.hidden = !el.hidden;
           }));
-          View.setChoiceWindow(['セーブ', 'ロード', 'ウィンドウ消去', 'ログ表示', 'オート', '既読スキップ', 'リセット'].map((function(name) {
+          var ary = ['セーブ', 'ロード', 'ウィンドウ消去', 'ログ表示', 'オート', '既読スキップ', 'リセット'].map((function(name) {
             return ({name: name});
-          })), {
+          }));
+          if (Data.saveDisabled)
+            ary[0].disabled = true;
+          View.setChoiceWindow(ary, {
             sys: true,
             closeable: true
           }).then((function(kind) {
@@ -2572,7 +1663,7 @@ System.register("ES6/ビュー", [], function() {
           }));
         },
         showLog: function(text) {
-          var $__14 = this;
+          var $__3 = this;
           if (Data.phase != 'play' || this.windows.log)
             return;
           eventSysOnly(true);
@@ -2589,7 +1680,8 @@ System.register("ES6/ビュー", [], function() {
             overflowX: 'hidden',
             overflowY: 'scroll',
             background: 'rgba(50,50,50,0.9)',
-            boxShadow: 'rgba(50,50,50,0.9) 0 0 1em 1em'
+            boxShadow: 'rgba(50,50,50,0.9) 0 0 1em 1em',
+            zIndex: '2500'
           });
           var img = new DOM('img', {
             position: 'absolute',
@@ -2598,7 +1690,7 @@ System.register("ES6/ビュー", [], function() {
             width: '3em',
             height: '3em',
             opacity: '0.5',
-            zIndex: '1000'
+            zIndex: '3000'
           });
           if ($isWebkit) {
             Util.toBlobSysPartsURL('閉じるボタン').then((function(url) {
@@ -2612,9 +1704,9 @@ System.register("ES6/ビュー", [], function() {
             evt.preventDefault();
             evt.stopImmediatePropagation();
             img.remove();
-            if ($__14.windows.log) {
-              $__14.windows.log.remove();
-              delete $__14.windows.log;
+            if ($__3.windows.log) {
+              $__3.windows.log.remove();
+              delete $__3.windows.log;
             }
             Object.keys(View.windows).forEach((function(key) {
               var el = View.windows[key];
@@ -2644,29 +1736,29 @@ System.register("ES6/ビュー", [], function() {
         }
       }
     };
-    var $__17 = $traceurRuntime.assertObject(((function(_) {
+    var $__6 = $traceurRuntime.assertObject(((function(_) {
       var enabled = false;
       var delay = 0;
       var wait = true;
       return {
-        setAuto: function() {
-          var $__19;
-          var p = arguments[0] !== (void 0) ? arguments[0] : Promise.resolve();
-          var $__18 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
-              visited = ($__19 = $__18.visited) === void 0 ? false : $__19;
+        setAuto: function(p) {
+          var $__8;
+          var $__7 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
+              visited = ($__8 = $__7.visited) === void 0 ? false : $__8;
           if (!enabled)
             return;
-          if (wait)
+          if (wait && p)
             p.delay(delay).then((function(_) {
               if (enabled)
                 eventFire('go');
             })).check();
           else if (visited) {
             eventFire('go');
-            p.delay(delay).then((function(_) {
-              if (enabled)
-                eventFire('go');
-            })).check();
+            if (p)
+              p.delay(delay).then((function(_) {
+                if (enabled)
+                  eventFire('go');
+              })).check();
           }
         },
         startAuto: function() {
@@ -2674,7 +1766,7 @@ System.register("ES6/ビュー", [], function() {
           wait = true;
           delay = 1500;
           View.on('*', stopAuto);
-          setAuto();
+          setAuto(Promise.resolve());
         },
         stopAuto: function() {
           enabled = false;
@@ -2684,15 +1776,15 @@ System.register("ES6/ビュー", [], function() {
           wait = false;
           delay = 150;
           View.on('*', stopAuto);
-          setAuto(p = Promise.reject(), {visited: 1});
+          setAuto(null, {visited: 1});
         }
       };
     }))()),
-        setAuto = $__17.setAuto,
-        startAuto = $__17.startAuto,
-        stopAuto = $__17.stopAuto,
-        startSkip = $__17.startSkip;
-    var $__17 = $traceurRuntime.assertObject(((function(_) {
+        setAuto = $__6.setAuto,
+        startAuto = $__6.startAuto,
+        stopAuto = $__6.stopAuto,
+        startSkip = $__6.startSkip;
+    var $__6 = $traceurRuntime.assertObject(((function(_) {
       var keyboardTable = {
         8: 'backspace',
         13: 'enter',
@@ -2730,10 +1822,7 @@ System.register("ES6/ビュー", [], function() {
         onEvent('contextmenu', evt);
       }), true);
       function onEvent(type, evt, sys) {
-        if (evt) {
-          evt.preventDefault();
-          evt.stopImmediatePropagation();
-        }
+        cancelEvent(evt);
         if (sysOnly && !sys)
           return;
         hooks = hooks.reduce((function(ary, hook) {
@@ -2786,19 +1875,19 @@ System.register("ES6/ビュー", [], function() {
         }
       };
     }))()),
-        hookInput = $__17.hookInput,
-        hookClear = $__17.hookClear,
-        eventBlock = $__17.eventBlock,
-        eventAllow = $__17.eventAllow,
-        eventFire = $__17.eventFire,
-        eventSysOnly = $__17.eventSysOnly;
+        hookInput = $__6.hookInput,
+        hookClear = $__6.hookClear,
+        eventBlock = $__6.eventBlock,
+        eventAllow = $__6.eventAllow,
+        eventFire = $__6.eventFire,
+        eventSysOnly = $__6.eventSysOnly;
     function vibrate() {
-      var $__20;
+      var $__9;
       for (var args = [],
-          $__15 = 0; $__15 < arguments.length; $__15++)
-        args[$__15] = arguments[$__15];
+          $__4 = 0; $__4 < arguments.length; $__4++)
+        args[$__4] = arguments[$__4];
       if (typeof navigator.vibrate == 'function')
-        ($__20 = navigator).vibrate.apply($__20, $traceurRuntime.toObject(args));
+        ($__9 = navigator).vibrate.apply($__9, $traceurRuntime.toObject(args));
     }
     var $full = false;
     var $ratio = 16 / 9;
@@ -2817,10 +1906,10 @@ System.get("ES6/ビュー" + '');
 System.register("ES6/サウンド", [], function() {
   "use strict";
   var __moduleName = "ES6/サウンド";
-  READY('Storage', 'Player').then((function($__23) {
+  READY('Storage', 'Player').then((function($__12) {
     'use strict';
-    var Util = $__23.Util;
-    var init = Util.co($traceurRuntime.initGeneratorFunction(function $__25() {
+    var Util = $__12.Util;
+    var init = Util.co($traceurRuntime.initGeneratorFunction(function $__14() {
       var soundEnabled;
       return $traceurRuntime.createGeneratorInstance(function($ctx) {
         while (true)
@@ -2839,7 +1928,7 @@ System.register("ES6/サウンド", [], function() {
             default:
               return $ctx.end();
           }
-      }, $__25, this);
+      }, $__14, this);
     }));
     var setup = (function(config) {
       var soundEnabled = $traceurRuntime.assertObject(config).soundEnabled;
@@ -2919,41 +2008,41 @@ System.register("ES6/サウンド", [], function() {
       };
       ($traceurRuntime.createClass)(Sound, {
         load: function() {
-          var $__21 = this;
+          var $__10 = this;
           var url = this.url;
           var buf = bufferMap.get(url);
           if (buf)
             return Promise.resolve(buf);
           return Util.load(url, 'arraybuffer').then((function(buf) {
             bufferMap.set(url, buf);
-            $__21.buf = buf;
+            $__10.buf = buf;
           }));
         },
         prepare: function() {
-          var $__21 = this;
+          var $__10 = this;
           var buf = this.buf;
           if (!buf)
             return this.load().then((function(_) {
-              return $__21.prepare();
+              return $__10.prepare();
             }));
           return new Promise((function(ok, ng) {
             ctx.decodeAudioData(buf.slice(), (function(buf) {
               var src = ctx.createBufferSource();
               src.buffer = buf;
-              src.connect($__21.gain);
-              $__21.src = src;
+              src.connect($__10.gain);
+              $__10.src = src;
               ok();
             }), ng);
           }));
         },
         play: function() {
-          var $__21 = this;
+          var $__10 = this;
           if (!canplay())
             return Promise.resolve(null);
           var src = this.src;
           if (!src)
             return this.prepare().then((function(_) {
-              return $__21.play();
+              return $__10.play();
             }));
           src.start();
           this.src = null;
@@ -2987,12 +2076,1111 @@ System.register("ES6/サウンド", [], function() {
   return {};
 });
 System.get("ES6/サウンド" + '');
+System.register("ES6/プレーヤー", [], function() {
+  "use strict";
+  var __moduleName = "ES6/プレーヤー";
+  READY().then((function($__16) {
+    'use strict';
+    var Util = $__16.Util;
+    function setPhase(phase) {
+      document.title = '【' + phase + '】';
+    }
+    function setRunPhase(kind) {
+      setPhase((kind + "中..."));
+    }
+    function setErrorPhase(kind) {
+      setPhase((kind + "エラー"));
+    }
+    function parseScript(text) {
+      text = text.replace(/\r\n/g, '\n').replace(/\n+/g, '\n').replace(/\n/g, '\r\n') + '\r\n';
+      text = text.replace(/^\/\/.*/gm, '');
+      text = text.replace(/^\#(.*)/gm, (function(_, str) {
+        return ("・マーク\r\n\t" + str);
+      }));
+      function parseOne(base, text) {
+        var chanks = text.match(/[^\n]+?\n(\t+[\s\S]+?\n)+/g) || [];
+        chanks.forEach((function(chank) {
+          var blocks = chank.replace(/^\t/gm, '').replace(/\n$/, '').match(/.+/g);
+          var act = blocks.shift().trim();
+          var data = '\n' + blocks.join('\n') + '\n';
+          var ary = [];
+          if (act[0] !== '・') {
+            base.push(['会話', [[act, blocks]]]);
+            return;
+          } else
+            act = act.slice(1);
+          if (data.match(/\t/)) {
+            base.push([act, ary]);
+            parseOne(ary, data);
+          } else
+            base.push([act, blocks]);
+        }));
+      }
+      var base = [];
+      cacheEmogi(text);
+      parseOne(base, text);
+      return base;
+    }
+    function copyObject(obj) {
+      return JSON.parse(JSON.stringify(obj));
+    }
+    function otherName(name) {
+      return function() {
+        return this[name].apply(this, arguments);
+      };
+    }
+    function cacheEmogi(text) {
+      ;
+      (text.match(/\\\[.+\]/g) || []).forEach((function(eff) {
+        var name = eff.slice(2, -1);
+        Util.toBlobEmogiURL(name);
+      }));
+    }
+    var preloadAppend = ((function(_) {
+      var buffer = [];
+      var max = 2;
+      var n = 0;
+      function next() {
+        while (n < max) {
+          var func = buffer.shift();
+          if (!func)
+            return;
+          ++n;
+          Promise.resolve(func()).through((function(_) {
+            --n;
+            next();
+          })).check();
+        }
+      }
+      function append(func) {
+        buffer.push(func);
+        next();
+      }
+      return append;
+    }))();
+    function flattenScript(script) {
+      var buf = [];
+      function flatten(script) {
+        var bk = [];
+        var q = 0;
+        script.forEach((function(prog) {
+          bk.forEach((function(n) {
+            buf[n] = buf.length - (q ? 1 : 0);
+          }));
+          bk = [];
+          if (q)
+            buf[q] = buf.length;
+          q = 0;
+          var $__17 = $traceurRuntime.assertObject(prog),
+              act = $__17[0],
+              data = $__17[1];
+          switch (act) {
+            case '繰返':
+            case '繰返し':
+            case '繰り返し':
+              q = buf.length + 2;
+            case '選択':
+            case '選択肢':
+            case '分岐':
+              var cp = buf.push(act, null) - 1;
+              if (q)
+                buf.push(-1);
+              buf[cp] = data.map((function($__17) {
+                var lab = $__17[0],
+                    val = $__17[1];
+                if (Array.isArray(val[0])) {
+                  var p = buf.length;
+                  bk.push(flatten(val));
+                  val = p;
+                }
+                return [lab, val];
+              }));
+              if (q) {
+                buf[cp].unshift(q);
+                buf.push(cp - 1);
+              }
+              break;
+            default:
+              buf.push(act, data);
+          }
+        }));
+        return buf.push(-1) - 1;
+      }
+      flatten(script);
+      return buf;
+    }
+    function cacheScript(script) {
+      var sname = arguments[1] !== (void 0) ? arguments[1] : script.sname;
+      if (!Array.isArray(script)) {
+        LOG('不正なスクリプトのためキャッシュできない');
+        LOG(script);
+        return Promise.reject('不正なスクリプトのためキャッシュできない');
+      }
+      if (!sname)
+        LOG('!!!sname');
+      script = copyObject(script);
+      var defer = Promise.defer();
+      var caching = 0;
+      function append(args) {
+        var toURL = arguments[1] !== (void 0) ? arguments[1] : Util.toBlobURL;
+        ++caching;
+        preloadAppend((function(_) {
+          return toURL.apply(null, $traceurRuntime.toObject(args)).through((function(_) {
+            if (--caching <= 0)
+              defer.resolve();
+          })).check();
+        }));
+      }
+      for (var po = 0; po < script.length; po++) {
+        try {
+          var act = script[po];
+          if (!act)
+            continue;
+          if (typeof act != 'string')
+            continue;
+          var data = script[++po];
+          switch (act) {
+            case '背景':
+              var name = data[0];
+              append(['背景', name, 'jpg']);
+              break;
+            case '立絵':
+            case '立ち絵':
+              data.forEach((function(ary) {
+                if (Util.isNoneType(ary))
+                  return;
+                var $__17 = $traceurRuntime.assertObject(ary),
+                    position = $__17[0],
+                    names = $__17[1];
+                if (!position)
+                  return;
+                if (!names)
+                  return;
+                var name = names[0];
+                append(['立ち絵', name, 'png']);
+              }));
+              break;
+            case '繰返':
+            case '繰返し':
+            case '繰り返し':
+            case '選択':
+            case '選択肢':
+            case '分岐':
+              data = data.reduce((function(base, ary) {
+                var val = ary[1];
+                if (val && typeof val[0] == 'string')
+                  base.push(val[0]);
+                return base;
+              }), []);
+            case 'ジャンプ':
+              data.forEach((function(to) {
+                var $__18;
+                if (!to)
+                  return;
+                var name = to,
+                    base = sname;
+                var $__17 = $traceurRuntime.assertObject(name.replace(/＃/g, '#').split('#')),
+                    name = $__17[0],
+                    mark = ($__18 = $__17[1]) === void 0 ? '' : $__18;
+                if (!name)
+                  name = base.replace(/＃/g, '#').split('#')[0];
+                var subkey = (Data.scenarioName + "/" + Util.forceName('シナリオ', name, 'txt'));
+                if (!Util.cacheHas(subkey))
+                  fetchScriptData(to, base).then((function(script) {
+                    return cacheScript(script);
+                  })).check();
+              }));
+              break;
+          }
+        } catch (err) {
+          LOG(("キャッシュ中にコマンド『" + act + "』で『" + err + "』が起きた"));
+        }
+      }
+      if (caching == 0)
+        defer.resolve();
+      return defer.promise;
+    }
+    function runScript(script) {
+      var sname = arguments[1] !== (void 0) ? arguments[1] : script.sname;
+      var masterComp = arguments[2];
+      var $__15;
+      if (!sname)
+        LOG('!!!sname');
+      sname = sname.split('#')[0];
+      View.changeModeIfNeeded('NOVEL');
+      Data.phase = 'play';
+      document.title = ("【" + Data.scenarioName + "】");
+      var run = Promise.defer();
+      if (!masterComp)
+        masterComp = run.resolve;
+      var $__17 = $traceurRuntime.assertObject(script),
+          mark = $__17.mark,
+          hash = $__17.hash,
+          params = $__17.params,
+          scenario = $__17.scenario,
+          active = $__17.active;
+      if (mark)
+        Data.current.mark = mark;
+      var searching = !!hash;
+      if (params)
+        Object.keys(params).forEach((function(name) {
+          return Util.paramSet(name, params[name]);
+        }));
+      script = copyObject(script);
+      var gsave = Data.current.setting;
+      var visited = $traceurRuntime.assertObject(gsave).visited;
+      if (!visited)
+        gsave.visited = visited = {};
+      var vBA = visited[sname];
+      if (!vBA)
+        visited[sname] = vBA = BitArray.create(script.length);
+      function runChildScript(script) {
+        return runScript(script, undefined, masterComp);
+      }
+      var actHandlers = ($__15 = {}, Object.defineProperty($__15, "会話", {
+        value: function(data, done, failed, $__17) {
+          var visited = $__17.visited;
+          var isNone = Util.isNoneType(data[0]);
+          View.mainMessageWindow.el.style.opacity = isNone ? '0' : '';
+          if (isNone)
+            return done();
+          save();
+          function nextPage() {
+            var ary = data.shift();
+            if (!ary) {
+              autosave(false);
+              return done();
+            }
+            var name = ary[0],
+                texts = ary[1];
+            if (Util.isNoneType(name))
+              name = '';
+            name = replaceEffect(name);
+            View.nextPage(name, {visited: visited});
+            function nextSentence() {
+              var text = texts.shift();
+              if (!text)
+                return nextPage();
+              text = text.replace(/\\w\[(\d*)\]/g, (function(_, num) {
+                return '\u200B'.repeat(+num || 1);
+              }));
+              text = replaceEffect(text);
+              View.addSentence(text, {visited: visited}).on('go', nextSentence, failed);
+            }
+            nextSentence();
+          }
+          nextPage();
+        },
+        configurable: true,
+        enumerable: true,
+        writable: true
+      }), Object.defineProperty($__15, "背景", {
+        value: function(data, done, failed) {
+          var name = replaceEffect(data[0]);
+          Util.toBlobURL('背景', name, 'jpg').then((function(url) {
+            return View.setBGImage({
+              name: name,
+              url: url
+            });
+          })).then(done, failed);
+        },
+        configurable: true,
+        enumerable: true,
+        writable: true
+      }), Object.defineProperty($__15, "立絵", {
+        value: otherName('立ち絵'),
+        configurable: true,
+        enumerable: true,
+        writable: true
+      }), Object.defineProperty($__15, "立ち絵", {
+        value: function(data, done, failed) {
+          Promise.all(data.reduce((function(base, ary) {
+            var $__19,
+                $__20;
+            if (!base)
+              return;
+            if (Util.isNoneType(ary))
+              return base;
+            var $__18 = $traceurRuntime.assertObject(ary),
+                position = $__18[0],
+                names = $__18[1];
+            if (!position)
+              return failed('不正な位置検出');
+            if (!names)
+              return failed('不正な画像名検出');
+            position = replaceEffect(position);
+            var name = replaceEffect(names[0]);
+            var a_type = ['left', 'right']['左右'.indexOf(position)];
+            var v_type = 'top';
+            var $__18 = [0, 0],
+                a_per = $__18[0],
+                v_per = $__18[1];
+            var height = null;
+            if (!a_type) {
+              var pos = Util.toHalfWidth(position).match(/[+\-0-9.]+/g);
+              if (!pos)
+                return failed('不正な位置検出');
+              var $__18 = $traceurRuntime.assertObject(pos),
+                  a_pos = $__18[0],
+                  v_pos = ($__19 = $__18[1]) === void 0 ? '0' : $__19,
+                  height = ($__20 = $__18[2]) === void 0 ? null : $__20;
+              a_per = Math.abs(+a_pos);
+              v_per = Math.abs(+v_pos);
+              a_type = a_pos.match('-') ? 'right' : 'left';
+              v_type = v_pos.match('-') ? 'bottom' : 'top';
+              height = Util.toSize(height);
+            }
+            base.push(Util.toBlobURL('立ち絵', name, 'png').then((function(url) {
+              var $__15;
+              return (($__15 = {}, Object.defineProperty($__15, "name", {
+                value: name,
+                configurable: true,
+                enumerable: true,
+                writable: true
+              }), Object.defineProperty($__15, "url", {
+                value: url,
+                configurable: true,
+                enumerable: true,
+                writable: true
+              }), Object.defineProperty($__15, "height", {
+                value: height,
+                configurable: true,
+                enumerable: true,
+                writable: true
+              }), Object.defineProperty($__15, a_type, {
+                value: (a_per + "%"),
+                configurable: true,
+                enumerable: true,
+                writable: true
+              }), Object.defineProperty($__15, v_type, {
+                value: (v_per + "%"),
+                configurable: true,
+                enumerable: true,
+                writable: true
+              }), $__15));
+            })));
+            return base;
+          }), [])).then((function(opt) {
+            return View.setFDImages(opt);
+          })).then(done, failed);
+        },
+        configurable: true,
+        enumerable: true,
+        writable: true
+      }), Object.defineProperty($__15, "効果", {
+        value: otherName('エフェクト'),
+        configurable: true,
+        enumerable: true,
+        writable: true
+      }), Object.defineProperty($__15, "エフェクト", {
+        value: function(data, done, failed, $__18) {
+          var visited = $__18.visited;
+          data.forEach((function(prog) {
+            if (prog == 'フェード準備')
+              return View.prepareFade().then(done, failed);
+            var act = prog[0],
+                opt = Util.toHalfWidth(replaceEffect(prog[1][0])).split(/\s+/);
+            var msec = opt[0].match(/[\d.]+/) * 1000;
+            switch (act) {
+              case 'フェード':
+                return View.fade({
+                  msec: msec,
+                  visited: visited
+                }).then(done, failed);
+                break;
+              case 'フラッシュ':
+                var color = opt[1];
+                return View.flash({
+                  msec: msec,
+                  color: color,
+                  visited: visited
+                }).then(done, failed);
+                break;
+              default:
+                failed('想定外のエフェクトタイプ');
+            }
+          }));
+        },
+        configurable: true,
+        enumerable: true,
+        writable: true
+      }), Object.defineProperty($__15, "選択", {
+        value: otherName('選択肢'),
+        configurable: true,
+        enumerable: true,
+        writable: true
+      }), Object.defineProperty($__15, "選択肢", {
+        value: function(data, done, failed) {
+          View.setChoiceWindow(data.map((function(ary) {
+            return {
+              name: replaceEffect(ary[0]),
+              value: ary[1]
+            };
+          }))).then((function(value) {
+            if (typeof value[0] == 'string')
+              actHandlers['ジャンプ'](value, done, failed);
+            else {
+              po = value;
+              done();
+            }
+          }));
+        },
+        configurable: true,
+        enumerable: true,
+        writable: true
+      }), Object.defineProperty($__15, "ジャンプ", {
+        value: function(data, done, failed) {
+          var to = replaceEffect(data[0]);
+          fetchScriptData(to, sname).then((function(script) {
+            return runChildScript(script);
+          })).then(done, failed);
+        },
+        configurable: true,
+        enumerable: true,
+        writable: true
+      }), Object.defineProperty($__15, "変数", {
+        value: otherName('パラメータ'),
+        configurable: true,
+        enumerable: true,
+        writable: true
+      }), Object.defineProperty($__15, "パラメーター", {
+        value: otherName('パラメータ'),
+        configurable: true,
+        enumerable: true,
+        writable: true
+      }), Object.defineProperty($__15, "パラメータ", {
+        value: function(data, done, failed) {
+          data.forEach((function(str) {
+            str = Util.toHalfWidth(str);
+            str = str.match(/(.+)\:(.+)/);
+            if (!str)
+              return failed('不正なパラメータ指定検出');
+            var name = replaceEffect(str[1]);
+            var effect = str[2];
+            if (!name)
+              return failed('不正なパラメータ指定検出');
+            var eff = evalEffect(effect, failed);
+            Util.paramSet(name, eff);
+          }));
+          done();
+        },
+        configurable: true,
+        enumerable: true,
+        writable: true
+      }), Object.defineProperty($__15, "入力", {
+        value: function(data, done, failed) {
+          str = Util.toHalfWidth(data[0]);
+          if (!str)
+            return failed('不正なパラメータ指定検出');
+          var str = /.+\:/.test(str) ? str.match(/(.+)\:(.*)/) : [, str, '""'];
+          var name = replaceEffect(str[1]);
+          var effect = str[2];
+          var eff = evalEffect(effect, failed);
+          var rv = prompt('', eff) || eff;
+          Util.paramSet(name, rv);
+          done();
+        },
+        configurable: true,
+        enumerable: true,
+        writable: true
+      }), Object.defineProperty($__15, "繰返", {
+        value: otherName('繰り返し'),
+        configurable: true,
+        enumerable: true,
+        writable: true
+      }), Object.defineProperty($__15, "繰返し", {
+        value: otherName('繰り返し'),
+        configurable: true,
+        enumerable: true,
+        writable: true
+      }), Object.defineProperty($__15, "繰り返し", {
+        value: function(data, done, failed) {
+          var q = data[0];
+          data = data.slice(1);
+          if (!data.some((function($__19) {
+            var effect = $__19[0],
+                acts = $__19[1];
+            if (!effect)
+              return failed('不正なパラメータ指定検出');
+            var flag = !!evalEffect(effect, failed);
+            if (flag)
+              po = acts;
+            return flag;
+          })))
+            po = q;
+          done();
+        },
+        configurable: true,
+        enumerable: true,
+        writable: true
+      }), Object.defineProperty($__15, "分岐", {
+        value: function(data, done, failed) {
+          data.some((function($__19) {
+            var effect = $__19[0],
+                acts = $__19[1];
+            if (!effect)
+              return failed('不正なパラメータ指定検出');
+            var flag = !!evalEffect(effect, failed);
+            if (flag)
+              po = acts;
+            return flag;
+          }));
+          done();
+        },
+        configurable: true,
+        enumerable: true,
+        writable: true
+      }), Object.defineProperty($__15, "マーク", {
+        value: function(data, done, failed) {
+          Data.current.mark = data[0];
+          autosave();
+          done();
+        },
+        configurable: true,
+        enumerable: true,
+        writable: true
+      }), Object.defineProperty($__15, "スクリプト", {
+        value: function(data, done, failed) {
+          var act = data[0];
+          if (Util.isNoneType(act))
+            return done();
+          switch (act) {
+            case '戻る':
+            case 'もどる':
+            case '帰る':
+            case 'かえる':
+              run.resolve();
+              break;
+            case '終わる':
+            case '終る':
+            case 'おわる':
+              masterComp();
+              break;
+            default:
+              failed(("不正なスクリプトコマンド『" + act + "』"));
+          }
+        },
+        configurable: true,
+        enumerable: true,
+        writable: true
+      }), Object.defineProperty($__15, "コメント", {
+        value: function(data, done, failed) {
+          done();
+        },
+        configurable: true,
+        enumerable: true,
+        writable: true
+      }), $__15);
+      function save() {
+        var params = {};
+        var globalParams = {};
+        Util.paramForEach((function(value, key) {
+          params[key] = value;
+        }));
+        var cp = {
+          script: sname,
+          params: params,
+          active: Data.current.active,
+          point: po - 2,
+          mark: Data.current.mark
+        };
+        Data.current.point = cp;
+      }
+      function autosave(full) {
+        var p = Storage.setGlobalData(Data.current.setting);
+        if (!full)
+          return p;
+        save();
+        Util.updateDebugWindow();
+        return Promise.all([p, Storage.getSaveDatas(101, 110).then((function(saves) {
+          saves.pop();
+          saves.unshift(Data.current.point);
+          saves.forEach((function(save, i) {
+            if (save)
+              Storage.setSaveData(i, save);
+          }));
+        }))]);
+      }
+      function main_loop() {
+        var act,
+            loop = new Promise((function(resolve, reject) {
+              act = script[po];
+              if (!act) {
+                return searching ? run.reject(("マーク『" + hash + "』が見つかりません。")) : run.resolve();
+              }
+              if (!searching && typeof act == 'number') {
+                if (searching && (+hash === po))
+                  searching = false;
+                else
+                  po = act;
+                return resolve();
+              }
+              if (searching) {
+                if (+hash === po) {
+                  searching = false;
+                } else if (act == 'マーク') {
+                  var data = script[++po];
+                  ++po;
+                  var mark = data[0];
+                  if (mark == hash) {
+                    searching = false;
+                    return actHandlers['マーク']([mark], resolve, reject);
+                  }
+                } else
+                  ++po;
+                resolve();
+              } else if (act in actHandlers) {
+                var visited = BitArray.get(vBA, po) === 1;
+                var visit = BitArray.set.bind(BitArray, vBA, po);
+                var data = script[++po];
+                ++po;
+                actHandlers[act](data, (function(_) {
+                  visit();
+                  resolve();
+                }), reject, {visited: visited});
+              } else {
+                Util.error('サポートされていないコマンド『' + act + '』を検出しました。\n\nこのコマンドを飛ばして再生が継続されます。');
+                ++po;
+                resolve();
+              }
+            })).then(main_loop, (function(err) {
+              var message = err ? ("コマンド『" + (act ? act : '(不明)') + "』で『" + err + "』が起こりました。") : ("コマンド『" + act + "』が原因かもしれません。");
+              Util.error('スクリプトを解析中にエラーが発生しました。\n\n' + message + '\n\nこのコマンドを保証せず再生が継続されます。');
+              return main_loop();
+            }));
+      }
+      var po = 0;
+      new Promise((function(ok) {
+        if (active) {
+          var p = [];
+          var obj = active.BGImage;
+          if (obj && obj.name) {
+            p.push(Util.toBlobURL('背景', obj.name, 'jpg').then((function(url) {
+              obj.url = url;
+              return obj;
+            })).then((function(obj) {
+              return View.setBGImage(obj);
+            })));
+          }
+          var ary = active.FDImages;
+          if (ary) {
+            p.push(Promise.all(ary.map((function(obj) {
+              return obj.name ? Util.toBlobURL('立ち絵', obj.name, 'png').then((function(url) {
+                obj.url = url;
+                return obj;
+              })) : 1;
+            }))).then((function(opts) {
+              return View.setFDImages(opts);
+            })));
+          }
+          Promise.all(p).then(ok).check();
+        } else
+          ok();
+      })).then(main_loop);
+      return run.promise;
+    }
+    function replaceEffect(str) {
+      return str.replace(/\\{(.+?)}/g, (function(_, efect) {
+        return evalEffect(efect);
+      }));
+    }
+    function evalEffect(effect, failed) {
+      effect = effect.trim();
+      if (Util.isNoneType(effect))
+        return true;
+      effect = Util.toHalfWidth(effect).replace(/\\/g, '\\\\').replace(/\=\=/g, '=').replace(/[^!><=]\=/g, (function(str) {
+        return str.replace('=', '==');
+      })).replace(/\&\&/g, '&').replace(/[^!><&]\&/g, (function(str) {
+        return str.replace('&', '&&');
+      })).replace(/\|\|/g, '|').replace(/[^!><|]\|/g, (function(str) {
+        return str.replace('|', '||');
+      })).replace(/^ー/, '-').replace(/([\u1-\u1000\s])(ー)/g, '$1-').replace(/(ー)([\u1-\u1000\s])/g, '-$2');
+      if (!effect)
+        return failed('不正なパラメータ指定検出');
+      if (/\'/.test(effect))
+        return failed('危険な記号の検出');
+      effect = effect.replace(/[^+\-*/%><!=?:()&|\s]+/g, (function(str) {
+        if (/^[0-9.]+$/.test(str))
+          return str;
+        if (/^"[^"]*"$/.test(str))
+          return str;
+        return ("Util.paramGet('" + str + "')");
+      }));
+      return eval(effect);
+    }
+    function print(message) {
+      if (!View.print)
+        View.changeMode('TEST');
+      View.print(message);
+    }
+    function loadSaveData() {
+      return Util.co($traceurRuntime.initGeneratorFunction(function $__21() {
+        var saves,
+            opts,
+            save,
+            $__17,
+            params,
+            script,
+            point,
+            active,
+            mark;
+        return $traceurRuntime.createGeneratorInstance(function($ctx) {
+          while (true)
+            switch ($ctx.state) {
+              case 0:
+                $ctx.state = 2;
+                return Storage.getSaveDatas(1, 110);
+              case 2:
+                saves = $ctx.sent;
+                $ctx.state = 4;
+                break;
+              case 4:
+                opts = saves.map((function(save, i) {
+                  if (!save)
+                    var mark = '------------';
+                  else if (save.systemVersion !== Storage.VERSION) {
+                    save = null;
+                    mark = '--old data--';
+                  } else
+                    mark = save.mark || '(no name)';
+                  var name = i > 100 ? 'A' + (i - 100) : i;
+                  return {
+                    name: (name + "．" + mark),
+                    value: save,
+                    disabled: !save
+                  };
+                }));
+                $ctx.state = 15;
+                break;
+              case 15:
+                $ctx.state = 6;
+                return View.setChoiceWindow(opts, {
+                  sys: true,
+                  closeable: true
+                });
+              case 6:
+                save = $ctx.sent;
+                $ctx.state = 8;
+                break;
+              case 8:
+                $ctx.state = (save == '閉じる') ? 9 : 10;
+                break;
+              case 9:
+                $ctx.returnValue = false;
+                $ctx.state = -2;
+                break;
+              case 10:
+                $__17 = $traceurRuntime.assertObject(save), params = $__17.params, script = $__17.script, point = $__17.point, active = $__17.active, mark = $__17.mark;
+                Util.paramClear();
+                $ctx.state = 17;
+                break;
+              case 17:
+                $ctx.returnValue = Player.fetchScriptData((script + "#" + point)).then((function(script) {
+                  script.params = params;
+                  script.scenario = Data.scenarioName;
+                  script.active = active;
+                  script.mark = mark;
+                  return script;
+                }));
+                $ctx.state = -2;
+                break;
+              default:
+                return $ctx.end();
+            }
+        }, $__21, this);
+      }))();
+    }
+    function saveSaveData() {
+      return Util.co($traceurRuntime.initGeneratorFunction(function $__21() {
+        var saves,
+            opts,
+            no,
+            con,
+            params,
+            save,
+            $__22,
+            $__23,
+            $__24,
+            $__25,
+            $__26;
+        return $traceurRuntime.createGeneratorInstance(function($ctx) {
+          while (true)
+            switch ($ctx.state) {
+              case 0:
+                $ctx.state = 2;
+                return Storage.getSaveDatas(1, 100);
+              case 2:
+                saves = $ctx.sent;
+                $ctx.state = 4;
+                break;
+              case 4:
+                opts = saves.map((function(save, i) {
+                  if (!save)
+                    var mark = '----------';
+                  else if (save.systemVersion !== Storage.VERSION) {
+                    mark = '--old data--';
+                  } else
+                    mark = save.mark || '(no name)';
+                  var name = i;
+                  return {
+                    name: (name + "．" + mark),
+                    value: i
+                  };
+                }));
+                $ctx.state = 41;
+                break;
+              case 41:
+                $ctx.state = 6;
+                return View.setChoiceWindow(opts, {
+                  sys: true,
+                  closeable: true
+                });
+              case 6:
+                no = $ctx.sent;
+                $ctx.state = 8;
+                break;
+              case 8:
+                $ctx.state = (no == '閉じる') ? 9 : 10;
+                break;
+              case 9:
+                $ctx.returnValue = false;
+                $ctx.state = -2;
+                break;
+              case 10:
+                $__22 = saves[no];
+                $ctx.state = 24;
+                break;
+              case 24:
+                $ctx.state = ($__22) ? 16 : 20;
+                break;
+              case 16:
+                $__23 = View.setConfirmWindow;
+                $__24 = $__23.call(View, '上書きする');
+                $ctx.state = 17;
+                break;
+              case 17:
+                $ctx.state = 13;
+                return $__24;
+              case 13:
+                $__25 = $ctx.sent;
+                $ctx.state = 15;
+                break;
+              case 15:
+                $__26 = $__25;
+                $ctx.state = 19;
+                break;
+              case 20:
+                $__26 = true;
+                $ctx.state = 19;
+                break;
+              case 19:
+                con = $__26;
+                $ctx.state = 26;
+                break;
+              case 26:
+                $ctx.state = (!con) ? 27 : 28;
+                break;
+              case 27:
+                $ctx.returnValue = false;
+                $ctx.state = -2;
+                break;
+              case 28:
+                params = {};
+                Util.paramForEach((function(value, key) {
+                  return params[key] = value;
+                }));
+                save = Data.current.point;
+                save.scenarioVersion = Data.current.scenarioVersion;
+                save.systemVersion = Storage.VERSION;
+                $ctx.state = 43;
+                break;
+              case 43:
+                $ctx.state = 31;
+                return Storage.setSaveData(no, save);
+              case 31:
+                $ctx.maybeThrow();
+                $ctx.state = 33;
+                break;
+              case 33:
+                $ctx.state = 35;
+                return Storage.setGlobalData(Data.current.setting);
+              case 35:
+                $ctx.maybeThrow();
+                $ctx.state = 37;
+                break;
+              case 37:
+                $ctx.returnValue = true;
+                $ctx.state = -2;
+                break;
+              default:
+                return $ctx.end();
+            }
+        }, $__21, this);
+      }))();
+    }
+    function deleteSaveData() {
+      return Util.co($traceurRuntime.initGeneratorFunction(function $__21() {
+        var con;
+        return $traceurRuntime.createGeneratorInstance(function($ctx) {
+          while (true)
+            switch ($ctx.state) {
+              case 0:
+                $ctx.state = 2;
+                return View.setConfirmWindow('初期化する');
+              case 2:
+                con = $ctx.sent;
+                $ctx.state = 4;
+                break;
+              case 4:
+                $ctx.state = (!con) ? 5 : 6;
+                break;
+              case 5:
+                $ctx.returnValue = false;
+                $ctx.state = -2;
+                break;
+              case 6:
+                $ctx.state = 9;
+                return Storage.deleteSaveDatas(true);
+              case 9:
+                $ctx.maybeThrow();
+                $ctx.state = 11;
+                break;
+              case 11:
+                $ctx.state = 13;
+                return Storage.setGlobalData({scenarioVersion: Data.current.scenarioVersion});
+              case 13:
+                $ctx.maybeThrow();
+                $ctx.state = 15;
+                break;
+              case 15:
+                $ctx.returnValue = true;
+                $ctx.state = -2;
+                break;
+              default:
+                return $ctx.end();
+            }
+        }, $__21, this);
+      }))();
+    }
+    function init() {
+      Data.phase = 'pause';
+      Player.setRunPhase('準備');
+      Util.paramClear(true);
+      View.clean();
+    }
+    function setSetting(scenario, setting) {
+      return Util.co($traceurRuntime.initGeneratorFunction(function $__21() {
+        var gsave,
+            gparams,
+            v;
+        return $traceurRuntime.createGeneratorInstance(function($ctx) {
+          while (true)
+            switch ($ctx.state) {
+              case 0:
+                Data.dataSaveName = (setting['データ保存名'] || [undefined])[0];
+                Data.scenarioName = scenario;
+                Data.settingData = setting;
+                $ctx.state = 16;
+                break;
+              case 16:
+                $ctx.state = 2;
+                return Storage.getGlobalData();
+              case 2:
+                gsave = $ctx.sent;
+                $ctx.state = 4;
+                break;
+              case 4:
+                $ctx.state = (!gsave) ? 9 : 8;
+                break;
+              case 9:
+                gsave = {};
+                $ctx.state = 10;
+                break;
+              case 10:
+                $ctx.state = 6;
+                return Storage.setGlobalData(gsave);
+              case 6:
+                $ctx.maybeThrow();
+                $ctx.state = 8;
+                break;
+              case 8:
+                Data.current = {
+                  setting: gsave,
+                  active: {}
+                };
+                gparams = gsave.params || {};
+                Object.keys(gparams).forEach((function(key) {
+                  Util.paramSet(key, gparams[key], false);
+                }));
+                v = Data.current.scenarioVersion = Util.toHalfWidth((setting['バージョン'] || ['0'])[0]);
+                $ctx.state = 18;
+                break;
+              case 18:
+                $ctx.state = (Data.current.setting.scenarioVersion != v) ? 12 : -2;
+                break;
+              case 12:
+                $ctx.returnValue = true;
+                $ctx.state = -2;
+                break;
+              default:
+                return $ctx.end();
+            }
+        }, $__21, this);
+      }))();
+    }
+    function fetchSettingData(url) {
+      return Util.loadText(url).then((function(text) {
+        var setting = parseScript(text);
+        var data = {};
+        setting.forEach((function(ary) {
+          data[ary[0]] = ary[1];
+        }));
+        return data;
+      }));
+    }
+    function fetchScriptData(name, base) {
+      var $__18;
+      if (!name)
+        return Promise.reject('子スクリプト名が不正');
+      var $__17 = $traceurRuntime.assertObject(name.replace(/＃/g, '#').split('#')),
+          name = $__17[0],
+          hash = ($__18 = $__17[1]) === void 0 ? '' : $__18;
+      if (!name) {
+        if (!base)
+          return Promise.reject('親スクリプト名が必要');
+        name = base.replace(/＃/g, '#').split('#')[0];
+      }
+      return Util.toBlobScriptURL(name).then(Util.loadText).then(parseScript).then(flattenScript).then((function(script) {
+        script.hash = hash;
+        script.sname = name;
+        return script;
+      }));
+    }
+    READY.Player.ready({
+      setRunPhase: setRunPhase,
+      setErrorPhase: setErrorPhase,
+      fetchSettingData: fetchSettingData,
+      fetchScriptData: fetchScriptData,
+      runScript: runScript,
+      print: print,
+      loadSaveData: loadSaveData,
+      saveSaveData: saveSaveData,
+      deleteSaveData: deleteSaveData,
+      evalEffect: evalEffect,
+      init: init,
+      setSetting: setSetting,
+      cacheScript: cacheScript
+    });
+  })).check();
+  return {};
+});
+System.get("ES6/プレーヤー" + '');
 System.register("ES6/ゲーム", [], function() {
   "use strict";
   var __moduleName = "ES6/ゲーム";
-  READY('Player', 'View', 'Sound').then((function($__26) {
+  READY('Player', 'View', 'Sound').then((function($__27) {
     'use strict';
-    var Util = $__26.Util;
+    var Util = $__27.Util;
     var message = ((function(_) {
       var abort = Util.NOP;
       return (function(text) {
@@ -3004,9 +3192,11 @@ System.register("ES6/ゲーム", [], function() {
         return p;
       });
     }))();
-    var setup = Util.co($traceurRuntime.initGeneratorFunction(function $__27() {
-      var setting,
+    var setup = Util.co($traceurRuntime.initGeneratorFunction(function $__29() {
+      var $__28,
+          setting,
           scenario,
+          reqNew,
           script;
       return $traceurRuntime.createGeneratorInstance(function($ctx) {
         while (true)
@@ -3014,9 +3204,9 @@ System.register("ES6/ゲーム", [], function() {
             case 0:
               Player.init();
               setSysBG();
-              $ctx.state = 27;
+              $ctx.state = 38;
               break;
-            case 27:
+            case 38:
               $ctx.state = 2;
               return Player.fetchSettingData(Data.URL.ContentsSetting);
             case 2:
@@ -3026,9 +3216,9 @@ System.register("ES6/ゲーム", [], function() {
             case 4:
               View.on('menu').then(setup);
               message('再生する作品を選んでください');
-              $ctx.state = 29;
+              $ctx.state = 40;
               break;
-            case 29:
+            case 40:
               $ctx.state = 6;
               return new Promise((function(ok, ng) {
                 var novels = setting['作品'];
@@ -3048,32 +3238,53 @@ System.register("ES6/ゲーム", [], function() {
               break;
             case 8:
               $ctx.state = 10;
-              return Player.setScenario(scenario);
+              return Player.fetchSettingData(("データ/" + scenario + "/設定.txt"));
             case 10:
-              $ctx.maybeThrow();
+              setting = $ctx.sent;
               $ctx.state = 12;
               break;
             case 12:
               $ctx.state = 14;
-              return Player.fetchSettingData(("データ/" + scenario + "/設定.txt"));
+              return Player.setSetting(scenario, setting);
             case 14:
-              setting = $ctx.sent;
+              reqNew = $ctx.sent;
               $ctx.state = 16;
               break;
             case 16:
-              message('『' + scenario + '』開始メニュー');
-              $ctx.state = 31;
+              $ctx.state = (reqNew) ? 17 : 26;
               break;
-            case 31:
+            case 17:
               $ctx.state = 18;
+              return message('セーブデータの初期化が必要です。');
+            case 18:
+              $ctx.maybeThrow();
+              $ctx.state = 20;
+              break;
+            case 20:
+              $ctx.state = 22;
+              return ($__28 = Player.deleteSaveData()).then.apply($__28, $traceurRuntime.toObject(deleteAfter));
+            case 22:
+              $ctx.maybeThrow();
+              $ctx.state = 24;
+              break;
+            case 24:
+              $ctx.state = -2;
+              break;
+            case 26:
+              message('『' + scenario + '』開始メニュー');
+              $ctx.state = 42;
+              break;
+            case 42:
+              $ctx.state = 29;
               return new Promise((function(ok, ng) {
-                var opts = ['初めから', '続きから', '任意の場所から', 'データ全消去'].map((function(name) {
+                var opts = ['初めから', '続きから', '任意の場所から', '初期化する'].map((function(name) {
                   return ({name: name});
                 }));
                 return View.setChoiceWindow(opts, {
                   sys: true,
                   closeable: true
                 }).then((function(kind) {
+                  var $__28;
                   var base = setting['開始シナリオ'];
                   if (!base || !(base = base[0]))
                     return ng('開始シナリオが見つかりません。\n開始シナリオの設定は必須です。');
@@ -3092,15 +3303,8 @@ System.register("ES6/ゲーム", [], function() {
                         message('指定されたファイルを読み込めません。').delay(1000).then(resetup);
                       }));
                       break;
-                    case 'データ全消去':
-                      Player.deleteSaveData().check().then((function(f) {
-                        if (f)
-                          message('全消去しました').delay(1000).then(resetup);
-                        else
-                          message('作品選択メニューに戻ります。').delay(1000).then(resetup);
-                      }), (function(err) {
-                        message('消去中にエラーが発生しました。').delay(1000).then(resetup);
-                      }));
+                    case '初期化する':
+                      ($__28 = Player.deleteSaveData().check()).then.apply($__28, $traceurRuntime.toObject(deleteAfter));
                       break;
                     case '閉じる':
                       resetup();
@@ -3110,27 +3314,35 @@ System.register("ES6/ゲーム", [], function() {
                   }
                 }));
               }));
-            case 18:
+            case 29:
               script = $ctx.sent;
-              $ctx.state = 20;
+              $ctx.state = 31;
               break;
-            case 20:
-              $ctx.state = (!script) ? 21 : 22;
+            case 31:
+              $ctx.state = (!script) ? 32 : 33;
               break;
-            case 21:
+            case 32:
               $ctx.returnValue = resetup();
               $ctx.state = -2;
               break;
-            case 22:
+            case 33:
               $ctx.returnValue = load(script);
               $ctx.state = -2;
               break;
             default:
               return $ctx.end();
           }
-      }, $__27, this);
+      }, $__29, this);
     }));
-    var load = Util.co($traceurRuntime.initGeneratorFunction(function $__28(script) {
+    var deleteAfter = [(function(f) {
+      if (f)
+        return message('初期化しました').delay(1000).then(resetup);
+      else
+        return message('作品選択メニューに戻ります。').delay(1000).then(resetup);
+    }), (function(err) {
+      return message('消去中にエラーが発生しました。').delay(1000).then(resetup);
+    })];
+    var load = Util.co($traceurRuntime.initGeneratorFunction(function $__30(script) {
       return $traceurRuntime.createGeneratorInstance(function($ctx) {
         while (true)
           switch ($ctx.state) {
@@ -3174,9 +3386,9 @@ System.register("ES6/ゲーム", [], function() {
             default:
               return $ctx.end();
           }
-      }, $__28, this);
+      }, $__30, this);
     }));
-    var restart = Util.co($traceurRuntime.initGeneratorFunction(function $__29(err) {
+    var restart = Util.co($traceurRuntime.initGeneratorFunction(function $__31(err) {
       return $traceurRuntime.createGeneratorInstance(function($ctx) {
         while (true)
           switch ($ctx.state) {
@@ -3202,12 +3414,12 @@ System.register("ES6/ゲーム", [], function() {
             default:
               return $ctx.end();
           }
-      }, $__29, this);
+      }, $__31, this);
     }));
     var resetup = (function(_) {
       return setup().catch(restart);
     });
-    var start = Util.co($traceurRuntime.initGeneratorFunction(function $__30() {
+    var start = Util.co($traceurRuntime.initGeneratorFunction(function $__32() {
       var setting,
           startSE;
       return $traceurRuntime.createGeneratorInstance(function($ctx) {
@@ -3246,13 +3458,16 @@ System.register("ES6/ゲーム", [], function() {
             default:
               return $ctx.end();
           }
-      }, $__30, this);
+      }, $__32, this);
     }));
     function setSysBG() {
       var view = arguments[0] !== (void 0) ? arguments[0] : true;
       var p = Util.toBlobURL('画像', '背景', 'png', true);
       return view ? p.then((function(url) {
-        return View.setBGImage({url: url});
+        return View.setBGImage({
+          url: url,
+          sys: true
+        });
       })) : p;
     }
     start().check();
@@ -3260,17 +3475,71 @@ System.register("ES6/ゲーム", [], function() {
       reset: function() {
         resetup();
       },
-      loadSaveData: function() {
-        var defer = Promise.defer();
-        Player.loadSaveData().then((function(script) {
-          if (!script)
-            return defer.resolve();
-          Player.init();
-          Player.setScenario(script.scenario);
-          load(script);
-        })).check();
-        return defer.promise;
-      }
+      loadSaveData: Util.co($traceurRuntime.initGeneratorFunction(function $__33() {
+        var $__28,
+            script,
+            scenario,
+            setting,
+            reqNew;
+        return $traceurRuntime.createGeneratorInstance(function($ctx) {
+          while (true)
+            switch ($ctx.state) {
+              case 0:
+                $ctx.state = 2;
+                return Player.loadSaveData();
+              case 2:
+                script = $ctx.sent;
+                $ctx.state = 4;
+                break;
+              case 4:
+                $ctx.state = (!script) ? 5 : 6;
+                break;
+              case 5:
+                $ctx.state = -2;
+                break;
+              case 6:
+                scenario = Data.scenarioName;
+                setting = Data.settingData;
+                Player.init();
+                Player.setSetting(scenario, setting);
+                $ctx.state = 24;
+                break;
+              case 24:
+                $ctx.state = 9;
+                return Player.setSetting(scenario, setting);
+              case 9:
+                reqNew = $ctx.sent;
+                $ctx.state = 11;
+                break;
+              case 11:
+                $ctx.state = (reqNew) ? 12 : 21;
+                break;
+              case 12:
+                $ctx.state = 13;
+                return message('セーブデータの初期化が必要です。');
+              case 13:
+                $ctx.maybeThrow();
+                $ctx.state = 15;
+                break;
+              case 15:
+                $ctx.state = 17;
+                return ($__28 = Player.deleteSaveData()).then.apply($__28, $traceurRuntime.toObject(deleteAfter));
+              case 17:
+                $ctx.maybeThrow();
+                $ctx.state = 19;
+                break;
+              case 19:
+                $ctx.state = -2;
+                break;
+              case 21:
+                load(script);
+                $ctx.state = -2;
+                break;
+              default:
+                return $ctx.end();
+            }
+        }, $__33, this);
+      }))
     });
   })).check();
   return {};

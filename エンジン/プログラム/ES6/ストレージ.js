@@ -1,7 +1,7 @@
 READY().then( _ => {
 	'use strict'
 
-	var db, scenario, VERSION = 4
+	var db, scenario, VERSION = 5
 
 	var Storage = {
 		add(key, val) {
@@ -47,14 +47,14 @@ READY().then( _ => {
 		getSaveDatas(from, to) {
 			if (typeof from != 'number' || from < 0) throw 'ロード用番号が不正'
 			if (typeof to != 'number' || to < 0) throw 'ロード用番号が不正'
-			var scenario = Data.scenarioName
+			var name = getSaveName()
 			return new Promise( (ok, ng) => { 
 				var saves = new Array(to + 1)
 				var ts = db.transaction('savedata', 'readonly')
 				var os = ts.objectStore('savedata')
 
 				for (var no = from; no <= to; ++no) {
-					var rq = os.get(scenario+'/'+no)
+					var rq = os.get(name+'/'+no)
 					rq.onsuccess = ((rq, no) => _ => {
 						saves[no] = rq.result
 					})(rq, no)
@@ -68,23 +68,22 @@ READY().then( _ => {
 		setSaveData(no, data) {
 			if (typeof no != 'number' || no < 0) throw 'セーブ用番号が不正'
 			if (!data) throw 'セーブ用データが不正'
-			var scenario = Data.scenarioName
-			data.version = VERSION
+			var name = getSaveName()
 			return new Promise( (ok, ng) => { 
 				var ts = db.transaction('savedata', 'readwrite')
 				var os = ts.objectStore('savedata')
-				var rq = os.put(data, scenario+'/'+no)
+				var rq = os.put(data, name+'/'+no)
 				ts.oncomplete = _ => ok()
 				ts.onabort = _ => ng(`ストレージの書込に失敗（${ts.error.message})`)
 			})
 		},
 
 		getGlobalData() {
-			var scenario = Data.scenarioName
+			var name = getSaveName()
 			return new Promise( (ok, ng) => { 
 				var ts = db.transaction('savedata', 'readonly')
 				var os = ts.objectStore('savedata')
-				var rq = os.get(scenario+'/global')
+				var rq = os.get(name+'/global')
 				ts.oncomplete = _ => ok(rq.result)
 				ts.onabort = _ => ng(`ストレージの読込に失敗（${ts.error.message})`)
 			})
@@ -92,12 +91,12 @@ READY().then( _ => {
 
 		setGlobalData(data) {
 			if (!data) throw 'セーブ用データが不正'
-			var scenario = Data.scenarioName
+			var name = getSaveName()
 			data.version = VERSION
 			return new Promise( (ok, ng) => { 
 				var ts = db.transaction('savedata', 'readwrite')
 				var os = ts.objectStore('savedata')
-				var rq = os.put(data, scenario+'/global')
+				var rq = os.put(data, name+'/global')
 				ts.oncomplete = _ => ok()
 				ts.onabort = _ => ng(`ストレージの書込に失敗（${ts.error.message})`)
 			})
@@ -105,11 +104,11 @@ READY().then( _ => {
 
 		deleteSaveDatas(con) {
 			if (!(con === true)) throw '誤消去防止セーフティ'
-			var scenario = Data.scenarioName
+			var name = getSaveName()
 			return new Promise( (ok, ng) => { 
 				var ts = db.transaction('savedata', 'readwrite')
 				var os = ts.objectStore('savedata')
-				var rg = IDBKeyRange.bound(`${scenario}/`, `${scenario}/{`)
+				var rg = IDBKeyRange.bound(`${name}/`, `${name}/{`)
 				var rq = os.openCursor(rg)
 				rq.onsuccess = _ => {
 					var cs = rq.result
@@ -146,6 +145,11 @@ READY().then( _ => {
 
 		VERSION
 
+	}
+
+
+	function getSaveName() {
+		return Data.dataSaveName || Data.scenarioName
 	}
 
 

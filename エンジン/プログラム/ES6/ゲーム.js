@@ -45,15 +45,22 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 			View.setChoiceWindow(opts, {sys: true}).then(ok, ng)
 		})
 
-		yield Player.setScenario(scenario)
 
 		//message('作品情報を読み込んでいます...')
 		var setting = yield Player.fetchSettingData(`データ/${scenario}/設定.txt`)
 
+		var reqNew = yield Player.setSetting(scenario, setting)
+
+		if (reqNew) {
+			yield message('セーブデータの初期化が必要です。')
+			yield Player.deleteSaveData().then(...deleteAfter)
+			return
+		}
+
 		message('『'+scenario+'』開始メニュー')
 		var script = yield new Promise( (ok, ng) => {
 
-			var opts = ['初めから', '続きから', '任意の場所から', 'データ全消去'].map( name => ({name}) )
+			var opts = ['初めから', '続きから', '任意の場所から', '初期化する'].map( name => ({name}) )
 
 			return View.setChoiceWindow(opts, {sys: true, closeable: true}).then( kind => {
 
@@ -74,11 +81,8 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 						})
 					break
 
-					case 'データ全消去':
-						Player.deleteSaveData().check().then(f => {
-							if (f) message('全消去しました').delay(1000).then(resetup)
-							else message('作品選択メニューに戻ります。').delay(1000).then(resetup)
-						}, err => { message('消去中にエラーが発生しました。').delay(1000).then(resetup) })
+					case '初期化する':
+						Player.deleteSaveData().check().then(...deleteAfter)
 					break
 
 					case '閉じる': resetup() ; break
@@ -95,6 +99,17 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 
 		return load(script)
 	})
+
+
+	var deleteAfter = [
+		f => {
+			if (f) return message('初期化しました').delay(1000).then(resetup)
+			else return message('作品選択メニューに戻ります。').delay(1000).then(resetup)
+		}, 
+		err => {
+			return message('消去中にエラーが発生しました。').delay(1000).then(resetup)
+		}
+	]
 
 
 	var load = Util.co(function* (script) {
@@ -174,7 +189,7 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 
 	function setSysBG(view = true) {
 		var p = Util.toBlobURL('画像', '背景', 'png', true)
-		return view ? p.then( url => View.setBGImage({ url }) ) : p	
+		return view ? p.then( url => View.setBGImage({ url, sys: true }) ) : p	
 	}
 
 
@@ -186,16 +201,21 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 			resetup()
 		},
 
-		loadSaveData() {
-			var defer = Promise.defer()
-			Player.loadSaveData().then( script => {
-				if (!script) return defer.resolve()
-				Player.init()
-				Player.setScenario(script.scenario)
-				load(script)
-			} ).check()
-			return defer.promise
-		},
+		loadSaveData: Util.co(function* () {
+			var script = yield Player.loadSaveData()
+			if (!script) return
+			var scenario = Data.scenarioName
+			var setting = Data.settingData
+			Player.init()
+			Player.setSetting(scenario, setting)
+			var reqNew = yield Player.setSetting(scenario, setting)
+			if (reqNew) {
+				yield message('セーブデータの初期化が必要です。')
+				yield Player.deleteSaveData().then(...deleteAfter)
+				return
+			} 
+			load(script)
+		}),
 
 	})
 

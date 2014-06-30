@@ -11,7 +11,6 @@
 			ContentsSetting: 'データ/作品.txt',
 			EngineSetting: 'エンジン/エンジン定義.txt',
 		},
-		active: {},
 		current: {}
 	}
 
@@ -40,32 +39,6 @@
 			return (typeof str === 'string') && (str == '' || /^(無し|なし)$/.test(str))
 		},
 
-	/*
-		forceImageURL(url, type = 'png', kind) {
-			return Util.isNoneType(url) ? null :  Util.forceURL(url, type, kind)
-		},
-
-		forceFDImageURL(url, type = 'png', kind = '立ち絵') {
-			return Util.isNoneType(url) ? null :  Util.forceURL(url, type, kind)
-		},
-
-		forceBGImageURL(url, type = 'png', kind = '背景') {
-			return Util.isNoneType(url) ? null :  Util.forceURL(url, type, kind)
-		},
-
-		forceScriptURL(url, type = 'txt', kind = 'シナリオ') {
-			return Util.forceURL(url, type, kind)
-		},
-
-		forceURL(url, type, kind) {
-			if (!url || arguments.length != 3) throw 'URL特定不能エラー'
-			if (!url.match(/\.[^\.]+$/)) url = `${url}.${type}`
-			var base = Player.baseURL || ''
-			if (kind && (!url.match(kind))) url = `データ/${base}/${kind}/${url}`
-			url = url.replace(/\/+/g, '/')
-			return url
-		},
-	*/
 
 		forceName(kind, name, type) {
 			if (!name || !type) throw 'name特定不能エラー'
@@ -73,7 +46,7 @@
 			return `${kind}/${name}`
 		},
 
-		toHalfWidth(str) {
+		toHalfWidth(str = '') {
 
 			var table = {
 				'。': '.',
@@ -137,7 +110,8 @@
 			if (!Data.debug) return
 
 			var params = {}
-			Util.paramForEach( (value, key) => params[key] = value )
+			Util.paramForEach( (value, key) => { params[key] = value }, false )
+			Util.paramForEach( (value, key) => { params[key] = value }, true )
 
 			var cacheSizeMB = ((Util.cacheGet('$size') || 0) / 1024 / 1024).toFixed(1)
 			var mark = Data.current.mark || '（無し）'
@@ -269,27 +243,48 @@
 	Util.setProperties(Util, (_ => {
 
 		var paramMap = new Map
+		var configMap = new Map
 
-		return {
-			paramSet(key, val) {
-				paramMap.set(key, val)
+		function normalizeKey(key) {
+			key = key.replace(/＄/g, '$')
+			return key
+		}
+
+		var my = {
+			paramSet(key, val, sFlag = true) {
+				key = normalizeKey(key)
+				if (key[0] == '$') {
+					configMap.set(key, val)
+					if (!sFlag) return
+					var globalParams = {}
+					my.paramForEach( (value, key) => { globalParams[key] = value }, true)
+					Data.current.setting.params = globalParams
+					Storage.setGlobalData(Data.current.setting).check()
+				} else {
+					paramMap.set(key, val)
+				}
 				Util.updateDebugWindow()
 			},
 			paramGet(key) {
-				if (!paramMap.has(key)) {
-					paramMap.set(key, 0)
+				key = normalizeKey(key)
+				var map = (key[0] == '$') ? configMap : paramMap
+				if (!map.has(key)) {
+					my.paramSet(key, 0)
 					Util.updateDebugWindow()
 				}
-				return paramMap.get(key)
+				return map.get(key)
 			},
-			paramClear() {
+			paramClear(gFlag) {
 				paramMap.clear()
+				if (gFlag) configMap.clear()
 				Util.updateDebugWindow()
 			},
-			paramForEach(func) {
-				paramMap.forEach(func)
+			paramForEach(func, gFlag) {
+				if (gFlag) configMap.forEach(func)
+				else paramMap.forEach(func)
 			}
 		}
+		return my
 	})())
 
 

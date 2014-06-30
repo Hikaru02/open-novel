@@ -290,11 +290,13 @@ READY().then( ({Util}) => {
 		function runChildScript(script) { return runScript(script, undefined, masterComp) }
 		
 		var actHandlers = {
-			会話(data, done, failed) {
-				save()
+			会話(data, done, failed, {visited}) {
 
-				var visited = BitArray.get(vBA, po)
-				BitArray.set(vBA, po)
+				var isNone = Util.isNoneType(data[0])
+				View.mainMessageWindow.el.style.opacity = isNone ? '0' : ''
+				if (isNone) return done()
+
+				save()
 
 				function nextPage() {
 
@@ -367,6 +369,25 @@ READY().then( ({Util}) => {
 					base.push(Util.toBlobURL('立ち絵', name, 'png').then( url => ({ name, url, height, [a_type]: `${a_per}%`, [v_type]: `${v_per}%` }) ))
 					return base
 				}, [])).then( opt => View.setFDImages(opt) ).then(done, failed)
+			},
+
+			効果: otherName('エフェクト'),
+			エフェクト(data, done, failed, {visited}) {
+				data.forEach( prog => {
+					if (prog == 'フェード準備') return View.prepareFade().then(done, failed)
+					var act = prog[0], opt = Util.toHalfWidth(replaceEffect(prog[1][0])).split(/\s+/)
+					var msec = opt[0].match(/[\d.]+/)*1000
+					switch (act) {
+						case 'フェード':
+							return View.fade({msec, visited}).then(done, failed)
+						break
+						case 'フラッシュ':
+							var color = opt[1]
+							return View.flash({msec, color, visited}).then(done, failed)
+						break
+						default: failed('想定外のエフェクトタイプ')
+					}
+				})
 			},
 
 			選択: otherName('選択肢'),
@@ -496,11 +517,12 @@ READY().then( ({Util}) => {
 		function save() {
 
 			var params = {}
-			Util.paramForEach( (value, key) => params[key] = value )
+			var globalParams = {}
+			Util.paramForEach( (value, key) => { params[key] = value })
 			var cp = {
 				script: sname, 
 				params,
-				active: Data.active,
+				active: Data.current.active,
 				point: po-2,
 				mark: Data.current.mark
 			}
@@ -535,42 +557,50 @@ READY().then( ({Util}) => {
 
 				//LOG(po)
 
-				var act = script[po]
+				act = script[po]
 				if (!act) {
 					return searching ? run.reject(`マーク『${hash}』が見つかりません。`) : run.resolve() 
 				}
 
-				if (typeof act == 'number') {
+				if (!searching && typeof act == 'number') {
 					if (searching && (+hash === po)) searching = false
 					else po = act
 					return resolve()
 				}
 
-				var data = script[++po]
-				++po
 
 				if (searching) {
-					//LOG('マーク', mark, po)
-					if (+hash === (po-2)) {
+					//LOG('マーク', hash, po)
+					if (+hash === po) {
 						searching = false
-						po -= 2
 					} else if (act == 'マーク') {
+						var data = script[++po]
+						++po
 						var mark = data[0]
 						if (mark == hash) {
 							searching = false
 							return actHandlers['マーク']([mark], resolve, reject)
 						}
-					}
+					} else ++po
 					resolve()
 				} else if (act in actHandlers) {
-					actHandlers[act](data, resolve, reject)
+					var visited = BitArray.get(vBA, po) === 1
+					var visit = BitArray.set.bind(BitArray, vBA, po)
+					var data = script[++po]
+					++po
+					actHandlers[act](data, _ => {
+						visit()
+						resolve()
+					}, reject, {visited})
 				} else {
 					Util.error('サポートされていないコマンド『' +act+ '』を検出しました。\n\nこのコマンドを飛ばして再生が継続されます。')
+					++po
 					resolve()
 				}
 
+
 			}).then(main_loop, err => {
-				var message = err ? `コマンド『${act}』で『${err}』が起こりました。` : `コマンド『${act}』が原因かもしれません。`
+				var message = err ? `コマンド『${act?act:'(不明)'}』で『${err}』が起こりました。` : `コマンド『${act}』が原因かもしれません。`
 				Util.error('スクリプトを解析中にエラーが発生しました。\n\n' +message+ '\n\nこのコマンドを保証せず再生が継続されます。')
 				return main_loop()
 			})
@@ -651,10 +681,10 @@ READY().then( ({Util}) => {
 			var saves = yield Storage.getSaveDatas(1, 110)
 			var opts = saves.map( (save, i) => {
 				if (!save) var mark = '------------'
-				else if (save.version !== Storage.VERSION) {
+				else if (save.systemVersion !== Storage.VERSION) {
 					save = null
 					mark = '--old data--'
-				} else mark = save.mark 
+				} else mark = save.mark || '(no name)'
 				var name = i > 100 ? 'A'+(i-100) : i
 				return {name: `${name}．${mark}`, value: save, disabled: !save }
 			})
@@ -662,6 +692,7 @@ READY().then( ({Util}) => {
 			var save = yield View.setChoiceWindow(opts, {sys: true, closeable: true})
 			if (save == '閉じる') return false
 			var {params, script, point, active, mark} = save
+			Util.paramClear()
 			return Player.fetchScriptData(`${script}#${point}`).then( script => {
 				script.params = params
 				script.scenario = Data.scenarioName
@@ -680,9 +711,9 @@ READY().then( ({Util}) => {
 
 			var opts = saves.map( (save, i) => {
 				if (!save) var mark = '----------'
-				else if (save.version !== Storage.VERSION) {
+				else if (save.systemVersion !== Storage.VERSION) {
 					mark = '--old data--'
-				} else mark = save.mark 
+				} else mark = save.mark || '(no name)'
 				var name = i
 				return {name: `${name}．${mark}`, value: i}
 			})
@@ -696,6 +727,8 @@ READY().then( ({Util}) => {
 			var params = {}
 			Util.paramForEach( (value, key) => params[key] = value )
 			var save = Data.current.point
+			save.scenarioVersion = Data.current.scenarioVersion
+			save.systemVersion = Storage.VERSION
 			yield Storage.setSaveData(no, save)
 			yield Storage.setGlobalData(Data.current.setting)
 			return true
@@ -706,9 +739,10 @@ READY().then( ({Util}) => {
 	function deleteSaveData() {
 		return Util.co(function* () {
 
-			var con = yield View.setConfirmWindow('全消去する')
+			var con = yield View.setConfirmWindow('初期化する')
 			if (!con) return false
 			yield Storage.deleteSaveDatas(true)
+			yield Storage.setGlobalData({scenarioVersion: Data.current.scenarioVersion})
 			return true
 
 		})()
@@ -717,20 +751,36 @@ READY().then( ({Util}) => {
 	function init() {
 		Data.phase = 'pause'
 		Player.setRunPhase('準備')
-		Util.paramClear()
+		Util.paramClear(true)
 		View.clean()
 	}
 
-	function setScenario(scenario) {
+
+
+	function setSetting(scenario, setting) {
 		return Util.co(function* () {
+			Data.dataSaveName = (setting['データ保存名']||[undefined])[0]
 			Data.scenarioName = scenario
+			Data.settingData = setting
+
 			var gsave = yield Storage.getGlobalData()
 			if (!gsave) {
 				gsave = {}
 				yield Storage.setGlobalData(gsave)
 			}
-			Data.current.setting = gsave
+			
+			Data.current = {
+				setting: gsave,
+				active: {},
+			}
+
+			var gparams = gsave.params || {}
+			Object.keys(gparams).forEach( key => { Util.paramSet(key, gparams[key], false) })
+
+			var v = Data.current.scenarioVersion = Util.toHalfWidth((setting['バージョン']||['0'])[0])
+			if (Data.current.setting.scenarioVersion != v) return true
 		})()
+
 	}
 
 
@@ -764,7 +814,7 @@ READY().then( ({Util}) => {
 	
 	READY.Player.ready({
 		setRunPhase, setErrorPhase, fetchSettingData, fetchScriptData, runScript, print,
-		loadSaveData, saveSaveData, deleteSaveData, evalEffect, init, setScenario, cacheScript,
+		loadSaveData, saveSaveData, deleteSaveData, evalEffect, init, setSetting, cacheScript,
 	})
 
 }).check()
