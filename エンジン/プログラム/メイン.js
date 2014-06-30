@@ -706,7 +706,7 @@ System.register("ES6/ビュー", [], function() {
   var __moduleName = "ES6/ビュー";
   READY('Storage', 'Player', 'DOM', 'Sound').then((function($__5) {
     'use strict';
-    var Util = $__5.Util;
+    var Util = $traceurRuntime.assertObject($__5).Util;
     var View = null;
     var clickSE = new Sound('sysSE', '選択');
     var focusSE = new Sound('sysSE', 'フォーカス');
@@ -1090,10 +1090,11 @@ System.register("ES6/ビュー", [], function() {
         },
         messageWindowProto: {
           nextPage: function(name) {
-            var $__7;
+            var $__7,
+                $__8;
             var $__6 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
                 sys = ($__7 = $__6.sys) === void 0 ? false : $__7,
-                visited = ($__7 = $__6.visited) === void 0 ? false : $__7;
+                visited = ($__8 = $__6.visited) === void 0 ? false : $__8;
             View.logs.push(View.windows.message.cloneNode(true));
             if (View.logs.length > 100)
               View.logs.shift();
@@ -1107,25 +1108,26 @@ System.register("ES6/ビュー", [], function() {
             this.el_body.removeChildren();
           },
           addSentence: function(text) {
-            var $__7;
-            var $__6 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
-                weight = ($__7 = $__6.weight) === void 0 ? 25 : $__7,
-                visited = ($__7 = $__6.visited) === void 0 ? false : $__7;
+            var $__8,
+                $__6;
+            var $__7 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
+                weight = ($__8 = $__7.weight) === void 0 ? 25 : $__8,
+                visited = ($__6 = $__7.visited) === void 0 ? false : $__6;
             text += '\n';
             var length = text.length;
             var at = 0,
                 nl = 0;
             var el = this.el_body;
-            var $__6 = [false, false],
-                aborted = $__6[0],
-                cancelled = $__6[1];
-            var $__6 = [(function(_) {
+            var $__7 = [false, false],
+                aborted = $__7[0],
+                cancelled = $__7[1];
+            var $__7 = [(function(_) {
               return aborted = true;
             }), (function(_) {
               return cancelled = true;
             })],
-                abort = $__6[0],
-                cancel = $__6[1];
+                abort = $__7[0],
+                cancel = $__7[1];
             View.on('go').then(cancel);
             function mul(str, n) {
               return (str || '100%').match(/[\d.]+/)[0] * n / 100 + 'em';
@@ -1284,9 +1286,9 @@ System.register("ES6/ビュー", [], function() {
           return fr;
         },
         setConfirmWindow: function(name) {
-          var $__7;
-          var $__6 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
-              sys = ($__7 = $__6.sys) === void 0 ? true : $__7;
+          var $__6;
+          var $__8 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
+              sys = ($__6 = $__8.sys) === void 0 ? true : $__6;
           return View.setChoiceWindow([{
             name: name,
             value: true
@@ -1296,9 +1298,10 @@ System.register("ES6/ビュー", [], function() {
           }], {sys: sys});
         },
         setChoiceWindow: function(opts) {
-          var $__7;
+          var $__8,
+              $__7;
           var $__6 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
-              sys = ($__7 = $__6.sys) === void 0 ? false : $__7,
+              sys = ($__8 = $__6.sys) === void 0 ? false : $__8,
               closeable = ($__7 = $__6.closeable) === void 0 ? false : $__7;
           var defer = Promise.defer();
           var removed = false;
@@ -1444,9 +1447,9 @@ System.register("ES6/ビュー", [], function() {
         },
         setBGImage: function(opt) {
           var defer = Promise.defer();
-          var $__6 = $traceurRuntime.assertObject(opt),
-              url = $__6.url,
-              sys = $__6.sys;
+          var $__8 = $traceurRuntime.assertObject(opt),
+              url = $__8.url,
+              sys = $__8.sys;
           var fr = View.imageFrame;
           if (url) {
             var img = new Image;
@@ -1515,10 +1518,11 @@ System.register("ES6/ビュー", [], function() {
           return Promise.resolve();
         },
         fade: function() {
-          var $__7;
-          var $__6 = $traceurRuntime.assertObject(arguments[0] !== (void 0) ? arguments[0] : {}),
-              msec = ($__7 = $__6.msec) === void 0 ? 1000 : $__7,
-              visited = ($__7 = $__6.visited) === void 0 ? false : $__7;
+          var $__7,
+              $__6;
+          var $__8 = $traceurRuntime.assertObject(arguments[0] !== (void 0) ? arguments[0] : {}),
+              msec = ($__7 = $__8.msec) === void 0 ? 1000 : $__7,
+              visited = ($__6 = $__8.visited) === void 0 ? false : $__6;
           if (!View.fake)
             return Promise.reject('このエフェクトには事前準備が必要');
           var fr = View.imageFrame,
@@ -1543,11 +1547,13 @@ System.register("ES6/ビュー", [], function() {
           }));
         },
         flash: function() {
-          var $__7;
-          var $__6 = $traceurRuntime.assertObject(arguments[0] !== (void 0) ? arguments[0] : {}),
-              msec = ($__7 = $__6.msec) === void 0 ? 300 : $__7,
-              color = ($__7 = $__6.color) === void 0 ? 'white' : $__7,
-              visited = ($__7 = $__6.visited) === void 0 ? false : $__7;
+          var $__6,
+              $__8,
+              $__9;
+          var $__7 = $traceurRuntime.assertObject(arguments[0] !== (void 0) ? arguments[0] : {}),
+              msec = ($__6 = $__7.msec) === void 0 ? 300 : $__6,
+              color = ($__8 = $__7.color) === void 0 ? 'white' : $__8,
+              visited = ($__9 = $__7.visited) === void 0 ? false : $__9;
           var fake = View.imageFrame.cloneNode(false);
           fake.style.background = '';
           fake.style.backgroundColor = color;
@@ -1742,9 +1748,9 @@ System.register("ES6/ビュー", [], function() {
       var wait = true;
       return {
         setAuto: function(p) {
-          var $__8;
-          var $__7 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
-              visited = ($__8 = $__7.visited) === void 0 ? false : $__8;
+          var $__9;
+          var $__8 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
+              visited = ($__9 = $__8.visited) === void 0 ? false : $__9;
           if (!enabled)
             return;
           if (wait && p)
@@ -1882,12 +1888,12 @@ System.register("ES6/ビュー", [], function() {
         eventFire = $__6.eventFire,
         eventSysOnly = $__6.eventSysOnly;
     function vibrate() {
-      var $__9;
+      var $__10;
       for (var args = [],
           $__4 = 0; $__4 < arguments.length; $__4++)
         args[$__4] = arguments[$__4];
       if (typeof navigator.vibrate == 'function')
-        ($__9 = navigator).vibrate.apply($__9, $traceurRuntime.toObject(args));
+        ($__10 = navigator).vibrate.apply($__10, $traceurRuntime.spread(args));
     }
     var $full = false;
     var $ratio = 16 / 9;
@@ -1906,10 +1912,10 @@ System.get("ES6/ビュー" + '');
 System.register("ES6/サウンド", [], function() {
   "use strict";
   var __moduleName = "ES6/サウンド";
-  READY('Storage', 'Player').then((function($__12) {
+  READY('Storage', 'Player').then((function($__13) {
     'use strict';
-    var Util = $__12.Util;
-    var init = Util.co($traceurRuntime.initGeneratorFunction(function $__14() {
+    var Util = $traceurRuntime.assertObject($__13).Util;
+    var init = Util.co($traceurRuntime.initGeneratorFunction(function $__15() {
       var soundEnabled;
       return $traceurRuntime.createGeneratorInstance(function($ctx) {
         while (true)
@@ -1928,7 +1934,7 @@ System.register("ES6/サウンド", [], function() {
             default:
               return $ctx.end();
           }
-      }, $__14, this);
+      }, $__15, this);
     }));
     var setup = (function(config) {
       var soundEnabled = $traceurRuntime.assertObject(config).soundEnabled;
@@ -2008,41 +2014,41 @@ System.register("ES6/サウンド", [], function() {
       };
       ($traceurRuntime.createClass)(Sound, {
         load: function() {
-          var $__10 = this;
+          var $__11 = this;
           var url = this.url;
           var buf = bufferMap.get(url);
           if (buf)
             return Promise.resolve(buf);
           return Util.load(url, 'arraybuffer').then((function(buf) {
             bufferMap.set(url, buf);
-            $__10.buf = buf;
+            $__11.buf = buf;
           }));
         },
         prepare: function() {
-          var $__10 = this;
+          var $__11 = this;
           var buf = this.buf;
           if (!buf)
             return this.load().then((function(_) {
-              return $__10.prepare();
+              return $__11.prepare();
             }));
           return new Promise((function(ok, ng) {
             ctx.decodeAudioData(buf.slice(), (function(buf) {
               var src = ctx.createBufferSource();
               src.buffer = buf;
-              src.connect($__10.gain);
-              $__10.src = src;
+              src.connect($__11.gain);
+              $__11.src = src;
               ok();
             }), ng);
           }));
         },
         play: function() {
-          var $__10 = this;
+          var $__11 = this;
           if (!canplay())
             return Promise.resolve(null);
           var src = this.src;
           if (!src)
             return this.prepare().then((function(_) {
-              return $__10.play();
+              return $__11.play();
             }));
           src.start();
           this.src = null;
@@ -2079,9 +2085,9 @@ System.get("ES6/サウンド" + '');
 System.register("ES6/プレーヤー", [], function() {
   "use strict";
   var __moduleName = "ES6/プレーヤー";
-  READY().then((function($__16) {
+  READY().then((function($__17) {
     'use strict';
-    var Util = $__16.Util;
+    var Util = $traceurRuntime.assertObject($__17).Util;
     function setPhase(phase) {
       document.title = '【' + phase + '】';
     }
@@ -2171,9 +2177,9 @@ System.register("ES6/プレーヤー", [], function() {
           if (q)
             buf[q] = buf.length;
           q = 0;
-          var $__17 = $traceurRuntime.assertObject(prog),
-              act = $__17[0],
-              data = $__17[1];
+          var $__18 = $traceurRuntime.assertObject(prog),
+              act = $__18[0],
+              data = $__18[1];
           switch (act) {
             case '繰返':
             case '繰返し':
@@ -2185,9 +2191,10 @@ System.register("ES6/プレーヤー", [], function() {
               var cp = buf.push(act, null) - 1;
               if (q)
                 buf.push(-1);
-              buf[cp] = data.map((function($__17) {
-                var lab = $__17[0],
-                    val = $__17[1];
+              buf[cp] = data.map((function($__18) {
+                var $__19 = $traceurRuntime.assertObject($__18),
+                    lab = $__19[0],
+                    val = $__19[1];
                 if (Array.isArray(val[0])) {
                   var p = buf.length;
                   bk.push(flatten(val));
@@ -2225,7 +2232,7 @@ System.register("ES6/プレーヤー", [], function() {
         var toURL = arguments[1] !== (void 0) ? arguments[1] : Util.toBlobURL;
         ++caching;
         preloadAppend((function(_) {
-          return toURL.apply(null, $traceurRuntime.toObject(args)).through((function(_) {
+          return toURL.apply(null, $traceurRuntime.spread(args)).through((function(_) {
             if (--caching <= 0)
               defer.resolve();
           })).check();
@@ -2249,9 +2256,9 @@ System.register("ES6/プレーヤー", [], function() {
               data.forEach((function(ary) {
                 if (Util.isNoneType(ary))
                   return;
-                var $__17 = $traceurRuntime.assertObject(ary),
-                    position = $__17[0],
-                    names = $__17[1];
+                var $__18 = $traceurRuntime.assertObject(ary),
+                    position = $__18[0],
+                    names = $__18[1];
                 if (!position)
                   return;
                 if (!names)
@@ -2274,14 +2281,14 @@ System.register("ES6/プレーヤー", [], function() {
               }), []);
             case 'ジャンプ':
               data.forEach((function(to) {
-                var $__18;
+                var $__19;
                 if (!to)
                   return;
                 var name = to,
                     base = sname;
-                var $__17 = $traceurRuntime.assertObject(name.replace(/＃/g, '#').split('#')),
-                    name = $__17[0],
-                    mark = ($__18 = $__17[1]) === void 0 ? '' : $__18;
+                var $__18 = $traceurRuntime.assertObject(name.replace(/＃/g, '#').split('#')),
+                    name = $__18[0],
+                    mark = ($__19 = $__18[1]) === void 0 ? '' : $__19;
                 if (!name)
                   name = base.replace(/＃/g, '#').split('#')[0];
                 var subkey = (Data.scenarioName + "/" + Util.forceName('シナリオ', name, 'txt'));
@@ -2303,7 +2310,7 @@ System.register("ES6/プレーヤー", [], function() {
     function runScript(script) {
       var sname = arguments[1] !== (void 0) ? arguments[1] : script.sname;
       var masterComp = arguments[2];
-      var $__15;
+      var $__16;
       if (!sname)
         LOG('!!!sname');
       sname = sname.split('#')[0];
@@ -2313,12 +2320,12 @@ System.register("ES6/プレーヤー", [], function() {
       var run = Promise.defer();
       if (!masterComp)
         masterComp = run.resolve;
-      var $__17 = $traceurRuntime.assertObject(script),
-          mark = $__17.mark,
-          hash = $__17.hash,
-          params = $__17.params,
-          scenario = $__17.scenario,
-          active = $__17.active;
+      var $__19 = $traceurRuntime.assertObject(script),
+          mark = $__19.mark,
+          hash = $__19.hash,
+          params = $__19.params,
+          scenario = $__19.scenario,
+          active = $__19.active;
       if (mark)
         Data.current.mark = mark;
       var searching = !!hash;
@@ -2337,9 +2344,9 @@ System.register("ES6/プレーヤー", [], function() {
       function runChildScript(script) {
         return runScript(script, undefined, masterComp);
       }
-      var actHandlers = ($__15 = {}, Object.defineProperty($__15, "会話", {
-        value: function(data, done, failed, $__17) {
-          var visited = $__17.visited;
+      var actHandlers = ($__16 = {}, Object.defineProperty($__16, "会話", {
+        value: function(data, done, failed, $__19) {
+          var visited = $traceurRuntime.assertObject($__19).visited;
           var isNone = Util.isNoneType(data[0]);
           View.mainMessageWindow.el.style.opacity = isNone ? '0' : '';
           if (isNone)
@@ -2374,7 +2381,7 @@ System.register("ES6/プレーヤー", [], function() {
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__15, "背景", {
+      }), Object.defineProperty($__16, "背景", {
         value: function(data, done, failed) {
           var name = replaceEffect(data[0]);
           Util.toBlobURL('背景', name, 'jpg').then((function(url) {
@@ -2387,23 +2394,23 @@ System.register("ES6/プレーヤー", [], function() {
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__15, "立絵", {
+      }), Object.defineProperty($__16, "立絵", {
         value: otherName('立ち絵'),
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__15, "立ち絵", {
+      }), Object.defineProperty($__16, "立ち絵", {
         value: function(data, done, failed) {
           Promise.all(data.reduce((function(base, ary) {
-            var $__19,
+            var $__18,
                 $__20;
             if (!base)
               return;
             if (Util.isNoneType(ary))
               return base;
-            var $__18 = $traceurRuntime.assertObject(ary),
-                position = $__18[0],
-                names = $__18[1];
+            var $__19 = $traceurRuntime.assertObject(ary),
+                position = $__19[0],
+                names = $__19[1];
             if (!position)
               return failed('不正な位置検出');
             if (!names)
@@ -2412,18 +2419,18 @@ System.register("ES6/プレーヤー", [], function() {
             var name = replaceEffect(names[0]);
             var a_type = ['left', 'right']['左右'.indexOf(position)];
             var v_type = 'top';
-            var $__18 = [0, 0],
-                a_per = $__18[0],
-                v_per = $__18[1];
+            var $__19 = [0, 0],
+                a_per = $__19[0],
+                v_per = $__19[1];
             var height = null;
             if (!a_type) {
               var pos = Util.toHalfWidth(position).match(/[+\-0-9.]+/g);
               if (!pos)
                 return failed('不正な位置検出');
-              var $__18 = $traceurRuntime.assertObject(pos),
-                  a_pos = $__18[0],
-                  v_pos = ($__19 = $__18[1]) === void 0 ? '0' : $__19,
-                  height = ($__20 = $__18[2]) === void 0 ? null : $__20;
+              var $__19 = $traceurRuntime.assertObject(pos),
+                  a_pos = $__19[0],
+                  v_pos = ($__18 = $__19[1]) === void 0 ? '0' : $__18,
+                  height = ($__20 = $__19[2]) === void 0 ? null : $__20;
               a_per = Math.abs(+a_pos);
               v_per = Math.abs(+v_pos);
               a_type = a_pos.match('-') ? 'right' : 'left';
@@ -2431,33 +2438,33 @@ System.register("ES6/プレーヤー", [], function() {
               height = Util.toSize(height);
             }
             base.push(Util.toBlobURL('立ち絵', name, 'png').then((function(url) {
-              var $__15;
-              return (($__15 = {}, Object.defineProperty($__15, "name", {
+              var $__16;
+              return (($__16 = {}, Object.defineProperty($__16, "name", {
                 value: name,
                 configurable: true,
                 enumerable: true,
                 writable: true
-              }), Object.defineProperty($__15, "url", {
+              }), Object.defineProperty($__16, "url", {
                 value: url,
                 configurable: true,
                 enumerable: true,
                 writable: true
-              }), Object.defineProperty($__15, "height", {
+              }), Object.defineProperty($__16, "height", {
                 value: height,
                 configurable: true,
                 enumerable: true,
                 writable: true
-              }), Object.defineProperty($__15, a_type, {
+              }), Object.defineProperty($__16, a_type, {
                 value: (a_per + "%"),
                 configurable: true,
                 enumerable: true,
                 writable: true
-              }), Object.defineProperty($__15, v_type, {
+              }), Object.defineProperty($__16, v_type, {
                 value: (v_per + "%"),
                 configurable: true,
                 enumerable: true,
                 writable: true
-              }), $__15));
+              }), $__16));
             })));
             return base;
           }), [])).then((function(opt) {
@@ -2467,14 +2474,14 @@ System.register("ES6/プレーヤー", [], function() {
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__15, "効果", {
+      }), Object.defineProperty($__16, "効果", {
         value: otherName('エフェクト'),
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__15, "エフェクト", {
+      }), Object.defineProperty($__16, "エフェクト", {
         value: function(data, done, failed, $__18) {
-          var visited = $__18.visited;
+          var visited = $traceurRuntime.assertObject($__18).visited;
           data.forEach((function(prog) {
             if (prog == 'フェード準備')
               return View.prepareFade().then(done, failed);
@@ -2504,12 +2511,12 @@ System.register("ES6/プレーヤー", [], function() {
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__15, "選択", {
+      }), Object.defineProperty($__16, "選択", {
         value: otherName('選択肢'),
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__15, "選択肢", {
+      }), Object.defineProperty($__16, "選択肢", {
         value: function(data, done, failed) {
           View.setChoiceWindow(data.map((function(ary) {
             return {
@@ -2528,7 +2535,7 @@ System.register("ES6/プレーヤー", [], function() {
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__15, "ジャンプ", {
+      }), Object.defineProperty($__16, "ジャンプ", {
         value: function(data, done, failed) {
           var to = replaceEffect(data[0]);
           fetchScriptData(to, sname).then((function(script) {
@@ -2538,17 +2545,17 @@ System.register("ES6/プレーヤー", [], function() {
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__15, "変数", {
+      }), Object.defineProperty($__16, "変数", {
         value: otherName('パラメータ'),
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__15, "パラメーター", {
+      }), Object.defineProperty($__16, "パラメーター", {
         value: otherName('パラメータ'),
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__15, "パラメータ", {
+      }), Object.defineProperty($__16, "パラメータ", {
         value: function(data, done, failed) {
           data.forEach((function(str) {
             str = Util.toHalfWidth(str);
@@ -2567,7 +2574,7 @@ System.register("ES6/プレーヤー", [], function() {
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__15, "入力", {
+      }), Object.defineProperty($__16, "入力", {
         value: function(data, done, failed) {
           str = Util.toHalfWidth(data[0]);
           if (!str)
@@ -2583,23 +2590,24 @@ System.register("ES6/プレーヤー", [], function() {
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__15, "繰返", {
+      }), Object.defineProperty($__16, "繰返", {
         value: otherName('繰り返し'),
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__15, "繰返し", {
+      }), Object.defineProperty($__16, "繰返し", {
         value: otherName('繰り返し'),
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__15, "繰り返し", {
+      }), Object.defineProperty($__16, "繰り返し", {
         value: function(data, done, failed) {
           var q = data[0];
           data = data.slice(1);
-          if (!data.some((function($__19) {
-            var effect = $__19[0],
-                acts = $__19[1];
+          if (!data.some((function($__18) {
+            var $__20 = $traceurRuntime.assertObject($__18),
+                effect = $__20[0],
+                acts = $__20[1];
             if (!effect)
               return failed('不正なパラメータ指定検出');
             var flag = !!evalEffect(effect, failed);
@@ -2613,11 +2621,12 @@ System.register("ES6/プレーヤー", [], function() {
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__15, "分岐", {
+      }), Object.defineProperty($__16, "分岐", {
         value: function(data, done, failed) {
-          data.some((function($__19) {
-            var effect = $__19[0],
-                acts = $__19[1];
+          data.some((function($__18) {
+            var $__20 = $traceurRuntime.assertObject($__18),
+                effect = $__20[0],
+                acts = $__20[1];
             if (!effect)
               return failed('不正なパラメータ指定検出');
             var flag = !!evalEffect(effect, failed);
@@ -2630,7 +2639,7 @@ System.register("ES6/プレーヤー", [], function() {
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__15, "マーク", {
+      }), Object.defineProperty($__16, "マーク", {
         value: function(data, done, failed) {
           Data.current.mark = data[0];
           autosave();
@@ -2639,7 +2648,7 @@ System.register("ES6/プレーヤー", [], function() {
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__15, "スクリプト", {
+      }), Object.defineProperty($__16, "スクリプト", {
         value: function(data, done, failed) {
           var act = data[0];
           if (Util.isNoneType(act))
@@ -2663,14 +2672,14 @@ System.register("ES6/プレーヤー", [], function() {
         configurable: true,
         enumerable: true,
         writable: true
-      }), Object.defineProperty($__15, "コメント", {
+      }), Object.defineProperty($__16, "コメント", {
         value: function(data, done, failed) {
           done();
         },
         configurable: true,
         enumerable: true,
         writable: true
-      }), $__15);
+      }), $__16);
       function save() {
         var params = {};
         var globalParams = {};
@@ -2818,7 +2827,7 @@ System.register("ES6/プレーヤー", [], function() {
         var saves,
             opts,
             save,
-            $__17,
+            $__18,
             params,
             script,
             point,
@@ -2870,7 +2879,7 @@ System.register("ES6/プレーヤー", [], function() {
                 $ctx.state = -2;
                 break;
               case 10:
-                $__17 = $traceurRuntime.assertObject(save), params = $__17.params, script = $__17.script, point = $__17.point, active = $__17.active, mark = $__17.mark;
+                $__18 = $traceurRuntime.assertObject(save), params = $__18.params, script = $__18.script, point = $__18.point, active = $__18.active, mark = $__18.mark;
                 Util.paramClear();
                 $ctx.state = 17;
                 break;
@@ -3139,12 +3148,12 @@ System.register("ES6/プレーヤー", [], function() {
       }));
     }
     function fetchScriptData(name, base) {
-      var $__18;
+      var $__20;
       if (!name)
         return Promise.reject('子スクリプト名が不正');
-      var $__17 = $traceurRuntime.assertObject(name.replace(/＃/g, '#').split('#')),
-          name = $__17[0],
-          hash = ($__18 = $__17[1]) === void 0 ? '' : $__18;
+      var $__18 = $traceurRuntime.assertObject(name.replace(/＃/g, '#').split('#')),
+          name = $__18[0],
+          hash = ($__20 = $__18[1]) === void 0 ? '' : $__20;
       if (!name) {
         if (!base)
           return Promise.reject('親スクリプト名が必要');
@@ -3180,7 +3189,7 @@ System.register("ES6/ゲーム", [], function() {
   var __moduleName = "ES6/ゲーム";
   READY('Player', 'View', 'Sound').then((function($__27) {
     'use strict';
-    var Util = $__27.Util;
+    var Util = $traceurRuntime.assertObject($__27).Util;
     var message = ((function(_) {
       var abort = Util.NOP;
       return (function(text) {
@@ -3192,8 +3201,8 @@ System.register("ES6/ゲーム", [], function() {
         return p;
       });
     }))();
-    var setup = Util.co($traceurRuntime.initGeneratorFunction(function $__29() {
-      var $__28,
+    var setup = Util.co($traceurRuntime.initGeneratorFunction(function $__31() {
+      var $__29,
           setting,
           scenario,
           reqNew,
@@ -3262,7 +3271,7 @@ System.register("ES6/ゲーム", [], function() {
               break;
             case 20:
               $ctx.state = 22;
-              return ($__28 = Player.deleteSaveData()).then.apply($__28, $traceurRuntime.toObject(deleteAfter));
+              return ($__29 = Player.deleteSaveData()).then.apply($__29, $traceurRuntime.spread(deleteAfter));
             case 22:
               $ctx.maybeThrow();
               $ctx.state = 24;
@@ -3284,7 +3293,7 @@ System.register("ES6/ゲーム", [], function() {
                   sys: true,
                   closeable: true
                 }).then((function(kind) {
-                  var $__28;
+                  var $__30;
                   var base = setting['開始シナリオ'];
                   if (!base || !(base = base[0]))
                     return ng('開始シナリオが見つかりません。\n開始シナリオの設定は必須です。');
@@ -3304,7 +3313,7 @@ System.register("ES6/ゲーム", [], function() {
                       }));
                       break;
                     case '初期化する':
-                      ($__28 = Player.deleteSaveData().check()).then.apply($__28, $traceurRuntime.toObject(deleteAfter));
+                      ($__30 = Player.deleteSaveData().check()).then.apply($__30, $traceurRuntime.spread(deleteAfter));
                       break;
                     case '閉じる':
                       resetup();
@@ -3332,7 +3341,7 @@ System.register("ES6/ゲーム", [], function() {
             default:
               return $ctx.end();
           }
-      }, $__29, this);
+      }, $__31, this);
     }));
     var deleteAfter = [(function(f) {
       if (f)
@@ -3342,7 +3351,7 @@ System.register("ES6/ゲーム", [], function() {
     }), (function(err) {
       return message('消去中にエラーが発生しました。').delay(1000).then(resetup);
     })];
-    var load = Util.co($traceurRuntime.initGeneratorFunction(function $__30(script) {
+    var load = Util.co($traceurRuntime.initGeneratorFunction(function $__32(script) {
       return $traceurRuntime.createGeneratorInstance(function($ctx) {
         while (true)
           switch ($ctx.state) {
@@ -3386,9 +3395,9 @@ System.register("ES6/ゲーム", [], function() {
             default:
               return $ctx.end();
           }
-      }, $__30, this);
+      }, $__32, this);
     }));
-    var restart = Util.co($traceurRuntime.initGeneratorFunction(function $__31(err) {
+    var restart = Util.co($traceurRuntime.initGeneratorFunction(function $__33(err) {
       return $traceurRuntime.createGeneratorInstance(function($ctx) {
         while (true)
           switch ($ctx.state) {
@@ -3414,12 +3423,12 @@ System.register("ES6/ゲーム", [], function() {
             default:
               return $ctx.end();
           }
-      }, $__31, this);
+      }, $__33, this);
     }));
     var resetup = (function(_) {
       return setup().catch(restart);
     });
-    var start = Util.co($traceurRuntime.initGeneratorFunction(function $__32() {
+    var start = Util.co($traceurRuntime.initGeneratorFunction(function $__34() {
       var setting,
           startSE;
       return $traceurRuntime.createGeneratorInstance(function($ctx) {
@@ -3458,7 +3467,7 @@ System.register("ES6/ゲーム", [], function() {
             default:
               return $ctx.end();
           }
-      }, $__32, this);
+      }, $__34, this);
     }));
     function setSysBG() {
       var view = arguments[0] !== (void 0) ? arguments[0] : true;
@@ -3475,8 +3484,8 @@ System.register("ES6/ゲーム", [], function() {
       reset: function() {
         resetup();
       },
-      loadSaveData: Util.co($traceurRuntime.initGeneratorFunction(function $__33() {
-        var $__28,
+      loadSaveData: Util.co($traceurRuntime.initGeneratorFunction(function $__35() {
+        var $__29,
             script,
             scenario,
             setting,
@@ -3523,7 +3532,7 @@ System.register("ES6/ゲーム", [], function() {
                 break;
               case 15:
                 $ctx.state = 17;
-                return ($__28 = Player.deleteSaveData()).then.apply($__28, $traceurRuntime.toObject(deleteAfter));
+                return ($__29 = Player.deleteSaveData()).then.apply($__29, $traceurRuntime.spread(deleteAfter));
               case 17:
                 $ctx.maybeThrow();
                 $ctx.state = 19;
@@ -3538,12 +3547,10 @@ System.register("ES6/ゲーム", [], function() {
               default:
                 return $ctx.end();
             }
-        }, $__33, this);
+        }, $__35, this);
       }))
     });
   })).check();
   return {};
 });
 System.get("ES6/ゲーム" + '');
-
-//# sourceMappingURL=メイン.map
