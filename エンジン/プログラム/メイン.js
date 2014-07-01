@@ -1857,21 +1857,7 @@ System.register("ES6/ビュー", [], function() {
       el_wrapper.addEventListener('onselect', (function(evt) {
         onEvent('select', evt);
       }), true);
-      var tid;
-      el_wrapper.addEventListener('touchstart', (function(evt) {
-        holdcancel();
-        tid = setTimeout((function(_) {
-          return onEvent('touchhold');
-        }), 500);
-      }));
-      function holdcancel() {
-        clearTimeout(tid);
-      }
-      el_wrapper.addEventListener('touchmove', holdcancel);
-      el_wrapper.addEventListener('touchend', holdcancel);
-      el_wrapper.addEventListener('touchcancel', holdcancel);
       function onEvent(type, evt, sys) {
-        LOG(type);
         cancelEvent(evt);
         if (sysOnly && !sys)
           return;
@@ -1886,11 +1872,11 @@ System.register("ES6/ビュー", [], function() {
       function toHook(kind) {
         switch (kind) {
           case '*':
-            return ['*', 'Lclick', 'Rclick', 'Uwheel', 'Dwheel', 'enter', 'space', 'backspace', 'touchhold'];
+            return ['*', 'Lclick', 'Rclick', 'Uwheel', 'Dwheel', 'enter', 'space', 'backspace'];
           case 'go':
             return ['go', 'Lclick', 'Dwheel', 'enter', 'space'];
           case 'menu':
-            return ['menu', 'Rclick', 'backspace', 'touchhold'];
+            return ['menu', 'Rclick', 'backspace'];
           default:
             return [kind];
         }

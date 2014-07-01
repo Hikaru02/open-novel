@@ -1098,7 +1098,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 			onEvent('select', evt)
 		}, true)
 
-
+		/*
 		var tid
 		el_wrapper.addEventListener('touchstart', evt => {
 			holdcancel()
@@ -1110,9 +1110,10 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 		el_wrapper.addEventListener('touchmove', holdcancel)
 		el_wrapper.addEventListener('touchend', holdcancel)
 		el_wrapper.addEventListener('touchcancel', holdcancel)
+		*/
 
 		function onEvent(type, evt, sys) {
-			LOG(type)
+			//LOG(type)
 			cancelEvent(evt)
 			if (sysOnly && !sys) return
 			hooks = hooks.reduce( (ary, hook) => {
@@ -1125,11 +1126,11 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 		function toHook(kind) {
 			switch (kind) {
 				case '*':
-					return ['*', 'Lclick', 'Rclick', 'Uwheel', 'Dwheel', 'enter', 'space', 'backspace', 'touchhold']
+					return ['*', 'Lclick', 'Rclick', 'Uwheel', 'Dwheel', 'enter', 'space', 'backspace']
 				case 'go':
 					return ['go', 'Lclick', 'Dwheel', 'enter', 'space']
 				case 'menu':
-					return ['menu', 'Rclick', 'backspace', 'touchhold']
+					return ['menu', 'Rclick', 'backspace']
 				default: 
 					return [kind]	
 			}
