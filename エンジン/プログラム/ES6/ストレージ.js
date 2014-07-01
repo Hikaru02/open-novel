@@ -1,7 +1,7 @@
 READY().then( _ => {
 	'use strict'
 
-	var db, scenario, VERSION = 5
+	var db, scenario, VERSION = 6
 
 	var Storage = {
 		add(key, val) {
@@ -92,7 +92,7 @@ READY().then( _ => {
 		setGlobalData(data) {
 			if (!data) throw 'セーブ用データが不正'
 			var name = getSaveName()
-			data.version = VERSION
+			data.systemVersion = VERSION
 			return new Promise( (ok, ng) => { 
 				var ts = db.transaction('savedata', 'readwrite')
 				var os = ts.objectStore('savedata')
@@ -154,12 +154,19 @@ READY().then( _ => {
 
 
 	new Promise( (ok, ng) => { 
-		var rq = indexedDB.open(`open-novel`, 5)
+		var rq = indexedDB.open(`open-novel`, 8)
 		rq.onupgradeneeded = evt => {
-			var db = rq.result
-			var ov = evt.oldVersion
-			if (ov < 3) db.createObjectStore('savedata')
-			if (ov < 5) db.createObjectStore('setting')
+			var db = rq.result, ts = rq.transaction, ov = evt.oldVersion
+			if (ov == 0) alert('※初めに※\nopenノベルプレーヤーでは Chrome　Firefox　Opera　の最新バージョンでの利用を推奨しています。')
+			if (ov <= 7) if(confirm('全セーブデータ及び全設定の初期化が必要です。')) {
+				;[].slice.call(db.objectStoreNames).forEach( n => db.deleteObjectStore(n) )
+				db.createObjectStore('setting')
+				db.createObjectStore('savedata')
+				alert('完了しました。')
+			} else {
+				ts.abort()
+				alert('初期化を行わないと起動できません。')
+			}
 		} 
 		rq.onsuccess = _ => ok(rq.result)
 		rq.onerror = err => ng(`ストレージが開けない（${err.message})`)

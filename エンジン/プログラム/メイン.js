@@ -491,7 +491,7 @@ System.register("ES6/ストレージ", [], function() {
     'use strict';
     var db,
         scenario,
-        VERSION = 5;
+        VERSION = 6;
     var Storage = {
       add: function(key, val) {
         return new Promise((function(ok, ng) {
@@ -607,7 +607,7 @@ System.register("ES6/ストレージ", [], function() {
         if (!data)
           throw 'セーブ用データが不正';
         var name = getSaveName();
-        data.version = VERSION;
+        data.systemVersion = VERSION;
         return new Promise((function(ok, ng) {
           var ts = db.transaction('savedata', 'readwrite');
           var os = ts.objectStore('savedata');
@@ -678,14 +678,26 @@ System.register("ES6/ストレージ", [], function() {
       return Data.dataSaveName || Data.scenarioName;
     }
     new Promise((function(ok, ng) {
-      var rq = indexedDB.open("open-novel", 5);
+      var rq = indexedDB.open("open-novel", 8);
       rq.onupgradeneeded = (function(evt) {
-        var db = rq.result;
-        var ov = evt.oldVersion;
-        if (ov < 3)
-          db.createObjectStore('savedata');
-        if (ov < 5)
-          db.createObjectStore('setting');
+        var db = rq.result,
+            ts = rq.transaction,
+            ov = evt.oldVersion;
+        if (ov == 0)
+          alert('※初めに※\nopenノベルプレーヤーでは Chrome　Firefox　Opera　の最新バージョンでの利用を推奨しています。');
+        if (ov <= 7)
+          if (confirm('全セーブデータ及び全設定の初期化が必要です。')) {
+            ;
+            [].slice.call(db.objectStoreNames).forEach((function(n) {
+              return db.deleteObjectStore(n);
+            }));
+            db.createObjectStore('setting');
+            db.createObjectStore('savedata');
+            alert('完了しました。');
+          } else {
+            ts.abort();
+            alert('初期化を行わないと起動できません。');
+          }
       });
       rq.onsuccess = (function(_) {
         return ok(rq.result);
@@ -2666,7 +2678,7 @@ System.register("ES6/プレーヤー", [], function() {
       }), Object.defineProperty($__17, "マーク", {
         value: function(data, done, failed) {
           Data.current.mark = data[0];
-          autosave();
+          autosave(true);
           done();
         },
         configurable: true,
@@ -2715,7 +2727,8 @@ System.register("ES6/プレーヤー", [], function() {
           params: params,
           active: Data.current.active,
           point: po - 2,
-          mark: Data.current.mark
+          mark: Data.current.mark,
+          date: new Date
         };
         Data.current.point = cp;
       }
@@ -2724,10 +2737,9 @@ System.register("ES6/プレーヤー", [], function() {
         if (!full)
           return p;
         save();
-        Util.updateDebugWindow();
         return Promise.all([p, Storage.getSaveDatas(101, 110).then((function(saves) {
           saves.pop();
-          saves.unshift(Data.current.point);
+          saves[101] = Data.current.point;
           saves.forEach((function(save, i) {
             if (save)
               Storage.setSaveData(i, save);
@@ -3152,7 +3164,7 @@ System.register("ES6/プレーヤー", [], function() {
                 $ctx.state = 18;
                 break;
               case 18:
-                $ctx.state = (Data.current.setting.scenarioVersion != v) ? 12 : -2;
+                $ctx.state = (Data.current.setting.scenarioVersion != v || gsave.systemVersion != Storage.VERSION) ? 12 : -2;
                 break;
               case 12:
                 $ctx.returnValue = true;

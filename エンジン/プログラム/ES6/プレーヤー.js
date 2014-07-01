@@ -471,7 +471,7 @@ READY().then( ({Util}) => {
 			マーク(data, done, failed) {
 
 				Data.current.mark = data[0]
-				autosave()
+				autosave(true)
 				done()
 				
 			},
@@ -519,7 +519,8 @@ READY().then( ({Util}) => {
 				params,
 				active: Data.current.active,
 				point: po-2,
-				mark: Data.current.mark
+				mark: Data.current.mark,
+				date: new Date,
 			}
 
 			Data.current.point = cp
@@ -530,13 +531,12 @@ READY().then( ({Util}) => {
 			var p = Storage.setGlobalData(Data.current.setting)
 			if (!full) return p
 			save()
-			Util.updateDebugWindow()
+			//Util.updateDebugWindow()
 
 			return Promise.all([p,
 				Storage.getSaveDatas(101, 110).then(saves => {
-
 					saves.pop()
-					saves.unshift(Data.current.point)
+					saves[101] = Data.current.point
 					saves.forEach( (save, i) => {
 						if (save) Storage.setSaveData(i, save) 
 					})
@@ -774,7 +774,7 @@ READY().then( ({Util}) => {
 			Object.keys(gparams).forEach( key => { Util.paramSet(key, gparams[key], false) })
 
 			var v = Data.current.scenarioVersion = Util.toHalfWidth((setting['バージョン']||['0'])[0])
-			if (Data.current.setting.scenarioVersion != v) return true
+			if (Data.current.setting.scenarioVersion != v || gsave.systemVersion != Storage.VERSION) return true
 		})()
 
 	}
