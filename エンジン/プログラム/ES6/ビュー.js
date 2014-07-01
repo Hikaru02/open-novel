@@ -1092,6 +1092,10 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 			onEvent('contextmenu', evt)
 		}, true)
 
+		el_wrapper.addEventListener('onselect', evt => {
+			onEvent('select', evt)
+		}, true)
+
 		function onEvent(type, evt, sys) {
 			cancelEvent(evt)
 			if (sysOnly && !sys) return
@@ -1105,11 +1109,11 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 		function toHook(kind) {
 			switch (kind) {
 				case '*':
-					return ['*', 'Lclick', 'Rclick', 'Uwheel', 'Dwheel', 'enter', 'space', 'backspace']
+					return ['*', 'Lclick', 'Rclick', 'Uwheel', 'Dwheel', 'enter', 'space', 'backspace', 'select']
 				case 'go':
 					return ['go', 'Lclick', 'Dwheel', 'enter', 'space']
 				case 'menu':
-					return ['menu', 'Rclick', 'backspace']
+					return ['menu', 'Rclick', 'backspace', 'select']
 				default: 
 					return [kind]	
 			}

@@ -1853,6 +1853,9 @@ System.register("ES6/ビュー", [], function() {
       el_wrapper.addEventListener('contextmenu', (function(evt) {
         onEvent('contextmenu', evt);
       }), true);
+      el_wrapper.addEventListener('onselect', (function(evt) {
+        onEvent('select', evt);
+      }), true);
       function onEvent(type, evt, sys) {
         cancelEvent(evt);
         if (sysOnly && !sys)
@@ -1868,11 +1871,11 @@ System.register("ES6/ビュー", [], function() {
       function toHook(kind) {
         switch (kind) {
           case '*':
-            return ['*', 'Lclick', 'Rclick', 'Uwheel', 'Dwheel', 'enter', 'space', 'backspace'];
+            return ['*', 'Lclick', 'Rclick', 'Uwheel', 'Dwheel', 'enter', 'space', 'backspace', 'select'];
           case 'go':
             return ['go', 'Lclick', 'Dwheel', 'enter', 'space'];
           case 'menu':
-            return ['menu', 'Rclick', 'backspace'];
+            return ['menu', 'Rclick', 'backspace', 'select'];
           default:
             return [kind];
         }
