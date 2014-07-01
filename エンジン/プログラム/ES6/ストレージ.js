@@ -69,6 +69,7 @@ READY().then( _ => {
 			if (typeof no != 'number' || no < 0) throw 'セーブ用番号が不正'
 			if (!data) throw 'セーブ用データが不正'
 			var name = getSaveName()
+			data.systemVersion = VERSION
 			return new Promise( (ok, ng) => { 
 				var ts = db.transaction('savedata', 'readwrite')
 				var os = ts.objectStore('savedata')

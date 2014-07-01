@@ -577,6 +577,7 @@ System.register("ES6/ストレージ", [], function() {
         if (!data)
           throw 'セーブ用データが不正';
         var name = getSaveName();
+        data.systemVersion = VERSION;
         return new Promise((function(ok, ng) {
           var ts = db.transaction('savedata', 'readwrite');
           var os = ts.objectStore('savedata');
@@ -2737,7 +2738,7 @@ System.register("ES6/プレーヤー", [], function() {
         save();
         return Promise.all([p, Storage.getSaveDatas(101, 110).then((function(saves) {
           saves.pop();
-          saves[101] = Data.current.point;
+          saves.splice(101, 0, Data.current.point);
           saves.forEach((function(save, i) {
             if (save)
               Storage.setSaveData(i, save);

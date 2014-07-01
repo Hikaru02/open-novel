@@ -536,7 +536,7 @@ READY().then( ({Util}) => {
 			return Promise.all([p,
 				Storage.getSaveDatas(101, 110).then(saves => {
 					saves.pop()
-					saves[101] = Data.current.point
+					saves.splice(101, 0, Data.current.point)
 					saves.forEach( (save, i) => {
 						if (save) Storage.setSaveData(i, save) 
 					})
