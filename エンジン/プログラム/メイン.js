@@ -753,11 +753,7 @@ System.register("ES6/ビュー", [], function() {
     var query = document.querySelector.bind(document),
         queryAll = document.querySelectorAll.bind(document);
     var el_root = query('#ONPwrapper'),
-        el_wrapper = new DOM('div', {
-          userSelect: 'none',
-          webkitUserSelect: 'none',
-          mozUserSelect: 'none'
-        }),
+        el_wrapper = new DOM('div'),
         el_player = new DOM('div'),
         el_context = new DOM('div');
     el_root.removeChildren();
