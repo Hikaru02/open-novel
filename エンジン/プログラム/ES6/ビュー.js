@@ -200,7 +200,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 
 
 	function cancelEvent(evt) {
-		if (!evt) return
+		if (!(evt instanceof Event)) return
 		evt.preventDefault()
 		evt.stopImmediatePropagation()
 	}
@@ -507,12 +507,11 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 					background		: 'rgba(50,50,50,0.5)',
 					boxShadow		: 'rgba(50,50,50,0.5) 0 0 0.5em 0.5em',
 					borderRadius	: '1% / 1%',
-					width			: 'calc(100% - 0.5em - (2% + 2%))',
-					height			: 'calc( 25% - 0.5em - (4% + 2%))',
+					width			: 'calc(100% - 0.5em - (1% + 1%))',
+					height			: 'calc( 20% - 0.5em - (2% + 1%))',
 					fontSize		: '100%',
 					lineHeight		: '1.5',
-					//fontWeight		: 'bold',
-					padding			: '4% 2% 2% 2%',
+					padding			: '2% 1% 1%',
 					whiteSpace		: 'nowrap',
 					position		: 'absolute',
 					bottom			: '0.25em',
@@ -528,7 +527,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 
 				var el_title = el.append(new DOM('div', {
 					display			: 'inline-block',
-					marginRight		: '5%',
+					marginRight		: '4%',
 				//	color			: 'blue',
 					textAlign		: 'right',
 					verticalAlign	: 'top',
@@ -571,6 +570,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 					height			: '100%',
 					width			: '100%',
 					zIndex			: '1000',
+					backgroundColor	: 'black',
 				})
 
 				el_context.append(fr)
@@ -582,7 +582,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 				return View.setChoiceWindow([{name, value: true}, {name: 'キャンセル', value:false}], {sys})
 			},
 
-			setChoiceWindow: function (opts, {sys = false, closeable = false} = {}) {
+			setChoiceWindow: function (opts, {sys = false, closeable = false, half = false, plus = false} = {}) {
 
 				var defer = Promise.defer()
 				var removed = false
@@ -593,16 +593,17 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 
 				var cw = new DOM('div', {
 					position		: 'absolute',
-					left			: 'calc((100% - 70%) / 2 - 5%)',
-					width			: '70%',
+					left			: 'calc((100% - 85%) / 2 - 2%)',
+					width			: '85%',
 				//	height			: '70%',
-					top				: '5%', 
+					top				: '3%', 
 					boxShadow		: sys ? 'rgba(100, 255, 150, 0.5) 0 0 5em' : 'rgba(100, 100, 255, 0.3) 0 0 5em',
 					borderRadius	: '3% / 5%',
 					background		: sys ? 'rgba(100, 255, 150, 0.5)' : 'rgba(100, 100, 255, 0.3)',
-					padding			: '0% 5%',
-					overflowY		: opts.length > 3 ? 'scroll' : 'hidden',
-					maxHeight		: '70%',
+					padding			: '1% 2%',
+					overflowY		: opts.length > (plus?4:3) * (half?2:1) ? 'scroll' : 'hidden',
+					overflowX		: 'hidden',
+					maxHeight		: plus ? '90%' : '70%',
 					zIndex			: '2500',
 				//	verticalAlign	: 'middle',
 				})
@@ -614,18 +615,18 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 					View.windows.choiceBack = cw
 				}
 
-				opts.forEach(function (opt) {
+				opts.forEach(function (opt, i) {
 					if (!('value' in opt)) opt.value = opt.name
 					var bt = new DOM('button', {
-						display			: 'block',
+						display			: 'inline-block',
 						fontSize		: '1.5em',
 						boxShadow		: 'inset 0 1px 3px #F1F1F1, inset 0 -15px ' + (sys ? 'rgba(0,116,116,0.2)' : 'rgba(0,0,223,0.2)') + ', 1px 1px 2px #E7E7E7',
 						background		: sys ? 'rgba(0,100,50,0.8)' : 'rgba(0,0,100,0.8)',
 						color			: 'white',
 						borderRadius	: '5% / 50%',
-						width			: '100%',
+						width			: half ? '45%' : '95%',
 						height			: '2.5em',
-						margin			: '5% 0%',
+						margin			: '2.5%',
 						textShadow		: 'rgba(0,0,0,0.9) 0em 0em 0.5em',
 						fontFamily		: "'Hiragino Kaku Gothic ProN', Meiryo, sans-serif",
 						letterSpacing	: '0.1em',
@@ -665,10 +666,17 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 					if (img) img.remove()
 				}
 
-				View.on('up', rehook => focusmove(rehook, -1) )
-				View.on('down', rehook => focusmove(rehook, +1) )
-				View.on('left', rehook => focusmove(rehook, -10) )
-				View.on('right', rehook => focusmove(rehook, +10) )
+				if (half) {
+					View.on('up', rehook => focusmove(rehook, -2) )
+					View.on('down', rehook => focusmove(rehook, +2) )
+					View.on('left', rehook => focusmove(rehook, -1) )
+					View.on('right', rehook => focusmove(rehook, +1) )
+				} else {
+					View.on('up', rehook => focusmove(rehook, -1) )
+					View.on('down', rehook => focusmove(rehook, +1) )
+					View.on('left', rehook => focusmove(rehook, -10) )
+					View.on('right', rehook => focusmove(rehook, +10) )
+				}
 				View.on('enter', focusenter)
 
 				function focusmove(rehook, n) {
@@ -683,6 +691,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 					bts[si].focus()
 					Promise.delay(100).then(rehook)
 				}
+
 				function focusenter(rehook) {
 					if (removed) return
 					if (focusindex >= 0) return bts[focusindex].click()
@@ -692,13 +701,22 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 				if (closeable) {
 					var img = new DOM('img', {
 						position		: 'absolute',
-						right			: '5em',
-						top				: '1.5em',
-						width			: '2.5em',
-						height			: '2.5em',
+						right			: '2%',
+						top				: '0%',
+						width			: '3em',
+						height			: '3em',
 						opacity			: '0.75',
 						zIndex			: '3000',
 					})
+
+					if (!sys) {
+						if (View.windows.choiceClose) View.windows.choiceClose.remove()
+						View.windows.choiceClose = img
+					} else {
+						if (View.windows.choiceBackClose) View.windows.choiceBackClose.remove()
+						View.windows.choiceBackClose = img
+					}
+
 					if ($isWebkit) {
 						Util.toBlobSysPartsURL('閉じるボタン').then( url => {img.src = url} ).check()
 					} else {
@@ -782,7 +800,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 
 
 			// エフェクト
-			prepareFade: function (opts) {
+			prepareFade: function () {
 				if (View.fake) return Promise.reject('２重にエフェクトの準備をしようとした')
 				var fr = View.imageFrame
 				var fake = View.fake = fr.cloneNode(true)
@@ -849,11 +867,11 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 				if (Data.phase != 'play' || View.menuIndex > 0) return View.on('Rclick').then(_ => View.showMenu())
 				//LOG('show')
 				View.menuIndex = (View.menuIndex||0)+1
-				//eventBlock()
-				eventSysOnly(true)
+				eventBlock()
+				//eventSysOnly(true)
 				View.on('menu').then( _ => {
 					if (this.windows.choiceBack) this.windows.choiceBack.remove()
-					View.hideMenu()
+					close()
 				} ).check()
 				Object.keys(View.windows).forEach( key => {
 					var el = View.windows[key]
@@ -862,58 +880,59 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 				
 				var ary = ['セーブ', 'ロード', 'ウィンドウ消去', 'ログ表示', 'オート', '既読スキップ', 'リセット'].map(name => ({name}))
 				if (Data.saveDisabled) ary[0].disabled = true
-				View.setChoiceWindow(ary, {sys: true, closeable: true}).then( kind => {
+				View.setChoiceWindow(ary, {sys: true, closeable: true, half: true, plus: true}).then( kind => {
 
 					switch (kind) {
 						case 'セーブ':
-							Player.saveSaveData().check().through(View.hideMenu)
+							Player.saveSaveData().check().through(close)
 							.then(f => f && View.showNotice('セーブしました。'), err => View.showNotice('セーブに失敗しました。') )
 						break
 
-						case 'ロード': Game.loadSaveData().then(View.hideMenu) ; break
+						case 'ロード': Game.loadSaveData().then(close) ; break
 
 						case 'ウィンドウ消去':
-							eventSysOnly(false)
+							//eventSysOnly(false)
 							eventBlock() 
 							View.on('*', _ => {
-								View.hideMenu()
+								close()
 								eventAllow()
 							})
 						break
 
-						case 'ログ表示': View.hideMenu(); eventFire('Uwheel') ; break
+						case 'ログ表示': close(); eventFire('Uwheel') ; break
 
-						case 'オート': View.hideMenu(); startAuto() ; break
+						case 'オート': close(); startAuto() ; break
 
-						case '既読スキップ': View.hideMenu(); startSkip() ; break
+						case '既読スキップ': close(); startSkip() ; break
 
-						case 'リセット': View.setConfirmWindow('リセットする').then(f => { if (f) Game.reset() ;else View.hideMenu() }) ; break
+						case 'リセット': View.setConfirmWindow('リセットする').then(f => { if (f) Game.reset() ;else close() }) ; break
 
-						case '閉じる': View.hideMenu(); break
+						case '閉じる': close(); break
 
 						default: throw 'illegal choice type'
 					}
 				})
 
-			},
+				function close(evt) {
+					//LOG('hide')
+					if (!View.menuIndex) return
+					--View.menuIndex
+					eventAllow()
+					//eventSysOnly(false)
+					View.on('menu').then(_ => View.showMenu())
+					Object.keys(View.windows).forEach( key => {
+						var el = View.windows[key]
+						el.hidden = !el.hidden
+					} )
+				}
 
-			hideMenu: function () {
-				//LOG('hide')
-				if (!View.menuIndex) return
-				--View.menuIndex
-				//eventAllow()
-				eventSysOnly(false)
-				View.on('menu').then(_ => View.showMenu())
-				Object.keys(View.windows).forEach( key => {
-					var el = View.windows[key]
-					el.hidden = !el.hidden
-				} )
 			},
 
 			showLog: function (text) {
 
 				if (Data.phase != 'play' || this.windows.log) return
-				eventSysOnly(true)
+				eventBlock()
+				//eventSysOnly(true)
 
 				Object.keys(View.windows).forEach( key => {
 					var el = View.windows[key]
@@ -935,11 +954,11 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 
 				var img = new DOM('img', {
 					position		: 'absolute',
-					right			: '2em',
-					top				: '1em',
+					right			: '2%',
+					top				: '0%',
 					width			: '3em',
 					height			: '3em',
-					opacity			: '0.5',
+					opacity			: '0.75',
 					zIndex			: '3000'
 				})
 				if ($isWebkit) {
@@ -948,22 +967,26 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 					img.src = 'エンジン/画像/閉じるボタン.svg'
 				}
 				el_context.append(img)
-
-				img.onmousedown = evt => {
-					evt.preventDefault()
-					evt.stopImmediatePropagation()
+ 
+				function close(evt) {
+					cancelEvent(evt)
 					img.remove()
-					if (this.windows.log) {
-						this.windows.log.remove()
-						delete this.windows.log
+					if (View.windows.log) {
+						View.windows.log.remove()
+						delete View.windows.log
 					}
 					Object.keys(View.windows).forEach( key => {
 						var el = View.windows[key]
 						el.hidden = !el.hidden
 					} )
-					eventSysOnly(false)
+					//eventSysOnly(false)
+					eventAllow()
 					View.on('Uwheel').then(_ => View.showLog())
 				}
+
+				img.onmousedown = close
+				View.on('menu').then(close)
+
 
 				View.logs.forEach(log => {
 					log.setStyles({
@@ -1119,6 +1142,10 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 
 	function vibrate(...args) {
 		if (typeof navigator.vibrate == 'function') navigator.vibrate(...args)
+	}
+
+	window.onbeforeunload = _ => {
+		if (Data.phase == 'play') return 'セーブされていないデータは失われます。'
 	}
 
 	var $full = false

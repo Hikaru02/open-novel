@@ -42,7 +42,7 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 				return opts
 			}, [])
 
-			View.setChoiceWindow(opts, {sys: true}).then(ok, ng)
+			View.setChoiceWindow(opts, {sys: true, half: true}).then(ok, ng)
 		})
 
 
@@ -62,7 +62,7 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 
 			var opts = ['初めから', '続きから', '任意の場所から', '初期化する'].map( name => ({name}) )
 
-			return View.setChoiceWindow(opts, {sys: true, closeable: true}).then( kind => {
+			return View.setChoiceWindow(opts, {sys: true, closeable: true, half: true}).then( kind => {
 
 				//message('シナリオを読み込んでいます...')
 				var base = setting['開始シナリオ']
@@ -71,7 +71,10 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 				switch (kind) {
 					case '初めから': Player.fetchScriptData(base).then(ok, ng) ; break
 
-					case '続きから': Player.loadSaveData().then(ok, ng) ; break
+					case '続きから':
+						View.mainMessageWindow.el.hidden = true
+						Player.loadSaveData().then(ok, ng)
+					break
 
 					case '任意の場所から':
 						var name = prompt('『<スクリプト名>』または『<スクリプト名>#<マーク名>』の形式で指定します。\n開始シナリオから始める場合は『#<マーク名>』の形式も使えます。')
@@ -117,23 +120,18 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 		message('キャッシュ中…')
 		yield Player.cacheScript(script)
 
-	/*
-		yield message('再生準備が完了しました。\nクリック、タップ、エンターキー、スペースキーで進みます。').on('go').then( _ => {
-			//Player.setRunPhase('再生')
-			return Player.runScript(script, scenario)
-		})
-	*/
+		yield message('')
 
-		yield message('').then( _ => {
-			//View.nextPage('')
-			View.clean()
-			return Player.runScript(script)
-		})
+		yield View.prepareFade()
+		yield View.setBGImage({url: null, sys: true})
+		yield View.fade({msec: 250})
 
 		View.clean()
-		//Player.cacheClear()
 
-		Player.setRunPhase('準備')
+
+
+		yield Player.runScript(script)
+		View.clean()
 
 		yield message('再生が終了しました。\n作品選択メニューに戻ります。').delay(1000)
 
@@ -149,7 +147,6 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 		LOG(err)
 		if (typeof err !== 'string') err = '致命的なエラーが発生したため再生を継続できません。' 
 		View.clean()
-		Player.setRunPhase('エラー解決')
 
 		yield message(err + '\n作品選択メニューに戻ります。').delay(1000)
 		return resetup()
@@ -161,8 +158,6 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 
 
 	var start = Util.co(function* () {
-
-		Player.setRunPhase('起動')
 
 		var setting = yield Player.fetchSettingData(Data.URL.EngineSetting)
 

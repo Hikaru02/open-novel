@@ -2,10 +2,6 @@
 READY().then( ({Util}) => {
 	'use strict'
 
-	function setPhase(phase) { document.title = '【' +phase+ '】' }
-	function setRunPhase(kind) { setPhase(`${kind}中...`) }
-	function setErrorPhase(kind) { setPhase(`${kind}エラー`) }
-
 
 	function parseScript(text) {
 		text = text.replace(/\r\n/g, '\n').replace(/\n+/g, '\n').replace(/\n/g, '\r\n') + '\r\n'
@@ -266,7 +262,6 @@ READY().then( ({Util}) => {
 
 		View.changeModeIfNeeded('NOVEL')
 		Data.phase = 'play'
-		document.title = `【${Data.scenarioName}】`
 
 		var run = Promise.defer()
 		//if (!parentComp) parentComp = run.resolve
@@ -689,7 +684,7 @@ READY().then( ({Util}) => {
 				return {name: `${name}．${mark}`, value: save, disabled: !save }
 			})
 
-			var save = yield View.setChoiceWindow(opts, {sys: true, closeable: true})
+			var save = yield View.setChoiceWindow(opts, {sys: true, closeable: true, plus: true})
 			if (save == '閉じる') return false
 			var {params, script, point, active, mark} = save
 			Util.paramClear()
@@ -717,7 +712,7 @@ READY().then( ({Util}) => {
 				var name = i
 				return {name: `${name}．${mark}`, value: i}
 			})
-			var no = yield View.setChoiceWindow(opts, {sys: true, closeable: true})
+			var no = yield View.setChoiceWindow(opts, {sys: true, closeable: true, plus: true})
 
 			if (no == '閉じる') return false
 
@@ -750,7 +745,7 @@ READY().then( ({Util}) => {
 
 	function init() {
 		Data.phase = 'pause'
-		Player.setRunPhase('準備')
+		document.title = 'openノベルプレーヤー'
 		Util.paramClear(true)
 		View.clean()
 	}
@@ -759,6 +754,7 @@ READY().then( ({Util}) => {
 
 	function setSetting(scenario, setting) {
 		return Util.co(function* () {
+			document.title = `【${scenario}】 - openノベルプレーヤー`
 			Data.dataSaveName = (setting['データ保存名']||[undefined])[0]
 			Data.scenarioName = scenario
 			Data.settingData = setting
@@ -813,7 +809,7 @@ READY().then( ({Util}) => {
 
 	
 	READY.Player.ready({
-		setRunPhase, setErrorPhase, fetchSettingData, fetchScriptData, runScript, print,
+		fetchSettingData, fetchScriptData, runScript, print,
 		loadSaveData, saveSaveData, deleteSaveData, evalEffect, init, setSetting, cacheScript,
 	})
 

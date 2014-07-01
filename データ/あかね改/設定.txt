@@ -1,3 +1,11 @@
 
 ・開始シナリオ
 	1
+
+・バージョン
+	３
+
+・データ保存名
+	あかね１_nv42b7gf9hfv9qqdnq98mxpbuntvmvyx
+
+	
