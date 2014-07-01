@@ -1858,7 +1858,7 @@ System.register("ES6/ビュー", [], function() {
         onEvent('select', evt);
       }), true);
       var tid;
-      el_wrapper.addEventListener('ontouchstart', (function(evt) {
+      el_wrapper.addEventListener('touchstart', (function(evt) {
         tid = setTimeout((function(_) {
           return onEvent('touchhold');
         }), 300);
@@ -1866,9 +1866,9 @@ System.register("ES6/ビュー", [], function() {
       function holdcancel() {
         clearTimeout(tid);
       }
-      el_wrapper.addEventListener('ontouchmove', holdcancel);
-      el_wrapper.addEventListener('ontouchend', holdcancel);
-      el_wrapper.addEventListener('ontouchcancel', holdcancel);
+      el_wrapper.addEventListener('touchmove', holdcancel);
+      el_wrapper.addEventListener('touchend', holdcancel);
+      el_wrapper.addEventListener('touchcancel', holdcancel);
       function onEvent(type, evt, sys) {
         cancelEvent(evt);
         if (sysOnly && !sys)
@@ -3438,7 +3438,7 @@ System.register("ES6/ゲーム", [], function() {
               break;
             case 16:
               $ctx.state = 18;
-              return View.fade({msec: 250});
+              return View.fade({msec: 500});
             case 18:
               $ctx.maybeThrow();
               $ctx.state = 20;

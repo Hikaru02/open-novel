@@ -125,7 +125,7 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 
 		yield View.prepareFade()
 		yield View.setBGImage({url: null, sys: true})
-		yield View.fade({msec: 250})
+		yield View.fade({msec: 500})
 
 		View.clean()
 		yield Player.runScript(script)

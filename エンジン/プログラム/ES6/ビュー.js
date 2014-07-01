@@ -1100,15 +1100,15 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 
 
 		var tid
-		el_wrapper.addEventListener('ontouchstart', evt => {
+		el_wrapper.addEventListener('touchstart', evt => {
 			tid = setTimeout( _ => onEvent('touchhold'), 300)
 		})
 
 		function holdcancel() { clearTimeout(tid) }
 
-		el_wrapper.addEventListener('ontouchmove', holdcancel)
-		el_wrapper.addEventListener('ontouchend', holdcancel)
-		el_wrapper.addEventListener('ontouchcancel', holdcancel)
+		el_wrapper.addEventListener('touchmove', holdcancel)
+		el_wrapper.addEventListener('touchend', holdcancel)
+		el_wrapper.addEventListener('touchcancel', holdcancel)
 
 		function onEvent(type, evt, sys) {
 			cancelEvent(evt)
