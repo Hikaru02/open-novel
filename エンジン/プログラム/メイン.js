@@ -1861,7 +1861,7 @@ System.register("ES6/ビュー", [], function() {
       el_wrapper.addEventListener('touchstart', (function(evt) {
         tid = setTimeout((function(_) {
           return onEvent('touchhold');
-        }), 300);
+        }), 500);
       }));
       function holdcancel() {
         clearTimeout(tid);
@@ -1870,6 +1870,7 @@ System.register("ES6/ビュー", [], function() {
       el_wrapper.addEventListener('touchend', holdcancel);
       el_wrapper.addEventListener('touchcancel', holdcancel);
       function onEvent(type, evt, sys) {
+        LOG('type');
         cancelEvent(evt);
         if (sysOnly && !sys)
           return;

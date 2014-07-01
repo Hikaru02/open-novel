@@ -1101,7 +1101,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 
 		var tid
 		el_wrapper.addEventListener('touchstart', evt => {
-			tid = setTimeout( _ => onEvent('touchhold'), 300)
+			tid = setTimeout( _ => onEvent('touchhold'), 500)
 		})
 
 		function holdcancel() { clearTimeout(tid) }
@@ -1111,6 +1111,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 		el_wrapper.addEventListener('touchcancel', holdcancel)
 
 		function onEvent(type, evt, sys) {
+			LOG('type')
 			cancelEvent(evt)
 			if (sysOnly && !sys) return
 			hooks = hooks.reduce( (ary, hook) => {
