@@ -756,6 +756,7 @@ System.register("ES6/ビュー", [], function() {
         el_wrapper = new DOM('div'),
         el_player = new DOM('div'),
         el_context = new DOM('div');
+    el_wrapper.id = 'ONP';
     el_root.removeChildren();
     el_root.append(el_wrapper).append(el_player).append(el_context);
     function adjustScale(height, ratio, full) {
@@ -1856,6 +1857,18 @@ System.register("ES6/ビュー", [], function() {
       el_wrapper.addEventListener('onselect', (function(evt) {
         onEvent('select', evt);
       }), true);
+      var tid;
+      el_wrapper.addEventListener('ontouchstart', (function(evt) {
+        tid = setTimeout((function(_) {
+          return onEvent('touchhold');
+        }), 300);
+      }));
+      function holdcancel() {
+        clearTimeout(tid);
+      }
+      el_wrapper.addEventListener('ontouchmove', holdcancel);
+      el_wrapper.addEventListener('ontouchend', holdcancel);
+      el_wrapper.addEventListener('ontouchcancel', holdcancel);
       function onEvent(type, evt, sys) {
         cancelEvent(evt);
         if (sysOnly && !sys)
@@ -1871,11 +1884,11 @@ System.register("ES6/ビュー", [], function() {
       function toHook(kind) {
         switch (kind) {
           case '*':
-            return ['*', 'Lclick', 'Rclick', 'Uwheel', 'Dwheel', 'enter', 'space', 'backspace', 'select'];
+            return ['*', 'Lclick', 'Rclick', 'Uwheel', 'Dwheel', 'enter', 'space', 'backspace', 'touchhold'];
           case 'go':
             return ['go', 'Lclick', 'Dwheel', 'enter', 'space'];
           case 'menu':
-            return ['menu', 'Rclick', 'backspace', 'select'];
+            return ['menu', 'Rclick', 'backspace', 'touchhold'];
           default:
             return [kind];
         }

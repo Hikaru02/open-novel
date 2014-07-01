@@ -51,6 +51,8 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 	    el_player  = new DOM('div'),
 	    el_context = new DOM('div')
 
+	    el_wrapper.id = 'ONP'
+
 		el_root.removeChildren()
 		el_root.append(el_wrapper).append(el_player).append(el_context)
 
@@ -1096,6 +1098,18 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 			onEvent('select', evt)
 		}, true)
 
+
+		var tid
+		el_wrapper.addEventListener('ontouchstart', evt => {
+			tid = setTimeout( _ => onEvent('touchhold'), 300)
+		})
+
+		function holdcancel() { clearTimeout(tid) }
+
+		el_wrapper.addEventListener('ontouchmove', holdcancel)
+		el_wrapper.addEventListener('ontouchend', holdcancel)
+		el_wrapper.addEventListener('ontouchcancel', holdcancel)
+
 		function onEvent(type, evt, sys) {
 			cancelEvent(evt)
 			if (sysOnly && !sys) return
@@ -1109,11 +1123,11 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 		function toHook(kind) {
 			switch (kind) {
 				case '*':
-					return ['*', 'Lclick', 'Rclick', 'Uwheel', 'Dwheel', 'enter', 'space', 'backspace', 'select']
+					return ['*', 'Lclick', 'Rclick', 'Uwheel', 'Dwheel', 'enter', 'space', 'backspace', 'touchhold']
 				case 'go':
 					return ['go', 'Lclick', 'Dwheel', 'enter', 'space']
 				case 'menu':
-					return ['menu', 'Rclick', 'backspace', 'select']
+					return ['menu', 'Rclick', 'backspace', 'touchhold']
 				default: 
 					return [kind]	
 			}
