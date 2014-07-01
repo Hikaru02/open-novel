@@ -2030,7 +2030,7 @@ System.register("ES6/サウンド", [], function() {
           rootVolume.off();
       }
       function canplay() {
-        return ctx && soundAvailability && soundEnabled;
+        return ctx && soundAvailability && Sound.soundEnabled;
       }
       var Sound = function Sound(kind, name) {
         if (!kind)

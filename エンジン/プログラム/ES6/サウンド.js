@@ -63,7 +63,7 @@ READY('Storage', 'Player').then( ({Util}) => {
 		}
 
 		function canplay() {
-			return ctx && soundAvailability && soundEnabled
+			return ctx && soundAvailability && Sound.soundEnabled
 		}
 
 
