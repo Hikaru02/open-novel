@@ -121,15 +121,13 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 		yield Player.cacheScript(script)
 
 		yield message('')
+		View.mainMessageWindow.el.hidden = true
 
 		yield View.prepareFade()
 		yield View.setBGImage({url: null, sys: true})
 		yield View.fade({msec: 250})
 
 		View.clean()
-
-
-
 		yield Player.runScript(script)
 		View.clean()
 

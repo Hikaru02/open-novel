@@ -3405,6 +3405,10 @@ System.register("ES6/ゲーム", [], function() {
               $ctx.state = 8;
               break;
             case 8:
+              View.mainMessageWindow.el.hidden = true;
+              $ctx.state = 34;
+              break;
+            case 34:
               $ctx.state = 10;
               return View.prepareFade();
             case 10:
@@ -3430,9 +3434,9 @@ System.register("ES6/ゲーム", [], function() {
               break;
             case 20:
               View.clean();
-              $ctx.state = 34;
+              $ctx.state = 36;
               break;
-            case 34:
+            case 36:
               $ctx.state = 22;
               return Player.runScript(script);
             case 22:
@@ -3441,9 +3445,9 @@ System.register("ES6/ゲーム", [], function() {
               break;
             case 24:
               View.clean();
-              $ctx.state = 36;
+              $ctx.state = 38;
               break;
-            case 36:
+            case 38:
               $ctx.state = 26;
               return message('再生が終了しました\n作品選択メニューに戻ります').delay(1000);
             case 26:
