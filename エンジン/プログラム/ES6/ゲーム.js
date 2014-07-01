@@ -34,7 +34,7 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 
 			var novels = setting['作品']
 
-			if (!novels || !novels.length) return message('再生できる作品がありません。\n『データ/作品.txt』を確認してください。')
+			if (!novels || !novels.length) return message('再生できる作品がありません\n『データ/作品.txt』を確認してください')
 			if (novels.length === 1) return ok(novels[0])
 
 			var opts = novels.reduce( (opts, name) => {
@@ -52,7 +52,7 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 		var reqNew = yield Player.setSetting(scenario, setting)
 
 		if (reqNew) {
-			yield message('セーブデータの初期化が必要です。')
+			yield message('セーブデータの初期化が必要です')
 			yield Player.deleteSaveData().then(...deleteAfter)
 			return
 		}
@@ -66,7 +66,7 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 
 				//message('シナリオを読み込んでいます...')
 				var base = setting['開始シナリオ']
-				if (!base || !(base = base[0])) return ng('開始シナリオが見つかりません。\n開始シナリオの設定は必須です。')
+				if (!base || !(base = base[0])) return ng('設定項目「開始シナリオ」が見つかりません')
 
 				switch (kind) {
 					case '初めから': Player.fetchScriptData(base).then(ok, ng) ; break
@@ -78,9 +78,9 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 
 					case '任意の場所から':
 						var name = prompt('『<スクリプト名>』または『<スクリプト名>#<マーク名>』の形式で指定します。\n開始シナリオから始める場合は『#<マーク名>』の形式も使えます。')
-						if (!name) return message('作品選択メニューに戻ります。').delay(1000).then(resetup)
+						if (!name) return message('作品選択メニューに戻ります').delay(1000).then(resetup)
 						Player.fetchScriptData(name, base).check().then(ok, err => {
-							message('指定されたファイルを読み込めません。').delay(1000).then(resetup)
+							message('指定されたファイルを読み込めません').delay(1000).then(resetup)
 						})
 					break
 
@@ -90,7 +90,7 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 
 					case '閉じる': resetup() ; break
 
-					default: ng('想定外の機能が呼び出されました。')
+					default: ng('想定外の機能が呼び出されました')
 
 				}
 
@@ -107,10 +107,10 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 	var deleteAfter = [
 		f => {
 			if (f) return message('初期化しました').delay(1000).then(resetup)
-			else return message('作品選択メニューに戻ります。').delay(1000).then(resetup)
+			else return message('作品選択メニューに戻ります').delay(1000).then(resetup)
 		}, 
 		err => {
-			return message('消去中にエラーが発生しました。').delay(1000).then(resetup)
+			return message('消去中にエラーが発生しました').delay(1000).then(resetup)
 		}
 	]
 
@@ -133,7 +133,7 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 		yield Player.runScript(script)
 		View.clean()
 
-		yield message('再生が終了しました。\n作品選択メニューに戻ります。').delay(1000)
+		yield message('再生が終了しました\n作品選択メニューに戻ります').delay(1000)
 
 		return setup().catch(restart)
 
@@ -145,10 +145,10 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 	var restart = Util.co(function* (err) {
 
 		LOG(err)
-		if (typeof err !== 'string') err = '致命的なエラーが発生したため再生を継続できません。' 
+		if (typeof err !== 'string') err = '致命的なエラーが発生したため再生を継続できません' 
 		View.clean()
 
-		yield message(err + '\n作品選択メニューに戻ります。').delay(1000)
+		yield message(err + '\n作品選択メニューに戻ります').delay(1000)
 		return resetup()
 
 	})
@@ -205,7 +205,7 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 			Player.setSetting(scenario, setting)
 			var reqNew = yield Player.setSetting(scenario, setting)
 			if (reqNew) {
-				yield message('セーブデータの初期化が必要です。')
+				yield message('セーブデータの初期化が必要です')
 				yield Player.deleteSaveData().then(...deleteAfter)
 				return
 			} 

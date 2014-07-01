@@ -3258,7 +3258,7 @@ System.register("ES6/ゲーム", [], function() {
               return new Promise((function(ok, ng) {
                 var novels = setting['作品'];
                 if (!novels || !novels.length)
-                  return message('再生できる作品がありません。\n『データ/作品.txt』を確認してください。');
+                  return message('再生できる作品がありません\n『データ/作品.txt』を確認してください');
                 if (novels.length === 1)
                   return ok(novels[0]);
                 var opts = novels.reduce((function(opts, name) {
@@ -3293,7 +3293,7 @@ System.register("ES6/ゲーム", [], function() {
               break;
             case 17:
               $ctx.state = 18;
-              return message('セーブデータの初期化が必要です。');
+              return message('セーブデータの初期化が必要です');
             case 18:
               $ctx.maybeThrow();
               $ctx.state = 20;
@@ -3326,7 +3326,7 @@ System.register("ES6/ゲーム", [], function() {
                   var $__31;
                   var base = setting['開始シナリオ'];
                   if (!base || !(base = base[0]))
-                    return ng('開始シナリオが見つかりません。\n開始シナリオの設定は必須です。');
+                    return ng('設定項目「開始シナリオ」が見つかりません');
                   switch (kind) {
                     case '初めから':
                       Player.fetchScriptData(base).then(ok, ng);
@@ -3338,9 +3338,9 @@ System.register("ES6/ゲーム", [], function() {
                     case '任意の場所から':
                       var name = prompt('『<スクリプト名>』または『<スクリプト名>#<マーク名>』の形式で指定します。\n開始シナリオから始める場合は『#<マーク名>』の形式も使えます。');
                       if (!name)
-                        return message('作品選択メニューに戻ります。').delay(1000).then(resetup);
+                        return message('作品選択メニューに戻ります').delay(1000).then(resetup);
                       Player.fetchScriptData(name, base).check().then(ok, (function(err) {
-                        message('指定されたファイルを読み込めません。').delay(1000).then(resetup);
+                        message('指定されたファイルを読み込めません').delay(1000).then(resetup);
                       }));
                       break;
                     case '初期化する':
@@ -3350,7 +3350,7 @@ System.register("ES6/ゲーム", [], function() {
                       resetup();
                       break;
                     default:
-                      ng('想定外の機能が呼び出されました。');
+                      ng('想定外の機能が呼び出されました');
                   }
                 }));
               }));
@@ -3378,9 +3378,9 @@ System.register("ES6/ゲーム", [], function() {
       if (f)
         return message('初期化しました').delay(1000).then(resetup);
       else
-        return message('作品選択メニューに戻ります。').delay(1000).then(resetup);
+        return message('作品選択メニューに戻ります').delay(1000).then(resetup);
     }), (function(err) {
-      return message('消去中にエラーが発生しました。').delay(1000).then(resetup);
+      return message('消去中にエラーが発生しました').delay(1000).then(resetup);
     })];
     var load = Util.co($traceurRuntime.initGeneratorFunction(function $__33(script) {
       return $traceurRuntime.createGeneratorInstance(function($ctx) {
@@ -3445,7 +3445,7 @@ System.register("ES6/ゲーム", [], function() {
               break;
             case 36:
               $ctx.state = 26;
-              return message('再生が終了しました。\n作品選択メニューに戻ります。').delay(1000);
+              return message('再生が終了しました\n作品選択メニューに戻ります').delay(1000);
             case 26:
               $ctx.maybeThrow();
               $ctx.state = 28;
@@ -3466,13 +3466,13 @@ System.register("ES6/ゲーム", [], function() {
             case 0:
               LOG(err);
               if (typeof err !== 'string')
-                err = '致命的なエラーが発生したため再生を継続できません。';
+                err = '致命的なエラーが発生したため再生を継続できません';
               View.clean();
               $ctx.state = 8;
               break;
             case 8:
               $ctx.state = 2;
-              return message(err + '\n作品選択メニューに戻ります。').delay(1000);
+              return message(err + '\n作品選択メニューに戻ります').delay(1000);
             case 2:
               $ctx.maybeThrow();
               $ctx.state = 4;
@@ -3582,7 +3582,7 @@ System.register("ES6/ゲーム", [], function() {
                 break;
               case 12:
                 $ctx.state = 13;
-                return message('セーブデータの初期化が必要です。');
+                return message('セーブデータの初期化が必要です');
               case 13:
                 $ctx.maybeThrow();
                 $ctx.state = 15;
