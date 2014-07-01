@@ -537,11 +537,13 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 				//	padding			: '5px',
 				}))
 
+				/*
 				el_title.onmousedown = evt => {
 					evt.preventDefault()
 					evt.stopImmediatePropagation()
 					eventFire('menu', false)
 				}
+				*/
 
 				var el_body = el.append(new DOM('div', {
 					display			: 'inline-block',

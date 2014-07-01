@@ -1254,11 +1254,6 @@ System.register("ES6/ビュー", [], function() {
             width: '15%',
             height: '100%'
           }));
-          el_title.onmousedown = (function(evt) {
-            evt.preventDefault();
-            evt.stopImmediatePropagation();
-            eventFire('menu', false);
-          });
           var el_body = el.append(new DOM('div', {
             display: 'inline-block',
             width: 'auto',
