@@ -911,6 +911,18 @@ System.register("ES6/ビュー", [], function() {
       evt.preventDefault();
       evt.stopImmediatePropagation();
     }
+    function reverseWindow() {
+      var del = arguments[0] !== (void 0) ? arguments[0] : false;
+      Object.keys(View.windows).forEach((function(key) {
+        var el = View.windows[key];
+        if (el.hidden)
+          el.hidden = false;
+        else if (!del)
+          el.hidden = true;
+        else
+          el.remove();
+      }));
+    }
     var fitScreen = Util.NOP;
     window.onresize = (function(_) {
       return fitScreen();
@@ -924,147 +936,146 @@ System.register("ES6/ビュー", [], function() {
         adjustScale($scale, $ratio);
       }
     });
-    var METHODS = {};
-    METHODS = {COMMON: {
-        clean: function() {
-          this.changeMode($mode);
-        },
-        init: function(opt) {
-          this.initDisplay(opt.style || {});
-        },
-        changeMode: function(type, opt) {
-          var type = type.toUpperCase();
-          opt = opt || {};
-          if (!(type in METHODS))
-            throw 'illegal ViewContext mode type';
-          $mode = type;
-          global.View = View = {__proto__: METHODS[type]};
-          View.init(opt);
-        },
-        changeModeIfNeeded: function(type, opt) {
-          if ($mode != type)
-            this.changeMode(type, opt);
-        },
-        on: function(kind, onFulfilled, onRejected) {
-          var rehook = (function(_) {
-            return View.on(kind, onFulfilled, onRejected);
-          });
-          return new Promise((function(resolve) {
-            return hookInput(kind, resolve);
-          })).then((function(_) {
-            return rehook;
-          })).then(onFulfilled).check().catch(onRejected);
-        },
-        initDisplay: function(opt) {
-          Util.setDefaults(opt, {
-            background: 'black',
-            margin: 'auto',
+    var COMMON = {
+      clean: function() {
+        this.changeMode($mode);
+      },
+      init: function(opt) {
+        this.initDisplay(opt.style || {});
+      },
+      changeMode: function(type, opt) {
+        var type = type.toUpperCase();
+        opt = opt || {};
+        if (!(type in METHODS))
+          throw 'illegal ViewContext mode type';
+        $mode = type;
+        global.View = View = {__proto__: METHODS[type]};
+        View.init(opt);
+      },
+      changeModeIfNeeded: function(type, opt) {
+        if ($mode != type)
+          this.changeMode(type, opt);
+      },
+      on: function(kind, onFulfilled, onRejected) {
+        var rehook = (function(_) {
+          return View.on(kind, onFulfilled, onRejected);
+        });
+        return new Promise((function(resolve) {
+          return hookInput(kind, resolve);
+        })).then((function(_) {
+          return rehook;
+        })).then(onFulfilled).check().catch(onRejected);
+      },
+      initDisplay: function(opt) {
+        Util.setDefaults(opt, {
+          background: 'black',
+          margin: 'auto',
+          position: 'relative',
+          hidth: '100%',
+          height: '100%',
+          overflow: 'hidden'
+        });
+        hookClear();
+        stopAuto();
+        this.windows = {};
+        var height = opt.HEIGHT || 480;
+        opt.height = opt.width = '100%';
+        el_context = new DOM('div');
+        el_player.removeChildren();
+        el_player.append(el_context);
+        el_wrapper.setStyles({
+          overflow: 'hidden',
+          maxHeight: '100%',
+          maxWidth: '100%'
+        });
+        if (!document.fullscreenElement)
+          el_player.setStyles({
             position: 'relative',
-            hidth: '100%',
-            height: '100%',
-            overflow: 'hidden'
-          });
-          hookClear();
-          stopAuto();
-          this.windows = {};
-          var height = opt.HEIGHT || 480;
-          opt.height = opt.width = '100%';
-          el_context = new DOM('div');
-          el_player.removeChildren();
-          el_player.append(el_context);
-          el_wrapper.setStyles({
             overflow: 'hidden',
-            maxHeight: '100%',
-            maxWidth: '100%'
+            height: '100%',
+            width: '100%'
           });
-          if (!document.fullscreenElement)
-            el_player.setStyles({
-              position: 'relative',
-              overflow: 'hidden',
-              height: '100%',
-              width: '100%'
-            });
-          el_context.setStyles(opt);
-        },
-        showNotice: function(message, show_time) {
-          var delay_time = arguments[2] !== (void 0) ? arguments[2] : 250;
-          if (!message)
-            throw 'illegal message string';
-          if (!show_time)
-            show_time = message.split('\n').length * 500;
-          message = '【！】\n' + message;
-          var noticeWindow = new DOM('div', {
-            fontSize: '2em',
-            color: 'rgba(0,0,0,0.75)',
-            textShadow: 'rgba(0,0,0,0.75) 0.01em 0.01em 0.01em',
-            backgroundColor: 'rgba(255,255,0,0.75)',
-            boxShadow: 'rgba(100,100,0,0.5) 0px 0px 5px 5px',
-            borderRadius: '2% / 10%',
-            textAlign: 'center',
-            lineHeight: '1.5',
-            opacity: '0',
-            position: 'absolute',
-            left: 'calc((100% - 90%) / 2)',
-            top: '20%',
-            zIndex: '5000',
-            width: '90%',
-            fontFamily: "'Hiragino Kaku Gothic ProN', Meiryo, sans-serif",
-            letterSpacing: '0.1em'
-          });
-          el_player.append(noticeWindow).append(new DOM('pre', {margin: '5%'})).append(new DOM('text', message));
-          return new Promise(function(ok, ng) {
-            var opacity = 0;
-            setAnimate(function(delta, complete) {
-              opacity = delta / delay_time;
-              if (opacity >= 1) {
-                opacity = 1;
-                vibrate([100, 100, 100]);
-                complete();
-              }
-              noticeWindow.style.opacity = opacity;
-            }).delay(show_time).and(setAnimate, (function(delta, complete) {
-              opacity = 1 - delta / delay_time;
-              if (opacity <= 0) {
-                opacity = 0;
-                complete();
-                noticeWindow.remove();
-              }
-              noticeWindow.style.opacity = opacity;
-            })).then(ok, ng);
-          });
-        },
-        setLoadingMessage: function(message) {
-          var loadingWindow = new DOM('div', {
-            fontSize: '1em',
-            color: 'rgba(255,255,255,0.25)',
-            textShadow: 'rgba(0,0,0,0.5) 0.1em 0.1em 0.1em',
-            position: 'absolute',
-            right: '0%',
-            bottom: '0%',
-            zIndex: '4000',
-            fontFamily: "'Hiragino Kaku Gothic ProN', Meiryo, sans-serif",
-            letterSpacing: '0.1em'
-          });
-          var defer = Promise.defer();
-          Promise.resolve().delay(100).then(defer.resolve);
-          defer.promise.then((function(_) {
-            return el_player.append(loadingWindow).append(new DOM('pre', {margin: '0%'})).append(new DOM('text', message));
-          }));
-          function hide() {
-            defer.reject();
-            loadingWindow.remove();
-          }
-          return hide;
-        },
-        adjustScale: adjustScale,
-        setAnimate: setAnimate,
-        updateDebugWindow: function(obj) {
-          el_debugWindow.textContent = 'デバッグ情報\n' + JSON.stringify(obj, null, 4);
+        el_context.setStyles(opt);
+      },
+      showNotice: function(message, show_time) {
+        var delay_time = arguments[2] !== (void 0) ? arguments[2] : 250;
+        if (!message)
+          throw 'illegal message string';
+        if (!show_time)
+          show_time = message.split('\n').length * 500;
+        message = '【！】\n' + message;
+        var noticeWindow = new DOM('div', {
+          fontSize: '2em',
+          color: 'rgba(0,0,0,0.75)',
+          textShadow: 'rgba(0,0,0,0.75) 0.01em 0.01em 0.01em',
+          backgroundColor: 'rgba(255,255,0,0.75)',
+          boxShadow: 'rgba(100,100,0,0.5) 0px 0px 5px 5px',
+          borderRadius: '2% / 10%',
+          textAlign: 'center',
+          lineHeight: '1.5',
+          opacity: '0',
+          position: 'absolute',
+          left: 'calc((100% - 90%) / 2)',
+          top: '20%',
+          zIndex: '5000',
+          width: '90%',
+          fontFamily: "'Hiragino Kaku Gothic ProN', Meiryo, sans-serif",
+          letterSpacing: '0.1em'
+        });
+        el_player.append(noticeWindow).append(new DOM('pre', {margin: '5%'})).append(new DOM('text', message));
+        return new Promise(function(ok, ng) {
+          var opacity = 0;
+          setAnimate(function(delta, complete) {
+            opacity = delta / delay_time;
+            if (opacity >= 1) {
+              opacity = 1;
+              vibrate([100, 100, 100]);
+              complete();
+            }
+            noticeWindow.style.opacity = opacity;
+          }).delay(show_time).and(setAnimate, (function(delta, complete) {
+            opacity = 1 - delta / delay_time;
+            if (opacity <= 0) {
+              opacity = 0;
+              complete();
+              noticeWindow.remove();
+            }
+            noticeWindow.style.opacity = opacity;
+          })).then(ok, ng);
+        });
+      },
+      setLoadingMessage: function(message) {
+        var loadingWindow = new DOM('div', {
+          fontSize: '1em',
+          color: 'rgba(255,255,255,0.25)',
+          textShadow: 'rgba(0,0,0,0.5) 0.1em 0.1em 0.1em',
+          position: 'absolute',
+          right: '0%',
+          bottom: '0%',
+          zIndex: '4000',
+          fontFamily: "'Hiragino Kaku Gothic ProN', Meiryo, sans-serif",
+          letterSpacing: '0.1em'
+        });
+        var defer = Promise.defer();
+        Promise.resolve().delay(100).then(defer.resolve);
+        defer.promise.then((function(_) {
+          return el_player.append(loadingWindow).append(new DOM('pre', {margin: '0%'})).append(new DOM('text', message));
+        }));
+        function hide() {
+          defer.reject();
+          loadingWindow.remove();
         }
-      }};
-    METHODS = {
+        return hide;
+      },
+      adjustScale: adjustScale,
+      setAnimate: setAnimate,
+      updateDebugWindow: function(obj) {
+        el_debugWindow.textContent = 'デバッグ情報\n' + JSON.stringify(obj, null, 4);
+      }
+    };
+    var METHODS = {
       TEST: {
-        __proto__: METHODS.COMMON,
+        __proto__: COMMON,
         initDisplay: function(opt) {
           Util.setDefaults(opt, {
             fontSize: 'calc(100% * 2 / 3)',
@@ -1081,7 +1092,7 @@ System.register("ES6/ビュー", [], function() {
         }
       },
       NOVEL: {
-        __proto__: METHODS.COMMON,
+        __proto__: COMMON,
         initDisplay: function(opt) {
           var $__3 = this;
           Util.setDefaults(opt, {
@@ -1316,7 +1327,6 @@ System.register("ES6/ビュー", [], function() {
               half = ($__9 = $__6.half) === void 0 ? false : $__9,
               plus = ($__10 = $__6.plus) === void 0 ? false : $__10;
           var defer = Promise.defer();
-          var removed = false;
           var focusbt;
           var focusindex = -10000;
           var bts = [];
@@ -1388,7 +1398,6 @@ System.register("ES6/ビュー", [], function() {
           }, this);
           function close(evt, val) {
             cancelEvent(evt);
-            removed = true;
             defer.resolve(val);
             if (!sys)
               delete View.windows.choice;
@@ -1427,7 +1436,7 @@ System.register("ES6/ビュー", [], function() {
           }
           View.on('enter', focusenter);
           function focusmove(rehook, n) {
-            if (removed)
+            if (!cw.parentNode)
               return;
             var fi = focusindex;
             var si = fi + n;
@@ -1442,7 +1451,7 @@ System.register("ES6/ビュー", [], function() {
             Promise.delay(100).then(rehook);
           }
           function focusenter(rehook) {
-            if (removed)
+            if (!cw.parentNode)
               return;
             if (focusindex >= 0)
               return bts[focusindex].click();
@@ -1510,6 +1519,9 @@ System.register("ES6/ビュー", [], function() {
           return defer.promise;
         },
         setFDImages: function(ary) {
+          var $__7;
+          var $__8 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
+              sys = ($__7 = $__8.sys) === void 0 ? false : $__7;
           var defer = Promise.defer();
           var fr = View.imageFrame;
           Promise.all(ary.map((function(opt) {
@@ -1542,7 +1554,8 @@ System.register("ES6/ビュー", [], function() {
             }));
             defer.resolve();
           }));
-          Data.current.active.FDImages = ary;
+          if (!sys)
+            Data.current.active.FDImages = ary;
           return defer.promise;
         },
         prepareFade: function() {
@@ -1555,11 +1568,11 @@ System.register("ES6/ビュー", [], function() {
           return Promise.resolve();
         },
         fade: function() {
-          var $__7,
+          var $__8,
               $__9;
-          var $__8 = $traceurRuntime.assertObject(arguments[0] !== (void 0) ? arguments[0] : {}),
-              msec = ($__7 = $__8.msec) === void 0 ? 1000 : $__7,
-              visited = ($__9 = $__8.visited) === void 0 ? false : $__9;
+          var $__7 = $traceurRuntime.assertObject(arguments[0] !== (void 0) ? arguments[0] : {}),
+              msec = ($__8 = $__7.msec) === void 0 ? 1000 : $__8,
+              visited = ($__9 = $__7.visited) === void 0 ? false : $__9;
           if (!View.fake)
             return Promise.reject('このエフェクトには事前準備が必要');
           var fr = View.imageFrame,
@@ -1585,12 +1598,12 @@ System.register("ES6/ビュー", [], function() {
         },
         flash: function() {
           var $__9,
-              $__8,
+              $__7,
               $__10;
-          var $__7 = $traceurRuntime.assertObject(arguments[0] !== (void 0) ? arguments[0] : {}),
-              msec = ($__9 = $__7.msec) === void 0 ? 300 : $__9,
-              color = ($__8 = $__7.color) === void 0 ? 'white' : $__8,
-              visited = ($__10 = $__7.visited) === void 0 ? false : $__10;
+          var $__8 = $traceurRuntime.assertObject(arguments[0] !== (void 0) ? arguments[0] : {}),
+              msec = ($__9 = $__8.msec) === void 0 ? 300 : $__9,
+              color = ($__7 = $__8.color) === void 0 ? 'white' : $__7,
+              visited = ($__10 = $__8.visited) === void 0 ? false : $__10;
           var fake = View.imageFrame.cloneNode(false);
           fake.style.background = '';
           fake.style.backgroundColor = color;
@@ -1632,10 +1645,7 @@ System.register("ES6/ビュー", [], function() {
               $__3.windows.choiceBack.remove();
             close();
           })).check();
-          Object.keys(View.windows).forEach((function(key) {
-            var el = View.windows[key];
-            el.hidden = !el.hidden;
-          }));
+          reverseWindow();
           var ary = ['セーブ', 'ロード', 'ウィンドウ消去', 'ログ表示', 'オート', '既読スキップ', 'リセット'].map((function(name) {
             return ({name: name});
           }));
@@ -1700,20 +1710,14 @@ System.register("ES6/ビュー", [], function() {
             View.on('menu').then((function(_) {
               return View.showMenu();
             }));
-            Object.keys(View.windows).forEach((function(key) {
-              var el = View.windows[key];
-              el.hidden = !el.hidden;
-            }));
+            reverseWindow(true);
           }
         },
         showLog: function(text) {
           if (Data.phase != 'play' || this.windows.log)
             return;
           eventBlock();
-          Object.keys(View.windows).forEach((function(key) {
-            var el = View.windows[key];
-            el.hidden = !el.hidden;
-          }));
+          reverseWindow();
           var el = new DOM('div', {
             position: 'absolute',
             left: '1em',
@@ -1750,10 +1754,7 @@ System.register("ES6/ビュー", [], function() {
               View.windows.log.remove();
               delete View.windows.log;
             }
-            Object.keys(View.windows).forEach((function(key) {
-              var el = View.windows[key];
-              el.hidden = !el.hidden;
-            }));
+            reverseWindow(true);
             eventAllow();
             View.on('Uwheel').then((function(_) {
               return View.showLog();
@@ -1784,11 +1785,11 @@ System.register("ES6/ビュー", [], function() {
       var enabled = false;
       var delay = 0;
       var wait = true;
-      return {
+      var my = {
         setAuto: function(p) {
           var $__10;
-          var $__8 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
-              visited = ($__10 = $__8.visited) === void 0 ? false : $__10;
+          var $__7 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
+              visited = ($__10 = $__7.visited) === void 0 ? false : $__10;
           if (!enabled)
             return;
           if (wait && p)
@@ -1823,6 +1824,8 @@ System.register("ES6/ビュー", [], function() {
           setAuto(null, {visited: 1});
         }
       };
+      Util.setProperties(COMMON, my);
+      return my;
     }))()),
         setAuto = $__9.setAuto,
         startAuto = $__9.startAuto,
@@ -1892,7 +1895,7 @@ System.register("ES6/ビュー", [], function() {
             return [kind];
         }
       }
-      return {
+      var my = {
         hookInput: function(kind, resolve) {
           var hook = toHook(kind);
           hook.resolve = resolve;
@@ -1921,6 +1924,8 @@ System.register("ES6/ビュー", [], function() {
           sysOnly = flag;
         }
       };
+      Util.setProperties(COMMON, my);
+      return my;
     }))()),
         hookInput = $__9.hookInput,
         hookClear = $__9.hookClear,
@@ -3248,23 +3253,29 @@ System.register("ES6/ゲーム", [], function() {
           switch ($ctx.state) {
             case 0:
               Player.init();
-              setSysBG();
-              $ctx.state = 38;
+              $ctx.state = 42;
               break;
-            case 38:
+            case 42:
               $ctx.state = 2;
-              return Player.fetchSettingData(Data.URL.ContentsSetting);
+              return fadeIn();
             case 2:
-              setting = $ctx.sent;
+              $ctx.maybeThrow();
               $ctx.state = 4;
               break;
             case 4:
+              $ctx.state = 6;
+              return Player.fetchSettingData(Data.URL.ContentsSetting);
+            case 6:
+              setting = $ctx.sent;
+              $ctx.state = 8;
+              break;
+            case 8:
               View.on('menu').then(setup);
               message('再生する作品を選んでください');
-              $ctx.state = 40;
+              $ctx.state = 44;
               break;
-            case 40:
-              $ctx.state = 6;
+            case 44:
+              $ctx.state = 10;
               return new Promise((function(ok, ng) {
                 var novels = setting['作品'];
                 if (!novels || !novels.length)
@@ -3280,50 +3291,50 @@ System.register("ES6/ゲーム", [], function() {
                   half: true
                 }).then(ok, ng);
               }));
-            case 6:
-              scenario = $ctx.sent;
-              $ctx.state = 8;
-              break;
-            case 8:
-              $ctx.state = 10;
-              return Player.fetchSettingData(("データ/" + scenario + "/設定.txt"));
             case 10:
-              setting = $ctx.sent;
+              scenario = $ctx.sent;
               $ctx.state = 12;
               break;
             case 12:
               $ctx.state = 14;
-              return Player.setSetting(scenario, setting);
+              return Player.fetchSettingData(("データ/" + scenario + "/設定.txt"));
             case 14:
-              reqNew = $ctx.sent;
+              setting = $ctx.sent;
               $ctx.state = 16;
               break;
             case 16:
-              $ctx.state = (reqNew) ? 17 : 26;
-              break;
-            case 17:
               $ctx.state = 18;
-              return message('セーブデータの初期化が必要です');
+              return Player.setSetting(scenario, setting);
             case 18:
-              $ctx.maybeThrow();
+              reqNew = $ctx.sent;
               $ctx.state = 20;
               break;
             case 20:
+              $ctx.state = (reqNew) ? 21 : 30;
+              break;
+            case 21:
               $ctx.state = 22;
-              return ($__30 = Player.deleteSaveData()).then.apply($__30, $traceurRuntime.spread(deleteAfter));
+              return message('セーブデータの初期化が必要です');
             case 22:
               $ctx.maybeThrow();
               $ctx.state = 24;
               break;
             case 24:
+              $ctx.state = 26;
+              return ($__30 = Player.deleteSaveData()).then.apply($__30, $traceurRuntime.spread(deleteAfter));
+            case 26:
+              $ctx.maybeThrow();
+              $ctx.state = 28;
+              break;
+            case 28:
               $ctx.state = -2;
               break;
-            case 26:
+            case 30:
               message('『' + scenario + '』開始メニュー');
-              $ctx.state = 42;
+              $ctx.state = 46;
               break;
-            case 42:
-              $ctx.state = 29;
+            case 46:
+              $ctx.state = 33;
               return new Promise((function(ok, ng) {
                 var opts = ['初めから', '続きから', '任意の場所から', '初期化する'].map((function(name) {
                   return ({name: name});
@@ -3364,18 +3375,18 @@ System.register("ES6/ゲーム", [], function() {
                   }
                 }));
               }));
-            case 29:
+            case 33:
               script = $ctx.sent;
-              $ctx.state = 31;
+              $ctx.state = 35;
               break;
-            case 31:
-              $ctx.state = (!script) ? 32 : 33;
+            case 35:
+              $ctx.state = (!script) ? 36 : 37;
               break;
-            case 32:
+            case 36:
               $ctx.returnValue = resetup();
               $ctx.state = -2;
               break;
-            case 33:
+            case 37:
               $ctx.returnValue = load(script);
               $ctx.state = -2;
               break;
@@ -3398,9 +3409,9 @@ System.register("ES6/ゲーム", [], function() {
           switch ($ctx.state) {
             case 0:
               message('キャッシュ中…');
-              $ctx.state = 32;
+              $ctx.state = 20;
               break;
-            case 32:
+            case 20:
               $ctx.state = 2;
               return Player.cacheScript(script);
             case 2:
@@ -3409,62 +3420,30 @@ System.register("ES6/ゲーム", [], function() {
               break;
             case 4:
               $ctx.state = 6;
-              return message('');
+              return fadeOut();
             case 6:
               $ctx.maybeThrow();
               $ctx.state = 8;
               break;
             case 8:
-              View.mainMessageWindow.el.hidden = true;
-              $ctx.state = 34;
-              break;
-            case 34:
               $ctx.state = 10;
-              return View.prepareFade();
+              return Player.runScript(script);
             case 10:
               $ctx.maybeThrow();
               $ctx.state = 12;
               break;
             case 12:
+              View.clean();
+              $ctx.state = 22;
+              break;
+            case 22:
               $ctx.state = 14;
-              return View.setBGImage({
-                url: null,
-                sys: true
-              });
+              return message('再生が終了しました\n作品選択メニューに戻ります').delay(1000);
             case 14:
               $ctx.maybeThrow();
               $ctx.state = 16;
               break;
             case 16:
-              $ctx.state = 18;
-              return View.fade({msec: 500});
-            case 18:
-              $ctx.maybeThrow();
-              $ctx.state = 20;
-              break;
-            case 20:
-              View.clean();
-              $ctx.state = 36;
-              break;
-            case 36:
-              $ctx.state = 22;
-              return Player.runScript(script);
-            case 22:
-              $ctx.maybeThrow();
-              $ctx.state = 24;
-              break;
-            case 24:
-              View.clean();
-              $ctx.state = 38;
-              break;
-            case 38:
-              $ctx.state = 26;
-              return message('再生が終了しました\n作品選択メニューに戻ります').delay(1000);
-            case 26:
-              $ctx.maybeThrow();
-              $ctx.state = 28;
-              break;
-            case 28:
               $ctx.returnValue = setup().catch(restart);
               $ctx.state = -2;
               break;
@@ -3500,9 +3479,146 @@ System.register("ES6/ゲーム", [], function() {
           }
       }, $__34, this);
     }));
-    var resetup = (function(_) {
-      return setup().catch(restart);
-    });
+    var fading = false;
+    function fadeIn() {
+      fading = true;
+      return Util.co($traceurRuntime.initGeneratorFunction(function $__35() {
+        return $traceurRuntime.createGeneratorInstance(function($ctx) {
+          while (true)
+            switch ($ctx.state) {
+              case 0:
+                View.eventBlock();
+                View.mainMessageWindow.el.hidden = true;
+                $ctx.state = 26;
+                break;
+              case 26:
+                $ctx.state = 2;
+                return message('');
+              case 2:
+                $ctx.maybeThrow();
+                $ctx.state = 4;
+                break;
+              case 4:
+                $ctx.state = 6;
+                return View.setBGImage({
+                  url: null,
+                  sys: true
+                });
+              case 6:
+                $ctx.maybeThrow();
+                $ctx.state = 8;
+                break;
+              case 8:
+                $ctx.state = 10;
+                return View.setFDImages([], {sys: true});
+              case 10:
+                $ctx.maybeThrow();
+                $ctx.state = 12;
+                break;
+              case 12:
+                $ctx.state = 14;
+                return View.prepareFade();
+              case 14:
+                $ctx.maybeThrow();
+                $ctx.state = 16;
+                break;
+              case 16:
+                $ctx.state = 18;
+                return Util.toBlobURL('画像', '背景', 'png', true).then((function(url) {
+                  return View.setBGImage({
+                    url: url,
+                    sys: true
+                  });
+                }));
+              case 18:
+                $ctx.maybeThrow();
+                $ctx.state = 20;
+                break;
+              case 20:
+                $ctx.state = 22;
+                return View.fade({msec: 250});
+              case 22:
+                $ctx.maybeThrow();
+                $ctx.state = 24;
+                break;
+              case 24:
+                View.mainMessageWindow.el.hidden = false;
+                $ctx.state = -2;
+                break;
+              default:
+                return $ctx.end();
+            }
+        }, $__35, this);
+      }))().through((function(_) {
+        fading = false;
+      }));
+    }
+    function fadeOut() {
+      fading = true;
+      return Util.co($traceurRuntime.initGeneratorFunction(function $__35() {
+        return $traceurRuntime.createGeneratorInstance(function($ctx) {
+          while (true)
+            switch ($ctx.state) {
+              case 0:
+                View.eventBlock();
+                View.mainMessageWindow.el.hidden = true;
+                $ctx.state = 22;
+                break;
+              case 22:
+                $ctx.state = 2;
+                return message('');
+              case 2:
+                $ctx.maybeThrow();
+                $ctx.state = 4;
+                break;
+              case 4:
+                $ctx.state = 6;
+                return View.prepareFade();
+              case 6:
+                $ctx.maybeThrow();
+                $ctx.state = 8;
+                break;
+              case 8:
+                $ctx.state = 10;
+                return View.setBGImage({
+                  url: null,
+                  sys: true
+                });
+              case 10:
+                $ctx.maybeThrow();
+                $ctx.state = 12;
+                break;
+              case 12:
+                $ctx.state = 14;
+                return View.setFDImages([], {sys: true});
+              case 14:
+                $ctx.maybeThrow();
+                $ctx.state = 16;
+                break;
+              case 16:
+                $ctx.state = 18;
+                return View.fade({msec: 250});
+              case 18:
+                $ctx.maybeThrow();
+                $ctx.state = 20;
+                break;
+              case 20:
+                View.clean();
+                $ctx.state = -2;
+                break;
+              default:
+                return $ctx.end();
+            }
+        }, $__35, this);
+      }))().through((function(_) {
+        fading = false;
+      }));
+    }
+    function resetup() {
+      if (fading)
+        return LOG('システムフェード中です');
+      fadeOut().through(setup).catch(restart);
+    }
     var start = Util.co($traceurRuntime.initGeneratorFunction(function $__35() {
       var setting,
           startSE;
@@ -3524,7 +3640,7 @@ System.register("ES6/ゲーム", [], function() {
               break;
             case 12:
               $ctx.state = 6;
-              return Promise.all([setSysBG(false), Promise.race([Promise.all([startSE.play(), View.addSentence('openノベルプレイヤー by Hikaru02\n\nシステムバージョン：　' + Data.SystemVersion, {weight: 0}).delay(3000)]), View.on('go')]).through((function(_) {
+              return Promise.all([setSysBG(), Promise.race([Promise.all([startSE.play(), View.addSentence('openノベルプレイヤー by Hikaru02\n\nシステムバージョン：　' + Data.SystemVersion, {weight: 0}).delay(3000)]), View.on('go')]).through((function(_) {
                 return startSE.fadeout();
               }))]).check();
             case 6:
@@ -3541,14 +3657,7 @@ System.register("ES6/ゲーム", [], function() {
       }, $__35, this);
     }));
     function setSysBG() {
-      var view = arguments[0] !== (void 0) ? arguments[0] : true;
-      var p = Util.toBlobURL('画像', '背景', 'png', true);
-      return view ? p.then((function(url) {
-        return View.setBGImage({
-          url: url,
-          sys: true
-        });
-      })) : p;
+      return Util.toBlobURL('画像', '背景', 'png', true);
     }
     start().check();
     READY.Game.ready({

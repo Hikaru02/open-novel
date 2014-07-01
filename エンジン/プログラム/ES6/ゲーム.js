@@ -22,7 +22,7 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 
 		Player.init()
 
-		setSysBG()
+		yield fadeIn()
 
 		//message('作品一覧を読み込んでいます...')
 		var setting = yield Player.fetchSettingData(Data.URL.ContentsSetting)
@@ -120,14 +120,8 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 		message('キャッシュ中…')
 		yield Player.cacheScript(script)
 
-		yield message('')
-		View.mainMessageWindow.el.hidden = true
+		yield fadeOut()
 
-		yield View.prepareFade()
-		yield View.setBGImage({url: null, sys: true})
-		yield View.fade({msec: 500})
-
-		View.clean()
 		yield Player.runScript(script)
 		View.clean()
 
@@ -152,8 +146,42 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 	})
 
 
-	var resetup = _ => setup().catch(restart)
+	var fading = false
 
+	function fadeIn() {
+		fading = true
+		return Util.co(function* () {
+			View.eventBlock()
+			View.mainMessageWindow.el.hidden = true
+			yield message('')
+			yield View.setBGImage({url: null, sys: true})
+			yield View.setFDImages([], {sys: true})
+			yield View.prepareFade()
+			yield Util.toBlobURL('画像', '背景', 'png', true).then( url => View.setBGImage({ url, sys: true }) )
+			yield View.fade({msec: 250})
+			View.mainMessageWindow.el.hidden = false
+			//View.clean()
+		})().through(_ => { fading = false })
+	}
+
+	function fadeOut() {
+		fading = true
+		return Util.co(function* () {
+			View.eventBlock()
+			View.mainMessageWindow.el.hidden = true
+			yield message('')
+			yield View.prepareFade()
+			yield View.setBGImage({url: null, sys: true})
+			yield View.setFDImages([], {sys: true})
+			yield View.fade({msec: 250})
+			View.clean()
+		})().through(_ => { fading = false })
+	}
+
+	function resetup() {
+		if (fading) return LOG('システムフェード中です')
+		fadeOut().through(setup).catch(restart)
+	}
 
 	var start = Util.co(function* () {
 
@@ -165,7 +193,7 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 		View.changeMode('NOVEL')
 
 		yield Promise.all([
-			setSysBG(false),
+			setSysBG(),
 			Promise.race([
 				Promise.all([
 					startSE.play(),
@@ -180,9 +208,8 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 
 
 
-	function setSysBG(view = true) {
-		var p = Util.toBlobURL('画像', '背景', 'png', true)
-		return view ? p.then( url => View.setBGImage({ url, sys: true }) ) : p	
+	function setSysBG() {
+		return Util.toBlobURL('画像', '背景', 'png', true)
 	}
 
 

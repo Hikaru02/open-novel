@@ -207,6 +207,15 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 	}
 
 
+	function reverseWindow(del = false) {
+		Object.keys(View.windows).forEach( key => {
+			var el = View.windows[key]
+			if (el.hidden) el.hidden = false
+			else if (!del) el.hidden = true
+			else el.remove()
+		} )
+	}
+
 
 
 	var fitScreen = Util.NOP
@@ -225,147 +234,143 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 
 
 
-	var METHODS = {}
+	var COMMON = {
 
-	METHODS = {
-		COMMON: {
+		clean: function () {
+			this.changeMode($mode)
+		},
 
-			clean: function () {
-				this.changeMode($mode)
-			},
+		init: function (opt) {
+			this.initDisplay(opt.style || {})
+		},
 
-			init: function (opt) {
-				this.initDisplay(opt.style || {})
-			},
+		changeMode: function (type, opt) {
+			var type = type.toUpperCase()
+			opt = opt || {}
 
-			changeMode: function (type, opt) {
-				var type = type.toUpperCase()
-				opt = opt || {}
+			if (!(type in METHODS)) throw 'illegal ViewContext mode type'
 
-				if (!(type in METHODS)) throw 'illegal ViewContext mode type'
+			$mode = type
+			global.View = View = { __proto__: METHODS[type] }
+			View.init(opt)
 
-				$mode = type
-				global.View = View = { __proto__: METHODS[type] }
-				View.init(opt)
+		},
 
-			},
+		changeModeIfNeeded: function (type, opt) {
+			if ($mode != type) this.changeMode(type, opt)
+		},
 
-			changeModeIfNeeded: function (type, opt) {
-				if ($mode != type) this.changeMode(type, opt)
-			},
+		on: function (kind, onFulfilled, onRejected) {
+			//setAuto(kind)
+			var rehook = _ => View.on(kind, onFulfilled, onRejected)
+			return new Promise( resolve => hookInput(kind, resolve) ).then( _ => rehook ).then(onFulfilled).check().catch(onRejected)
+		},
 
-			on: function (kind, onFulfilled, onRejected) {
-				//setAuto(kind)
-				var rehook = _ => View.on(kind, onFulfilled, onRejected)
-				return new Promise( resolve => hookInput(kind, resolve) ).then( _ => rehook ).then(onFulfilled).check().catch(onRejected)
-			},
+		initDisplay: function (opt) {
+			Util.setDefaults(opt, {
+				background		: 'black',
+				margin			: 'auto',
+				position		: 'relative',
+				hidth			: '100%',
+				height			: '100%',
+				overflow		: 'hidden',
+			//	$height			: 360,
+			//	$raito			: 16 / 9,
+			})
 
-			initDisplay: function (opt) {
-				Util.setDefaults(opt, {
-					background		: 'black',
-					margin			: 'auto',
-					position		: 'relative',
-					hidth			: '100%',
-					height			: '100%',
-					overflow		: 'hidden',
-				//	$height			: 360,
-				//	$raito			: 16 / 9,
-				})
+			hookClear()
+			stopAuto()
+			this.windows = {}
 
-				hookClear()
-				stopAuto()
-				this.windows = {}
+			var height = opt.HEIGHT || 480
+			opt.height = opt.width = '100%'
 
-				var height = opt.HEIGHT || 480
-				opt.height = opt.width = '100%'
+			el_context = new DOM('div')
+			el_player.removeChildren()
+			el_player.append(el_context)
+			el_wrapper.setStyles({ overflow	: 'hidden', maxHeight: '100%', maxWidth: '100%' })
+			if (!document.fullscreenElement) el_player.setStyles({ position: 'relative', overflow: 'hidden', height: '100%', width: '100%' })
+			el_context.setStyles(opt)
+		},
 
-				el_context = new DOM('div')
-				el_player.removeChildren()
-				el_player.append(el_context)
-				el_wrapper.setStyles({ overflow	: 'hidden', maxHeight: '100%', maxWidth: '100%' })
-				if (!document.fullscreenElement) el_player.setStyles({ position: 'relative', overflow: 'hidden', height: '100%', width: '100%' })
-				el_context.setStyles(opt)
-			},
+		showNotice: function (message, show_time, delay_time = 250) {
+			if (!message) throw 'illegal message string'
+			if (!show_time) show_time = message.split('\n').length * 500
+			message = '【！】\n' + message
+			var noticeWindow = new DOM('div', {
+				fontSize		: '2em',
+				color			: 'rgba(0,0,0,0.75)',
+				textShadow		: 'rgba(0,0,0,0.75) 0.01em 0.01em 0.01em',
+				backgroundColor	: 'rgba(255,255,0,0.75)',
+				boxShadow		: 'rgba(100,100,0,0.5) 0px 0px 5px 5px',
+				borderRadius	: '2% / 10%',
+				textAlign		: 'center',
+				lineHeight		: '1.5',
+				opacity			: '0',
+				position		: 'absolute',
+				left			: 'calc((100% - 90%) / 2)',
+				top				: '20%',
+				zIndex			: '5000',
+				width			: '90%',
+				fontFamily		: "'Hiragino Kaku Gothic ProN', Meiryo, sans-serif",
+				letterSpacing	: '0.1em',
+			})
+			el_player.append(noticeWindow).append(new DOM('pre', {margin: '5%'})).append(new DOM('text', message))
+			return new Promise(function (ok, ng) {
+				var opacity = 0
+				setAnimate(function (delta, complete) {
+					opacity = delta / delay_time
+					if (opacity >= 1) {
+						opacity = 1
+						vibrate([100,100,100])
+						complete()
+					}
+					noticeWindow.style.opacity = opacity
+				}).delay(show_time).and(setAnimate, (delta, complete) => {
+					opacity = 1 - delta / delay_time
+					if (opacity <= 0) {
+						opacity = 0
+						complete()
+						noticeWindow.remove()
+					}
+					noticeWindow.style.opacity = opacity
+				}).then(ok, ng)
 
-			showNotice: function (message, show_time, delay_time = 250) {
-				if (!message) throw 'illegal message string'
-				if (!show_time) show_time = message.split('\n').length * 500
-				message = '【！】\n' + message
-				var noticeWindow = new DOM('div', {
-					fontSize		: '2em',
-					color			: 'rgba(0,0,0,0.75)',
-					textShadow		: 'rgba(0,0,0,0.75) 0.01em 0.01em 0.01em',
-					backgroundColor	: 'rgba(255,255,0,0.75)',
-					boxShadow		: 'rgba(100,100,0,0.5) 0px 0px 5px 5px',
-					borderRadius	: '2% / 10%',
-					textAlign		: 'center',
-					lineHeight		: '1.5',
-					opacity			: '0',
-					position		: 'absolute',
-					left			: 'calc((100% - 90%) / 2)',
-					top				: '20%',
-					zIndex			: '5000',
-					width			: '90%',
-					fontFamily		: "'Hiragino Kaku Gothic ProN', Meiryo, sans-serif",
-					letterSpacing	: '0.1em',
-				})
-				el_player.append(noticeWindow).append(new DOM('pre', {margin: '5%'})).append(new DOM('text', message))
-				return new Promise(function (ok, ng) {
-					var opacity = 0
-					setAnimate(function (delta, complete) {
-						opacity = delta / delay_time
-						if (opacity >= 1) {
-							opacity = 1
-							vibrate([100,100,100])
-							complete()
-						}
-						noticeWindow.style.opacity = opacity
-					}).delay(show_time).and(setAnimate, (delta, complete) => {
-						opacity = 1 - delta / delay_time
-						if (opacity <= 0) {
-							opacity = 0
-							complete()
-							noticeWindow.remove()
-						}
-						noticeWindow.style.opacity = opacity
-					}).then(ok, ng)
+			})
+		},
 
-				})
-			},
+		setLoadingMessage: function (message) {
+			var loadingWindow = new DOM('div', {
+				fontSize		: '1em',
+				color			: 'rgba(255,255,255,0.25)',
+				textShadow		: 'rgba(0,0,0,0.5) 0.1em 0.1em 0.1em',
+			//	textAlign		: 'center',
+				position		: 'absolute',
+				right			: '0%',
+				bottom			: '0%',
+				zIndex			: '4000',
+			//	width			: 'auto',
+				fontFamily		: "'Hiragino Kaku Gothic ProN', Meiryo, sans-serif",
+				letterSpacing	: '0.1em',
+			})
 
-			setLoadingMessage: function (message) {
-				var loadingWindow = new DOM('div', {
-					fontSize		: '1em',
-					color			: 'rgba(255,255,255,0.25)',
-					textShadow		: 'rgba(0,0,0,0.5) 0.1em 0.1em 0.1em',
-				//	textAlign		: 'center',
-					position		: 'absolute',
-					right			: '0%',
-					bottom			: '0%',
-					zIndex			: '4000',
-				//	width			: 'auto',
-					fontFamily		: "'Hiragino Kaku Gothic ProN', Meiryo, sans-serif",
-					letterSpacing	: '0.1em',
-				})
+			var defer = Promise.defer()
+			Promise.resolve().delay(100).then(defer.resolve)
+			defer.promise.then( _ => el_player.append(loadingWindow).append(new DOM('pre', {margin: '0%'})).append(new DOM('text', message)) )
+			function hide() { defer.reject(); loadingWindow.remove() }
+			return hide
 
-				var defer = Promise.defer()
-				Promise.resolve().delay(100).then(defer.resolve)
-				defer.promise.then( _ => el_player.append(loadingWindow).append(new DOM('pre', {margin: '0%'})).append(new DOM('text', message)) )
-				function hide() { defer.reject(); loadingWindow.remove() }
-				return hide
+		},
 
-			},
+		adjustScale, setAnimate,
 
-			adjustScale, setAnimate,
-
-			updateDebugWindow: function (obj) {
-				el_debugWindow.textContent = 'デバッグ情報\n' + JSON.stringify(obj, null, 4)
-			},
+		updateDebugWindow: function (obj) {
+			el_debugWindow.textContent = 'デバッグ情報\n' + JSON.stringify(obj, null, 4)
 		},
 	}
 
-	METHODS = {
-		TEST: { __proto__: METHODS.COMMON,
+	var METHODS = {
+		TEST: { __proto__: COMMON,
 			initDisplay: function (opt) {
 				Util.setDefaults(opt, {
 					fontSize		: 'calc(100% * 2 / 3)',
@@ -384,7 +389,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 			},
 		},
 
-		NOVEL: { __proto__: METHODS.COMMON,
+		NOVEL: { __proto__: COMMON,
 			initDisplay: function (opt) {
 				//LOG('initDisplay')
 				Util.setDefaults(opt, {
@@ -588,7 +593,6 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 			setChoiceWindow: function (opts, {sys = false, closeable = false, half = false, plus = false} = {}) {
 
 				var defer = Promise.defer()
-				var removed = false
 				var focusbt
 				var focusindex = -10000
 				var bts = []
@@ -661,7 +665,6 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 
 				function close(evt, val) {
 					cancelEvent(evt)
-					removed = true
 					defer.resolve(val)
 					if (!sys) delete View.windows.choice
 					else delete View.windows.choiceBack
@@ -683,7 +686,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 				View.on('enter', focusenter)
 
 				function focusmove(rehook, n) {
-					if (removed) return
+					if (!cw.parentNode) return
 					var fi = focusindex
 					var si = fi + n
 					var last = bts.length - 1
@@ -696,7 +699,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 				}
 
 				function focusenter(rehook) {
-					if (removed) return
+					if (!cw.parentNode) return
 					if (focusindex >= 0) return bts[focusindex].click()
 					Promise.delay(100).then(rehook)
 				}
@@ -766,7 +769,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 				return defer.promise
 			},
 
-			setFDImages: function (ary) {
+			setFDImages: function (ary, {sys = false} = {}) {
 				var defer = Promise.defer()
 				var fr = View.imageFrame
 				//var ch = [].slice.call(el.children)
@@ -797,7 +800,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 					defer.resolve()
 				})
 
-				Data.current.active.FDImages = ary
+				if (!sys) Data.current.active.FDImages = ary
 				return defer.promise
 			},
 
@@ -876,10 +879,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 					if (this.windows.choiceBack) this.windows.choiceBack.remove()
 					close()
 				} ).check()
-				Object.keys(View.windows).forEach( key => {
-					var el = View.windows[key]
-					el.hidden = !el.hidden
-				} )
+				reverseWindow()
 				
 				var ary = ['セーブ', 'ロード', 'ウィンドウ消去', 'ログ表示', 'オート', '既読スキップ', 'リセット'].map(name => ({name}))
 				if (Data.saveDisabled) ary[0].disabled = true
@@ -923,10 +923,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 					eventAllow()
 					//eventSysOnly(false)
 					View.on('menu').then(_ => View.showMenu())
-					Object.keys(View.windows).forEach( key => {
-						var el = View.windows[key]
-						el.hidden = !el.hidden
-					} )
+					reverseWindow(true)
 				}
 
 			},
@@ -937,10 +934,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 				eventBlock()
 				//eventSysOnly(true)
 
-				Object.keys(View.windows).forEach( key => {
-					var el = View.windows[key]
-					el.hidden = !el.hidden
-				} )
+				reverseWindow()
 
 				var el = new DOM('div', {
 					position		: 'absolute',
@@ -978,10 +972,8 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 						View.windows.log.remove()
 						delete View.windows.log
 					}
-					Object.keys(View.windows).forEach( key => {
-						var el = View.windows[key]
-						el.hidden = !el.hidden
-					} )
+					reverseWindow(true)
+					
 					//eventSysOnly(false)
 					eventAllow()
 					View.on('Uwheel').then(_ => View.showLog())
@@ -1023,7 +1015,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 		var delay = 0
 		var wait = true
 
-		return {
+		var my = {
 			setAuto(p, {visited = false} = {}) {
 				if (!enabled) return
 				if (wait && p) p.delay(delay).then(_ => { if (enabled) eventFire('go') }).check()
@@ -1051,6 +1043,8 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 				setAuto(null, {visited: 1})
 			},
 		}
+		Util.setProperties(COMMON, my)
+		return my
 	})()
 
 
@@ -1135,7 +1129,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 			}
 		}
 
-		return {
+		var my = {
 			hookInput(kind, resolve) {
 				var hook = toHook(kind)
 				hook.resolve = resolve
@@ -1159,6 +1153,8 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 				sysOnly = flag
 			}
 		}
+		Util.setProperties(COMMON, my)
+		return my
 	})()
 
 
