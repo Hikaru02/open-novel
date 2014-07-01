@@ -27,7 +27,7 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 		//message('作品一覧を読み込んでいます...')
 		var setting = yield Player.fetchSettingData(Data.URL.ContentsSetting)
 
-		View.on('menu').then(setup)
+		View.on('menu').then(resetup)
 
 		message('再生する作品を選んでください')
 		var scenario = yield new Promise( (ok, ng) => {

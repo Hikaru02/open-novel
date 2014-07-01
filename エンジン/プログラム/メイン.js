@@ -3270,7 +3270,7 @@ System.register("ES6/ゲーム", [], function() {
               $ctx.state = 8;
               break;
             case 8:
-              View.on('menu').then(setup);
+              View.on('menu').then(resetup);
               message('再生する作品を選んでください');
               $ctx.state = 44;
               break;
