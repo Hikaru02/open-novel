@@ -794,7 +794,7 @@ System.register("ES6/ビュー", [], function() {
     });
     var el_debugSub = createDdebugSub();
     ;
-    [540, 720, 1080].forEach((function(size) {
+    [360, 540, 720, 1080].forEach((function(size) {
       var el = el_debugSub.append(new DOM('button', bs));
       el.append(new DOM('text', size + 'p'));
       el.on('click', (function(_) {
