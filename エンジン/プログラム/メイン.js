@@ -683,8 +683,6 @@ System.register("ES6/ストレージ", [], function() {
         var db = rq.result,
             ts = rq.transaction,
             ov = evt.oldVersion;
-        if (ov <= 1)
-          alert('※初めに※\nopenノベルプレーヤーでは Chrome　Firefox　Opera　の最新バージョンでの利用を推奨しています。');
         if (ov <= 7)
           if (confirm('データベースの初期化が必要です。')) {
             ;
