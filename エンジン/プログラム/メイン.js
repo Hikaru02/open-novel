@@ -683,17 +683,17 @@ System.register("ES6/ストレージ", [], function() {
         var db = rq.result,
             ts = rq.transaction,
             ov = evt.oldVersion;
-        if (ov == 0)
+        if (ov <= 1)
           alert('※初めに※\nopenノベルプレーヤーでは Chrome　Firefox　Opera　の最新バージョンでの利用を推奨しています。');
         if (ov <= 7)
-          if (confirm('全セーブデータ及び全設定の初期化が必要です。')) {
+          if (confirm('データベースの初期化が必要です。')) {
             ;
             [].slice.call(db.objectStoreNames).forEach((function(n) {
               return db.deleteObjectStore(n);
             }));
             db.createObjectStore('setting');
             db.createObjectStore('savedata');
-            alert('完了しました。');
+            alert('初期化が完了しました。');
           } else {
             ts.abort();
             alert('初期化を行わないと起動できません。');
@@ -799,7 +799,7 @@ System.register("ES6/ビュー", [], function() {
       padding: '5px'
     }));
     var bs = {
-      height: '2em',
+      height: '3em',
       margin: '5px'
     };
     var createDdebugSub = (function(_) {

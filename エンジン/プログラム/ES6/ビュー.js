@@ -101,7 +101,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 
 
 	var bs = {
-		height: '2em',
+		height: '3em',
 		margin: '5px',
 	}
 
@@ -167,7 +167,6 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 	el.on('click', _ => {
 		Game.reset()
 	})
-
 
 	var el = new DOM('div')
 	var el_debugWindow = el_debug.append(el).append(new DOM('pre', { textAlign: 'left', whiteSpace: 'pre-wrap' }))
