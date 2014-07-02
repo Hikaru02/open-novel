@@ -885,7 +885,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 					case 'ウィンドウ消去':
 						//eventSysOnly(false)
 						eventBlock() 
-						View.on('*', _ => {
+						on('*', _ => {
 							close()
 							eventAllow()
 						})

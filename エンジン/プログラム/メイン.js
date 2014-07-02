@@ -1667,7 +1667,7 @@ System.register("ES6/ビュー", [], function() {
               break;
             case 'ウィンドウ消去':
               eventBlock();
-              View.on('*', (function(_) {
+              on('*', (function(_) {
                 close();
                 eventAllow();
               }));
