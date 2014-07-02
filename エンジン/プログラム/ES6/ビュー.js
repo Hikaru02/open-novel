@@ -107,7 +107,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 
 	var createDdebugSub = _ => el_debug.append(new DOM('div', { display: 'inline-block' }))
 	var el_debugSub = createDdebugSub()
-	;[180, 360, 540, 720, 1080].forEach( size => {
+	;[360, 540, 720, 1080].forEach( size => {
 		var el = el_debugSub.append(new DOM('button', bs))
 		el.append(new DOM('text', size + 'p'))
 		el.on('click', _ =>	adjustScale(size / devicePixelRatio) )
