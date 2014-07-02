@@ -1458,7 +1458,7 @@ System.register("ES6/ビュー", [], function() {
         if (closeable) {
           var img = new DOM('img', {
             position: 'absolute',
-            right: '2%',
+            right: '4%',
             top: '0%',
             width: '3em',
             height: '3em',
@@ -1729,7 +1729,7 @@ System.register("ES6/ビュー", [], function() {
         });
         var img = new DOM('img', {
           position: 'absolute',
-          right: '2%',
+          right: '4%',
           top: '0%',
           width: '3em',
           height: '3em',
@@ -1762,6 +1762,14 @@ System.register("ES6/ビュー", [], function() {
         }
         img.onmousedown = close;
         on('menu').then(close);
+        on('up', (function(rehook) {
+          el.scrollByLines(-1);
+          rehook();
+        }));
+        on('down', (function(rehook) {
+          el.scrollByLines(+1);
+          rehook();
+        }));
         View.logs.forEach((function(log) {
           log.setStyles({
             position: '',

@@ -695,7 +695,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 			if (closeable) {
 				var img = new DOM('img', {
 					position		: 'absolute',
-					right			: '2%',
+					right			: '4%',
 					top				: '0%',
 					width			: '3em',
 					height			: '3em',
@@ -940,7 +940,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 
 			var img = new DOM('img', {
 				position		: 'absolute',
-				right			: '2%',
+				right			: '4%',
 				top				: '0%',
 				width			: '3em',
 				height			: '3em',
@@ -976,6 +976,8 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 			img.onmousedown = close
 			on('menu').then(close)
 
+			on('up',   rehook => { el.scrollByLines(-1); rehook() } )
+			on('down', rehook => { el.scrollByLines(+1); rehook() } )
 
 			View.logs.forEach(log => {
 				log.setStyles({
