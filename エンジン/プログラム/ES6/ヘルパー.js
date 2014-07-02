@@ -90,23 +90,20 @@
 		Default: undefined,
 
 		co(func) {
-			return function () {
-				var defer = Promise.defer()
-				var iter = func.apply(this, arguments)
-				var loop = val => {
-					try {
-						var {value, done} = iter.next(val)
-						value = Promise.resolve(value)
-						if (done) value.then(defer.resolve, defer.reject)
-						else value.then(loop, defer.reject)
-					} catch(err) {
-						LOG(err)
-						defer.reject(err)
+			return function (...args) {
+				return new Promise( (ok, ng) => {
+					var iter = func.apply(this, args)
+					var loop = v => {
+						var {value, done} = iter.next(v)
+						Promise.resolve(value).then(done ? ok : loop).catch(err => {
+							LOG('co', err)
+							ng(err)
+						})
 					}
-				}
-				loop()
-				return defer.promise
+					loop()
+				})
 			}
+
 		},
 
 		updateDebugWindow() {

@@ -137,7 +137,7 @@ READY('Storage', 'Player').then( ({Util}) => {
 		}
 
 		Object.assign(Sound, {
-			soundEnabled, soundAvailability, CTX: ctx, gainRoot, gainMaster,
+			soundEnabled, soundAvailability, CTX: ctx, rootVolume,
 		})
 
 		READY.Sound.ready(Sound)

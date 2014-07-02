@@ -229,7 +229,6 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 
 
 
-
 /* TODO
 	・エフェクト
 	・効果音

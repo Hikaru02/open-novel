@@ -378,7 +378,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 			})
 
 			var defer = Promise.defer()
-			Promise.delay(100).then(defer.resolve).delay(10000).then(hide)
+			Promise.delay(500).then(defer.resolve).delay(10000).then(hide)
 			defer.promise.then( _ => el_player.append(loadingWindow).append(new DOM('pre', {margin: '0%'})).append(new DOM('text', message)) )
 			function hide() { defer.reject(); loadingWindow.remove() }
 			return hide
