@@ -11,8 +11,12 @@
 			ContentsSetting: 'データ/作品.txt',
 			EngineSetting: 'エンジン/エンジン定義.txt',
 		},
-		current: {}
+		current: {},
 	}
+
+	var Config = Object.freeze({
+			fadeDuration: 100,
+		})
 
 	var Util = {
 
@@ -441,7 +445,7 @@
 
 
 	Util.setDefaults(global, {
-		global, READY, Util, LOG, Data, BitArray,
+		global, READY, Util, LOG, Data, Config, BitArray,
 	})
 
 })();

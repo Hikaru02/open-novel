@@ -8,7 +8,6 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 		var abort = Util.NOP
 		return text => {
 			abort()
-			View.changeModeIfNeeded('NOVEL')
 			View.nextPage('システム', {sys: true})
 			var p = View.addSentence(text, { weight: 10 })
 			abort = p.abort
@@ -26,8 +25,6 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 
 		//message('作品一覧を読み込んでいます...')
 		var setting = yield Player.fetchSettingData(Data.URL.ContentsSetting)
-
-		View.on('menu').then(resetup)
 
 		message('再生する作品を選んでください')
 		var scenario = yield new Promise( (ok, ng) => {
@@ -123,7 +120,7 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 		yield fadeOut()
 
 		yield Player.runScript(script)
-		View.clean()
+		View.init()
 
 		yield message('再生が終了しました\n作品選択メニューに戻ります').delay(1000)
 
@@ -138,7 +135,7 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 
 		LOG(err)
 		if (typeof err !== 'string') err = '致命的なエラーが発生したため再生を継続できません' 
-		View.clean()
+		View.init()
 
 		yield message(err + '\n作品選択メニューに戻ります').delay(1000)
 		return resetup()
@@ -146,37 +143,26 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 	})
 
 
+
 	var fading = false
 
 	function fadeIn() {
 		fading = true
 		return Util.co(function* () {
-			View.eventBlock()
-			View.mainMessageWindow.el.hidden = true
-			yield message('')
-			yield View.setBGImage({url: null, sys: true})
-			yield View.setFDImages([], {sys: true})
-			yield View.prepareFade()
+			View.fadeIn().through(_ => { fading = false })
 			yield Util.toBlobURL('画像', '背景', 'png', true).then( url => View.setBGImage({ url, sys: true }) )
-			yield View.fade({msec: 250})
-			View.mainMessageWindow.el.hidden = false
-			//View.clean()
-		})().through(_ => { fading = false })
+		})()
 	}
 
 	function fadeOut() {
 		fading = true
 		return Util.co(function* () {
-			View.eventBlock()
-			View.mainMessageWindow.el.hidden = true
-			yield message('')
-			yield View.prepareFade()
-			yield View.setBGImage({url: null, sys: true})
-			yield View.setFDImages([], {sys: true})
-			yield View.fade({msec: 250})
-			View.clean()
+			yield View.fadeOut()
+			View.init()
 		})().through(_ => { fading = false })
 	}
+
+
 
 	function resetup() {
 		if (fading) return LOG('システムフェード中です')
@@ -190,7 +176,7 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 		Data.SystemVersion = setting['システムバージョン'][0]
 		var startSE = new Sound('sysSE', '起動')
 
-		View.changeMode('NOVEL')
+		View.init()
 
 		yield Promise.all([
 			setSysBG(),
@@ -245,10 +231,9 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 
 
 /* TODO
-	・Worker分離
 	・エフェクト
-	・画像面のCanvas化
-	・選択肢ウィンドウ調整
-	・音声
-
+	・効果音
+	・BGM
+	・Worker分離
+	・ボイス
 */

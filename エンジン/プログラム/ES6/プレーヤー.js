@@ -260,7 +260,6 @@ READY().then( ({Util}) => {
 		if (!sname) LOG('!!!sname')
 		sname = sname.split('#')[0]
 
-		View.changeModeIfNeeded('NOVEL')
 		Data.phase = 'play'
 
 		var run = Promise.defer()
@@ -662,14 +661,6 @@ READY().then( ({Util}) => {
 
 
 
-
-
-	function print(message) {
-		if (!View.print) View.changeMode('TEST')
-		View.print(message)
-	}
-
-
 	function loadSaveData() {
 		return Util.co(function* () {
 
@@ -747,7 +738,7 @@ READY().then( ({Util}) => {
 		Data.phase = 'pause'
 		document.title = 'openノベルプレーヤー'
 		Util.paramClear(true)
-		View.clean()
+		View.init()
 	}
 
 
@@ -809,7 +800,7 @@ READY().then( ({Util}) => {
 
 	
 	READY.Player.ready({
-		fetchSettingData, fetchScriptData, runScript, print,
+		fetchSettingData, fetchScriptData, runScript,
 		loadSaveData, saveSaveData, deleteSaveData, evalEffect, init, setSetting, cacheScript,
 	})
 

@@ -15,6 +15,7 @@ System.register("ES6/ヘルパー", [], function() {
       },
       current: {}
     };
+    var Config = Object.freeze({fadeDuration: 100});
     var Util = {
       setDefaults: function() {
         var obj = arguments[0] !== (void 0) ? arguments[0] : {};
@@ -478,6 +479,7 @@ System.register("ES6/ヘルパー", [], function() {
       Util: Util,
       LOG: LOG,
       Data: Data,
+      Config: Config,
       BitArray: BitArray
     });
   }))();
@@ -765,7 +767,7 @@ System.register("ES6/ビュー", [], function() {
         queryAll = document.querySelectorAll.bind(document);
     var el_root = query('#ONPwrapper'),
         el_wrapper = new DOM('div'),
-        el_player = new DOM('div'),
+        el_player = new DOM('div', {backgroundColor: 'black'}),
         el_context = new DOM('div');
     el_wrapper.id = 'ONP';
     el_root.removeChildren();
@@ -806,7 +808,7 @@ System.register("ES6/ビュー", [], function() {
     });
     var el_debugSub = createDdebugSub();
     ;
-    [360, 540, 720, 1080].forEach((function(size) {
+    [180, 360, 540, 720, 1080].forEach((function(size) {
       var el = el_debugSub.append(new DOM('button', bs));
       el.append(new DOM('text', size + 'p'));
       el.on('click', (function(_) {
@@ -905,6 +907,38 @@ System.register("ES6/ビュー", [], function() {
         requestAnimationFrame(loop);
       }));
     }
+    function setFadeIn(el) {
+      var msec = arguments[1] !== (void 0) ? arguments[1] : Config.fadeDuration;
+      el.style.opacity = 0;
+      el.hidden = false;
+      el.style.pointerEvents = 'none';
+      return setAnimate((function(delay, complete, pause) {
+        var lv = delay / msec;
+        if (lv >= 1) {
+          lv = 1;
+          complete();
+        }
+        el.style.opacity = lv;
+      })).then((function(_) {
+        el.style.pointerEvents = '';
+      }));
+    }
+    function setFadeOut(el) {
+      var msec = arguments[1] !== (void 0) ? arguments[1] : Config.fadeDuration;
+      el.style.opacity = 1;
+      el.style.pointerEvents = 'none';
+      return setAnimate((function(delay, complete, pause) {
+        var lv = 1 - delay / msec;
+        if (lv <= 0) {
+          lv = 0;
+          complete();
+        }
+        el.style.opacity = lv;
+      })).then((function(_) {
+        el.style.pointerEvents = '';
+        el.hidden = true;
+      }));
+    }
     function cancelEvent(evt) {
       if (!(evt instanceof Event))
         return;
@@ -915,13 +949,17 @@ System.register("ES6/ビュー", [], function() {
       var del = arguments[0] !== (void 0) ? arguments[0] : false;
       Object.keys(View.windows).forEach((function(key) {
         var el = View.windows[key];
-        if (el.hidden)
-          el.hidden = false;
-        else if (!del)
-          el.hidden = true;
-        else
-          el.remove();
+        if (el.hidden) {
+          if (del)
+            setFadeIn(el);
+        } else {
+          if (del)
+            el.remove();
+          else
+            setFadeOut(el);
+        }
       }));
+      return Promise.delay(Config.fadeDuration);
     }
     var fitScreen = Util.NOP;
     window.onresize = (function(_) {
@@ -936,38 +974,38 @@ System.register("ES6/ビュー", [], function() {
         adjustScale($scale, $ratio);
       }
     });
-    var COMMON = {
-      clean: function() {
-        this.changeMode($mode);
-      },
-      init: function(opt) {
-        this.initDisplay(opt.style || {});
-      },
-      changeMode: function(type, opt) {
-        var type = type.toUpperCase();
-        opt = opt || {};
-        if (!(type in METHODS))
-          throw 'illegal ViewContext mode type';
-        $mode = type;
-        global.View = View = {__proto__: METHODS[type]};
-        View.init(opt);
-      },
-      changeModeIfNeeded: function(type, opt) {
-        if ($mode != type)
-          this.changeMode(type, opt);
+    function on(kind, onFulfilled, onRejected) {
+      var weak = arguments[3] !== (void 0) ? arguments[3] : false;
+      var rehook = (function(_) {
+        return on(kind, onFulfilled, onRejected, weak);
+      });
+      return new Promise((function(resolve) {
+        return hookInput(kind, resolve, weak);
+      })).then((function(_) {
+        return rehook;
+      })).then(onFulfilled).check().catch(onRejected);
+    }
+    var View = {
+      init: function() {
+        View.initDisplay();
       },
       on: function(kind, onFulfilled, onRejected) {
-        var rehook = (function(_) {
-          return View.on(kind, onFulfilled, onRejected);
-        });
-        return new Promise((function(resolve) {
-          return hookInput(kind, resolve);
-        })).then((function(_) {
-          return rehook;
-        })).then(onFulfilled).check().catch(onRejected);
+        var weak = arguments[3] !== (void 0) ? arguments[3] : true;
+        return on(kind, onFulfilled, onRejected, weak);
       },
-      initDisplay: function(opt) {
+      initDisplay: function() {
+        var opt = arguments[0] !== (void 0) ? arguments[0] : {};
+        hookClear();
+        stopAuto();
+        on('menu').then((function(_) {
+          return View.showMenu();
+        })).check();
+        on('Uwheel').then((function(_) {
+          return View.showLog();
+        }));
         Util.setDefaults(opt, {
+          color: 'rgba(255,255,255,0.9)',
+          textShadow: 'rgba(0,0,0,0.9) 0.1em 0.1em 0.1em',
           background: 'black',
           margin: 'auto',
           position: 'relative',
@@ -975,9 +1013,6 @@ System.register("ES6/ビュー", [], function() {
           height: '100%',
           overflow: 'hidden'
         });
-        hookClear();
-        stopAuto();
-        this.windows = {};
         var height = opt.HEIGHT || 480;
         opt.height = opt.width = '100%';
         el_context = new DOM('div');
@@ -996,6 +1031,10 @@ System.register("ES6/ビュー", [], function() {
             width: '100%'
           });
         el_context.setStyles(opt);
+        View.logs = [];
+        View.windows = {};
+        View.mainMessageWindow = View.addMessageWindow();
+        View.imageFrame = View.addImageFrame();
       },
       showNotice: function(message, show_time) {
         var delay_time = arguments[2] !== (void 0) ? arguments[2] : 250;
@@ -1057,7 +1096,7 @@ System.register("ES6/ビュー", [], function() {
           letterSpacing: '0.1em'
         });
         var defer = Promise.defer();
-        Promise.resolve().delay(100).then(defer.resolve);
+        Promise.delay(100).then(defer.resolve).delay(10000).then(hide);
         defer.promise.then((function(_) {
           return el_player.append(loadingWindow).append(new DOM('pre', {margin: '0%'})).append(new DOM('text', message));
         }));
@@ -1071,333 +1110,293 @@ System.register("ES6/ビュー", [], function() {
       setAnimate: setAnimate,
       updateDebugWindow: function(obj) {
         el_debugWindow.textContent = 'デバッグ情報\n' + JSON.stringify(obj, null, 4);
-      }
-    };
-    var METHODS = {
-      TEST: {
-        __proto__: COMMON,
-        initDisplay: function(opt) {
-          Util.setDefaults(opt, {
-            fontSize: 'calc(100% * 2 / 3)',
-            color: 'white'
+      },
+      messageWindowProto: {
+        nextPage: function(name) {
+          var $__7,
+              $__8;
+          var $__6 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
+              sys = ($__7 = $__6.sys) === void 0 ? false : $__7,
+              visited = ($__8 = $__6.visited) === void 0 ? false : $__8;
+          View.logs.push(View.windows.message.cloneNode(true));
+          if (View.logs.length > 100)
+            View.logs.shift();
+          View.windows.message.setStyles({
+            background: sys ? 'rgba(0,100,50,0.5)' : 'rgba(0,0,100,0.5)',
+            boxShadow: (sys ? 'rgba(0,100,50,0.5)' : 'rgba(0,0,100,0.5)') + ' 0 0 0.5em 0.5em',
+            color: visited ? 'rgba(255,255,150,0.9)' : 'rgba(255,255,255,0.9)'
           });
-          this.__proto__.__proto__.initDisplay(opt);
-          var el = new DOM('div', {padding: '10px'});
-          var el_body = new DOM('pre');
-          this.el_test = el_body;
-          el_context.append(el).append(el_body);
+          name = !name || name.match(/^\s+$/) ? '' : '【' + name + '】';
+          this.el_title.textContent = name;
+          this.el_body.removeChildren();
         },
-        print: function(text, opt) {
-          this.el_test.textContent += text;
+        addSentence: function(text) {
+          var $__8,
+              $__6;
+          var $__7 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
+              weight = ($__8 = $__7.weight) === void 0 ? 25 : $__8,
+              visited = ($__6 = $__7.visited) === void 0 ? false : $__6;
+          text += '\n';
+          var length = text.length;
+          var at = 0,
+              nl = 0;
+          var el = this.el_body;
+          var $__7 = [false, false],
+              aborted = $__7[0],
+              cancelled = $__7[1];
+          var $__7 = [(function(_) {
+            return aborted = true;
+          }), (function(_) {
+            return cancelled = true;
+          })],
+              abort = $__7[0],
+              cancel = $__7[1];
+          View.on('go').then(cancel);
+          function mul(str, n) {
+            return (str || '100%').match(/[\d.]+/)[0] * n / 100 + 'em';
+          }
+          var css = {};
+          var p = setAnimate((function(delay, complete, pause) {
+            if (aborted)
+              return complete();
+            if (cancelled) {
+              nl = length;
+            }
+            while (delay / weight >= at - nl) {
+              var str = text[at];
+              if (!str)
+                return complete();
+              if (str == '\\') {
+                var sub = text.slice(at + 1);
+                if (/^.\[.*?\]/.test(sub)) {
+                  var nat = text.indexOf(']', at);
+                  var name = text.slice(at + 3, nat).trim();
+                  switch (sub[0]) {
+                    case 'e':
+                      if ($isWebkit) {
+                        var img = el.append(new DOM('img', {
+                          height: mul(css.fontSize, 0.8),
+                          margin: '0 0.05em'
+                        }));
+                        ;
+                        ((function(img, name) {
+                          return Util.toBlobEmogiURL(name).then((function(url) {
+                            img.src = url;
+                          })).check();
+                        }))(img, name);
+                      } else {
+                        var img = el.append(new DOM('object', {
+                          height: mul(css.fontSize, 0.8),
+                          margin: '0 0.05em'
+                        }));
+                        img.type = 'image/svg+xml';
+                        ;
+                        ((function(img, name) {
+                          return Util.toBlobEmogiURL(name).then((function(url) {
+                            img.data = url;
+                          })).check();
+                        }))(img, name);
+                      }
+                      break;
+                    case 'c':
+                      css.color = name || '';
+                      break;
+                    case 's':
+                      css.fontSize = Util.toSize(name) || '100%';
+                      break;
+                    default:
+                      LOG(("サポートされていないキーワードタイプ『" + sub[0] + "』"));
+                  }
+                } else {
+                  var nat = at + 1;
+                  switch (sub[0]) {
+                    case 'n':
+                      el.append(new DOM('br'));
+                      break;
+                    case 'C':
+                      css.color = '';
+                      break;
+                    case 'S':
+                      css.fontSize = '100%';
+                      break;
+                    case 'b':
+                      css.fontWeight = 'bold';
+                      break;
+                    case 'B':
+                      css.fontWeight = '';
+                      break;
+                    default:
+                      LOG(("サポートされていないキーワードタイプ『" + sub[0] + "』"));
+                  }
+                }
+                nl += nat - at;
+                at = nat;
+              } else {
+                if (str == '\n')
+                  el.append(new DOM('br'));
+                else if (str != '\u200B')
+                  el.append(new DOM('span', css)).append(new DOM('text', str));
+              }
+              if (++at >= length)
+                return complete();
+            }
+          }));
+          setAuto(p, {visited: visited});
+          p.abort = abort;
+          p.cancel = cancel;
+          return p;
         }
       },
-      NOVEL: {
-        __proto__: COMMON,
-        initDisplay: function(opt) {
-          var $__3 = this;
-          Util.setDefaults(opt, {
-            color: 'rgba(255,255,255,0.9)',
-            textShadow: 'rgba(0,0,0,0.9) 0.1em 0.1em 0.1em',
-            overflow: 'hidden'
-          });
-          this.__proto__.__proto__.initDisplay(opt);
-          this.mainMessageWindow = this.addMessageWindow();
-          this.imageFrame = this.addImageFrame();
-          this.logs = [];
-          View.on('menu').then((function(_) {
-            return $__3.showMenu();
-          })).check();
-          View.on('Uwheel').then((function(_) {
-            return View.showLog();
-          }));
-        },
-        messageWindowProto: {
-          nextPage: function(name) {
-            var $__7,
-                $__8;
-            var $__6 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
-                sys = ($__7 = $__6.sys) === void 0 ? false : $__7,
-                visited = ($__8 = $__6.visited) === void 0 ? false : $__8;
-            View.logs.push(View.windows.message.cloneNode(true));
-            if (View.logs.length > 100)
-              View.logs.shift();
-            View.windows.message.setStyles({
-              background: sys ? 'rgba(0,100,50,0.5)' : 'rgba(0,0,100,0.5)',
-              boxShadow: (sys ? 'rgba(0,100,50,0.5)' : 'rgba(0,0,100,0.5)') + ' 0 0 0.5em 0.5em',
-              color: visited ? 'rgba(255,255,150,0.9)' : 'rgba(255,255,255,0.9)'
-            });
-            name = !name || name.match(/^\s+$/) ? '' : '【' + name + '】';
-            this.el_title.textContent = name;
-            this.el_body.removeChildren();
-          },
-          addSentence: function(text) {
-            var $__8,
-                $__6;
-            var $__7 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
-                weight = ($__8 = $__7.weight) === void 0 ? 25 : $__8,
-                visited = ($__6 = $__7.visited) === void 0 ? false : $__6;
-            text += '\n';
-            var length = text.length;
-            var at = 0,
-                nl = 0;
-            var el = this.el_body;
-            var $__7 = [false, false],
-                aborted = $__7[0],
-                cancelled = $__7[1];
-            var $__7 = [(function(_) {
-              return aborted = true;
-            }), (function(_) {
-              return cancelled = true;
-            })],
-                abort = $__7[0],
-                cancel = $__7[1];
-            View.on('go').then(cancel);
-            function mul(str, n) {
-              return (str || '100%').match(/[\d.]+/)[0] * n / 100 + 'em';
-            }
-            var css = {};
-            var p = setAnimate((function(delay, complete, pause) {
-              if (aborted)
-                return complete();
-              if (cancelled) {
-                nl = length;
-              }
-              while (delay / weight >= at - nl) {
-                var str = text[at];
-                if (!str)
-                  return complete();
-                if (str == '\\') {
-                  var sub = text.slice(at + 1);
-                  if (/^.\[.*?\]/.test(sub)) {
-                    var nat = text.indexOf(']', at);
-                    var name = text.slice(at + 3, nat).trim();
-                    switch (sub[0]) {
-                      case 'e':
-                        if ($isWebkit) {
-                          var img = el.append(new DOM('img', {
-                            height: mul(css.fontSize, 0.8),
-                            margin: '0 0.05em'
-                          }));
-                          ;
-                          ((function(img, name) {
-                            return Util.toBlobEmogiURL(name).then((function(url) {
-                              img.src = url;
-                            })).check();
-                          }))(img, name);
-                        } else {
-                          var img = el.append(new DOM('object', {
-                            height: mul(css.fontSize, 0.8),
-                            margin: '0 0.05em'
-                          }));
-                          img.type = 'image/svg+xml';
-                          ;
-                          ((function(img, name) {
-                            return Util.toBlobEmogiURL(name).then((function(url) {
-                              img.data = url;
-                            })).check();
-                          }))(img, name);
-                        }
-                        break;
-                      case 'c':
-                        css.color = name || '';
-                        break;
-                      case 's':
-                        css.fontSize = Util.toSize(name) || '100%';
-                        break;
-                      default:
-                        LOG(("サポートされていないキーワードタイプ『" + sub[0] + "』"));
-                    }
-                  } else {
-                    var nat = at + 1;
-                    switch (sub[0]) {
-                      case 'n':
-                        el.append(new DOM('br'));
-                        break;
-                      case 'C':
-                        css.color = '';
-                        break;
-                      case 'S':
-                        css.fontSize = '100%';
-                        break;
-                      case 'b':
-                        css.fontWeight = 'bold';
-                        break;
-                      case 'B':
-                        css.fontWeight = '';
-                        break;
-                      default:
-                        LOG(("サポートされていないキーワードタイプ『" + sub[0] + "』"));
-                    }
-                  }
-                  nl += nat - at;
-                  at = nat;
-                } else {
-                  if (str == '\n')
-                    el.append(new DOM('br'));
-                  else if (str != '\u200B')
-                    el.append(new DOM('span', css)).append(new DOM('text', str));
-                }
-                if (++at >= length)
-                  return complete();
-              }
-            }));
-            setAuto(p, {visited: visited});
-            p.abort = abort;
-            p.cancel = cancel;
-            return p;
-          }
-        },
-        addMessageWindow: function() {
-          var opt = arguments[0] !== (void 0) ? arguments[0] : {};
-          Util.setDefaults(opt, {
-            background: 'rgba(50,50,50,0.5)',
-            boxShadow: 'rgba(50,50,50,0.5) 0 0 0.5em 0.5em',
-            borderRadius: '1% / 1%',
-            width: 'calc(100% - 0.5em - (1% + 1%))',
-            height: 'calc( 20% - 0.5em - (2% + 1%))',
-            fontSize: '100%',
-            lineHeight: '1.5',
-            padding: '2% 1% 1%',
-            whiteSpace: 'nowrap',
-            position: 'absolute',
-            bottom: '0.25em',
-            left: '0.25em',
-            zIndex: '1500',
+      addMessageWindow: function() {
+        var opt = {
+          background: 'rgba(50,50,50,0.5)',
+          boxShadow: 'rgba(50,50,50,0.5) 0 0 0.5em 0.5em',
+          borderRadius: '1% / 1%',
+          width: 'calc(100% - 0.5em - (1% + 1%))',
+          height: 'calc( 20% - 0.5em - (2% + 1%))',
+          fontSize: '100%',
+          lineHeight: '1.5',
+          padding: '2% 1% 1%',
+          whiteSpace: 'nowrap',
+          position: 'absolute',
+          bottom: '0.25em',
+          left: '0.25em',
+          zIndex: '1500',
+          fontFamily: "'Hiragino Kaku Gothic ProN', Meiryo, sans-serif",
+          letterSpacing: '0.1em'
+        };
+        var el = new DOM('div', opt);
+        View.windows.message = el;
+        el_context.append(el);
+        var el_title = el.append(new DOM('div', {
+          display: 'inline-block',
+          marginRight: '4%',
+          textAlign: 'right',
+          verticalAlign: 'top',
+          width: '15%',
+          height: '100%'
+        }));
+        var el_body = el.append(new DOM('div', {
+          display: 'inline-block',
+          width: 'auto',
+          height: '100%'
+        })).append(new DOM('span', {}));
+        var mw = {
+          __proto__: View.messageWindowProto,
+          el: el,
+          el_title: el_title,
+          el_body: el_body
+        };
+        return mw;
+      },
+      addImageFrame: function() {
+        var fr = new DOM('div', {
+          position: 'absolute',
+          left: '0',
+          top: '0',
+          height: '100%',
+          width: '100%',
+          zIndex: '1000',
+          backgroundColor: 'black'
+        });
+        el_context.append(fr);
+        return fr;
+      },
+      setConfirmWindow: function(name) {
+        var $__6;
+        var $__8 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
+            sys = ($__6 = $__8.sys) === void 0 ? true : $__6;
+        return View.setChoiceWindow([{
+          name: name,
+          value: true
+        }, {
+          name: 'キャンセル',
+          value: false
+        }], {sys: sys});
+      },
+      setChoiceWindow: function(ary) {
+        var $__8,
+            $__7,
+            $__9,
+            $__10;
+        var $__6 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
+            sys = ($__8 = $__6.sys) === void 0 ? false : $__8,
+            closeable = ($__7 = $__6.closeable) === void 0 ? false : $__7,
+            half = ($__9 = $__6.half) === void 0 ? false : $__9,
+            plus = ($__10 = $__6.plus) === void 0 ? false : $__10;
+        var defer = Promise.defer();
+        var focusbt;
+        var focusindex = -10000;
+        var bts = [];
+        var cw = new DOM('div', {
+          position: 'absolute',
+          left: 'calc((100% - 85%) / 2 - 2%)',
+          width: '85%',
+          top: '3%',
+          boxShadow: sys ? 'rgba(100, 255, 150, 0.5) 0 0 5em' : 'rgba(100, 100, 255, 0.3) 0 0 5em',
+          borderRadius: '2% / 4%',
+          background: sys ? 'rgba(100, 255, 150, 0.5)' : 'rgba(100, 100, 255, 0.3)',
+          padding: '1% 2%',
+          overflowY: ary.length > (plus ? 4 : 3) * (half ? 2 : 1) ? 'scroll' : 'hidden',
+          overflowX: 'hidden',
+          maxHeight: plus ? '90%' : '70%',
+          zIndex: '2500'
+        });
+        if (!sys) {
+          if (View.windows.choice)
+            View.windows.choice.remove();
+          View.windows.choice = cw;
+        } else {
+          if (View.windows.choiceBack)
+            View.windows.choiceBack.remove();
+          View.windows.choiceBack = cw;
+        }
+        ary.forEach(function(opt, i) {
+          if (!('value' in opt))
+            opt.value = opt.name;
+          var bt = new DOM('button', {
+            display: 'inline-block',
+            fontSize: '1.5em',
+            boxShadow: 'inset 0 1px 3px #F1F1F1, inset 0 -15px ' + (sys ? 'rgba(0,116,116,0.2)' : 'rgba(0,0,223,0.2)') + ', 1px 1px 2px #E7E7E7',
+            background: sys ? 'rgba(0,100,50,0.8)' : 'rgba(0,0,100,0.8)',
+            color: 'white',
+            borderRadius: (half ? 5 : 2.5) + '% / 25%',
+            width: half ? '45%' : '95%',
+            height: '2.5em',
+            margin: '2.5%',
+            textShadow: 'rgba(0,0,0,0.9) 0em 0em 0.5em',
             fontFamily: "'Hiragino Kaku Gothic ProN', Meiryo, sans-serif",
             letterSpacing: '0.1em'
           });
-          var el = new DOM('div', opt);
-          this.windows.message = el;
-          el_context.append(el);
-          var el_title = el.append(new DOM('div', {
-            display: 'inline-block',
-            marginRight: '4%',
-            textAlign: 'right',
-            verticalAlign: 'top',
-            width: '15%',
-            height: '100%'
-          }));
-          var el_body = el.append(new DOM('div', {
-            display: 'inline-block',
-            width: 'auto',
-            height: '100%'
-          })).append(new DOM('span', {}));
-          var mw = {
-            __proto__: this.messageWindowProto,
-            el: el,
-            el_title: el_title,
-            el_body: el_body
-          };
-          return mw;
-        },
-        addImageFrame: function() {
-          var opt = arguments[0] !== (void 0) ? arguments[0] : {};
-          var fr = new DOM('div', {
-            position: 'absolute',
-            left: '0',
-            top: '0',
-            height: '100%',
-            width: '100%',
-            zIndex: '1000',
-            backgroundColor: 'black'
+          bt.disabled = !!opt.disabled;
+          bt.append(new DOM('text', opt.name));
+          bt.onfocus = bt.onmouseover = (function(_) {
+            focusSE.play();
+            bt.setStyles({background: sys ? 'rgba(100,200,150,0.8)' : 'rgba(100,100,200,0.8)'});
+            var elm = bts[focusindex];
+            if (elm)
+              elm.blur();
+            focusindex = index;
           });
-          el_context.append(fr);
-          return fr;
-        },
-        setConfirmWindow: function(name) {
-          var $__6;
-          var $__8 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
-              sys = ($__6 = $__8.sys) === void 0 ? true : $__6;
-          return View.setChoiceWindow([{
-            name: name,
-            value: true
-          }, {
-            name: 'キャンセル',
-            value: false
-          }], {sys: sys});
-        },
-        setChoiceWindow: function(opts) {
-          var $__8,
-              $__7,
-              $__9,
-              $__10;
-          var $__6 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
-              sys = ($__8 = $__6.sys) === void 0 ? false : $__8,
-              closeable = ($__7 = $__6.closeable) === void 0 ? false : $__7,
-              half = ($__9 = $__6.half) === void 0 ? false : $__9,
-              plus = ($__10 = $__6.plus) === void 0 ? false : $__10;
-          var defer = Promise.defer();
-          var focusbt;
-          var focusindex = -10000;
-          var bts = [];
-          var cw = new DOM('div', {
-            position: 'absolute',
-            left: 'calc((100% - 85%) / 2 - 2%)',
-            width: '85%',
-            top: '3%',
-            boxShadow: sys ? 'rgba(100, 255, 150, 0.5) 0 0 5em' : 'rgba(100, 100, 255, 0.3) 0 0 5em',
-            borderRadius: '2% / 4%',
-            background: sys ? 'rgba(100, 255, 150, 0.5)' : 'rgba(100, 100, 255, 0.3)',
-            padding: '1% 2%',
-            overflowY: opts.length > (plus ? 4 : 3) * (half ? 2 : 1) ? 'scroll' : 'hidden',
-            overflowX: 'hidden',
-            maxHeight: plus ? '90%' : '70%',
-            zIndex: '2500'
+          bt.onblur = bt.onmouseout = (function(_) {
+            bt.setStyles({background: sys ? 'rgba(0,100,50,0.8)' : 'rgba(0,0,100,0.8)'});
+            var elm = bts[focusindex];
+            if (elm)
+              elm.blur();
           });
-          if (!sys) {
-            if (View.windows.choice)
-              View.windows.choice.remove();
-            View.windows.choice = cw;
-          } else {
-            if (View.windows.choiceBack)
-              View.windows.choiceBack.remove();
-            View.windows.choiceBack = cw;
-          }
-          opts.forEach(function(opt, i) {
-            if (!('value' in opt))
-              opt.value = opt.name;
-            var bt = new DOM('button', {
-              display: 'inline-block',
-              fontSize: '1.5em',
-              boxShadow: 'inset 0 1px 3px #F1F1F1, inset 0 -15px ' + (sys ? 'rgba(0,116,116,0.2)' : 'rgba(0,0,223,0.2)') + ', 1px 1px 2px #E7E7E7',
-              background: sys ? 'rgba(0,100,50,0.8)' : 'rgba(0,0,100,0.8)',
-              color: 'white',
-              borderRadius: (half ? 5 : 2.5) + '% / 25%',
-              width: half ? '45%' : '95%',
-              height: '2.5em',
-              margin: '2.5%',
-              textShadow: 'rgba(0,0,0,0.9) 0em 0em 0.5em',
-              fontFamily: "'Hiragino Kaku Gothic ProN', Meiryo, sans-serif",
-              letterSpacing: '0.1em'
-            });
-            bt.disabled = !!opt.disabled;
-            bt.append(new DOM('text', opt.name));
-            bt.onfocus = bt.onmouseover = (function(_) {
-              focusSE.play();
-              bt.setStyles({background: sys ? 'rgba(100,200,150,0.8)' : 'rgba(100,100,200,0.8)'});
-              var elm = bts[focusindex];
-              if (elm)
-                elm.blur();
-              focusindex = index;
-            });
-            bt.onblur = bt.onmouseout = (function(_) {
-              bt.setStyles({background: sys ? 'rgba(0,100,50,0.8)' : 'rgba(0,0,100,0.8)'});
-              var elm = bts[focusindex];
-              if (elm)
-                elm.blur();
-            });
-            bt.onclick = (function(evt) {
-              clickSE.play();
-              vibrate([50]);
-              close(evt, opt.value);
-            });
-            bt.onmousedown = cancelEvent;
-            cw.append(bt);
-            if (!opt.disabled)
-              var index = bts.push(bt) - 1;
-          }, this);
-          function close(evt, val) {
-            cancelEvent(evt);
+          bt.onclick = (function(evt) {
+            clickSE.play();
+            vibrate([50]);
+            close(evt, opt.value);
+          });
+          bt.onmousedown = cancelEvent;
+          cw.append(bt);
+          if (!opt.disabled)
+            var index = bts.push(bt) - 1;
+        });
+        function close(evt, val) {
+          cancelEvent(evt);
+          setFadeOut(cw).then((function(_) {
             defer.resolve(val);
             if (!sys)
               delete View.windows.choice;
@@ -1406,330 +1405,59 @@ System.register("ES6/ビュー", [], function() {
             cw.remove();
             if (img)
               img.remove();
-          }
-          if (half) {
-            View.on('up', (function(rehook) {
-              return focusmove(rehook, -2);
-            }));
-            View.on('down', (function(rehook) {
-              return focusmove(rehook, +2);
-            }));
-            View.on('left', (function(rehook) {
-              return focusmove(rehook, -1);
-            }));
-            View.on('right', (function(rehook) {
-              return focusmove(rehook, +1);
-            }));
-          } else {
-            View.on('up', (function(rehook) {
-              return focusmove(rehook, -1);
-            }));
-            View.on('down', (function(rehook) {
-              return focusmove(rehook, +1);
-            }));
-            View.on('left', (function(rehook) {
-              return focusmove(rehook, -10);
-            }));
-            View.on('right', (function(rehook) {
-              return focusmove(rehook, +10);
-            }));
-          }
-          View.on('enter', focusenter);
-          function focusmove(rehook, n) {
-            if (!cw.parentNode)
-              return;
-            var fi = focusindex;
-            var si = fi + n;
-            var last = bts.length - 1;
-            if (fi < 0)
-              si = n > 0 ? 0 : last;
-            else if (si < 0)
-              si = fi == 0 ? last : 0;
-            else if (si > last)
-              si = fi == last ? 0 : last;
-            bts[si].focus();
-            Promise.delay(100).then(rehook);
-          }
-          function focusenter(rehook) {
-            if (!cw.parentNode)
-              return;
-            if (focusindex >= 0)
-              return bts[focusindex].click();
-            Promise.delay(100).then(rehook);
-          }
-          if (closeable) {
-            var img = new DOM('img', {
-              position: 'absolute',
-              right: '2%',
-              top: '0%',
-              width: '3em',
-              height: '3em',
-              opacity: '0.75',
-              zIndex: '3000'
-            });
-            if (!sys) {
-              if (View.windows.choiceClose)
-                View.windows.choiceClose.remove();
-              View.windows.choiceClose = img;
-            } else {
-              if (View.windows.choiceBackClose)
-                View.windows.choiceBackClose.remove();
-              View.windows.choiceBackClose = img;
-            }
-            if ($isWebkit) {
-              Util.toBlobSysPartsURL('閉じるボタン').then((function(url) {
-                img.src = url;
-              })).check();
-            } else {
-              img.src = 'エンジン/画像/閉じるボタン.svg';
-            }
-            img.onmousedown = (function(evt) {
-              close(evt, '閉じる');
-            });
-            el_context.append(img);
-          }
-          el_context.append(cw);
-          return defer.promise;
-        },
-        setBGImage: function(opt) {
-          var defer = Promise.defer();
-          var $__8 = $traceurRuntime.assertObject(opt),
-              url = $__8.url,
-              sys = $__8.sys;
-          var fr = View.imageFrame;
-          if (url) {
-            var img = new Image;
-            img.onload = (function(_) {
-              fr.setStyles({
-                backgroundImage: ("url(" + url + ")"),
-                backgroundSize: 'cover'
-              });
-              defer.resolve();
-            });
-            img.src = url;
-            if (!sys)
-              Data.current.active.BGImage = opt;
-          } else {
-            fr.setStyles({
-              backgroundImage: 'none',
-              backgroundSize: 'cover'
-            });
-            defer.resolve();
-          }
-          return defer.promise;
-        },
-        setFDImages: function(ary) {
-          var $__7;
-          var $__8 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
-              sys = ($__7 = $__8.sys) === void 0 ? false : $__7;
-          var defer = Promise.defer();
-          var fr = View.imageFrame;
-          Promise.all(ary.map((function(opt) {
-            return new Promise((function(ok) {
-              Util.setDefaults(opt, {
-                left: null,
-                right: null,
-                top: null,
-                bottom: null
-              });
-              var mar = parseInt(opt.top) || parseInt(opt.bottom) || 0;
-              var height = opt.height ? opt.height : ((100 - mar) + "%");
-              var img = new DOM('img', {
-                position: 'absolute',
-                left: opt.left,
-                right: opt.right,
-                top: opt.top,
-                bottom: opt.bottom,
-                height: height
-              });
-              img.onload = (function(_) {
-                return ok(img);
-              });
-              img.src = opt.url;
-            }));
-          }))).then((function(els) {
-            fr.removeChildren();
-            els.forEach((function(el) {
-              return fr.append(el);
-            }));
-            defer.resolve();
           }));
-          if (!sys)
-            Data.current.active.FDImages = ary;
-          return defer.promise;
-        },
-        prepareFade: function() {
-          if (View.fake)
-            return Promise.reject('２重にエフェクトの準備をしようとした');
-          var fr = View.imageFrame;
-          var fake = View.fake = fr.cloneNode(true);
-          el_context.append(fake);
-          Data.saveDisabled = true;
-          return Promise.resolve();
-        },
-        fade: function() {
-          var $__8,
-              $__9;
-          var $__7 = $traceurRuntime.assertObject(arguments[0] !== (void 0) ? arguments[0] : {}),
-              msec = ($__8 = $__7.msec) === void 0 ? 1000 : $__8,
-              visited = ($__9 = $__7.visited) === void 0 ? false : $__9;
-          if (!View.fake)
-            return Promise.reject('このエフェクトには事前準備が必要');
-          var fr = View.imageFrame,
-              fake = View.fake;
-          var cancelled = false;
-          View.on('go').then((function(_) {
-            return cancelled = true;
+        }
+        if (half) {
+          on('up', (function(rehook) {
+            return focusmove(rehook, -2);
           }));
-          if (visited)
-            setAuto(null, {visited: true});
-          return setAnimate((function(delay, complete, pause) {
-            var per = delay / msec;
-            if (per >= 1 || cancelled) {
-              per = 1;
-              complete();
-            }
-            fake.style.opacity = 1 - per;
-          })).then((function(_) {
-            fake.remove();
-            delete View.fake;
-            Data.saveDisabled = false;
+          on('down', (function(rehook) {
+            return focusmove(rehook, +2);
           }));
-        },
-        flash: function() {
-          var $__9,
-              $__7,
-              $__10;
-          var $__8 = $traceurRuntime.assertObject(arguments[0] !== (void 0) ? arguments[0] : {}),
-              msec = ($__9 = $__8.msec) === void 0 ? 300 : $__9,
-              color = ($__7 = $__8.color) === void 0 ? 'white' : $__7,
-              visited = ($__10 = $__8.visited) === void 0 ? false : $__10;
-          var fake = View.imageFrame.cloneNode(false);
-          fake.style.background = '';
-          fake.style.backgroundColor = color;
-          fake.style.opacity = '0';
-          el_context.append(fake);
-          var cancelled = false;
-          View.on('go').then((function(_) {
-            return cancelled = true;
+          on('left', (function(rehook) {
+            return focusmove(rehook, -1);
           }));
-          if (visited)
-            setAuto(null, {visited: true});
-          return setAnimate((function(delay, complete, pause) {
-            var per = delay / msec;
-            if (per >= 1 || cancelled) {
-              per = 1;
-              complete();
-            }
-            fake.style.opacity = per < 0.5 ? per * 2 : 2 - per * 2;
-          })).then((function(_) {
-            fake.remove();
+          on('right', (function(rehook) {
+            return focusmove(rehook, +1);
           }));
-        },
-        nextPage: function(name, opt) {
-          this.mainMessageWindow.nextPage(name, opt);
-        },
-        addSentence: function(text, opt) {
-          return this.mainMessageWindow.addSentence(text, opt);
-        },
-        showMenu: function() {
-          var $__3 = this;
-          if (Data.phase != 'play' || View.menuIndex > 0)
-            return View.on('Rclick').then((function(_) {
-              return View.showMenu();
-            }));
-          View.menuIndex = (View.menuIndex || 0) + 1;
-          eventBlock();
-          View.on('menu').then((function(_) {
-            if ($__3.windows.choiceBack)
-              $__3.windows.choiceBack.remove();
-            close();
-          })).check();
-          reverseWindow();
-          var ary = ['セーブ', 'ロード', 'ウィンドウ消去', 'ログ表示', 'オート', '既読スキップ', 'リセット'].map((function(name) {
-            return ({name: name});
+        } else {
+          on('up', (function(rehook) {
+            return focusmove(rehook, -1);
           }));
-          if (Data.saveDisabled)
-            ary[0].disabled = true;
-          View.setChoiceWindow(ary, {
-            sys: true,
-            closeable: true,
-            half: true,
-            plus: true
-          }).then((function(kind) {
-            switch (kind) {
-              case 'セーブ':
-                Player.saveSaveData().check().through(close).then((function(f) {
-                  return f && View.showNotice('セーブしました。');
-                }), (function(err) {
-                  return View.showNotice('セーブに失敗しました。');
-                }));
-                break;
-              case 'ロード':
-                Game.loadSaveData().then(close);
-                break;
-              case 'ウィンドウ消去':
-                eventBlock();
-                View.on('*', (function(_) {
-                  close();
-                  eventAllow();
-                }));
-                break;
-              case 'ログ表示':
-                close();
-                eventFire('Uwheel');
-                break;
-              case 'オート':
-                close();
-                startAuto();
-                break;
-              case '既読スキップ':
-                close();
-                startSkip();
-                break;
-              case 'リセット':
-                View.setConfirmWindow('リセットする').then((function(f) {
-                  if (f)
-                    Game.reset();
-                  else
-                    close();
-                }));
-                break;
-              case '閉じる':
-                close();
-                break;
-              default:
-                throw 'illegal choice type';
-            }
+          on('down', (function(rehook) {
+            return focusmove(rehook, +1);
           }));
-          function close(evt) {
-            if (!View.menuIndex)
-              return;
-            --View.menuIndex;
-            eventAllow();
-            View.on('menu').then((function(_) {
-              return View.showMenu();
-            }));
-            reverseWindow(true);
-          }
-        },
-        showLog: function(text) {
-          if (Data.phase != 'play' || this.windows.log)
+          on('left', (function(rehook) {
+            return focusmove(rehook, -10);
+          }));
+          on('right', (function(rehook) {
+            return focusmove(rehook, +10);
+          }));
+        }
+        on('enter', focusenter);
+        function focusmove(rehook, n) {
+          if (!cw.parentNode)
             return;
-          eventBlock();
-          reverseWindow();
-          var el = new DOM('div', {
-            position: 'absolute',
-            left: '1em',
-            top: '1em',
-            width: 'calc(100% - 1em * 2)',
-            height: 'calc(100% - 1em * 2)',
-            overflowX: 'hidden',
-            overflowY: 'scroll',
-            background: 'rgba(50,50,50,0.9)',
-            boxShadow: 'rgba(50,50,50,0.9) 0 0 1em 1em',
-            zIndex: '2500'
-          });
+          var fi = focusindex;
+          var si = fi + n;
+          var last = bts.length - 1;
+          if (fi < 0)
+            si = n > 0 ? 0 : last;
+          else if (si < 0)
+            si = fi == 0 ? last : 0;
+          else if (si > last)
+            si = fi == last ? 0 : last;
+          bts[si].focus();
+          Promise.delay(100).then(rehook);
+        }
+        function focusenter(rehook) {
+          if (!cw.parentNode)
+            return;
+          if (focusindex >= 0)
+            return bts[focusindex].click();
+          Promise.delay(100).then(rehook);
+        }
+        if (closeable) {
           var img = new DOM('img', {
             position: 'absolute',
             right: '2%',
@@ -1739,6 +1467,15 @@ System.register("ES6/ビュー", [], function() {
             opacity: '0.75',
             zIndex: '3000'
           });
+          if (!sys) {
+            if (View.windows.choiceClose)
+              View.windows.choiceClose.remove();
+            View.windows.choiceClose = img;
+          } else {
+            if (View.windows.choiceBackClose)
+              View.windows.choiceBackClose.remove();
+            View.windows.choiceBackClose = img;
+          }
           if ($isWebkit) {
             Util.toBlobSysPartsURL('閉じるボタン').then((function(url) {
               img.src = url;
@@ -1746,39 +1483,300 @@ System.register("ES6/ビュー", [], function() {
           } else {
             img.src = 'エンジン/画像/閉じるボタン.svg';
           }
+          img.onmousedown = (function(evt) {
+            close(evt, '閉じる');
+          });
           el_context.append(img);
-          function close(evt) {
-            cancelEvent(evt);
-            img.remove();
-            if (View.windows.log) {
-              View.windows.log.remove();
-              delete View.windows.log;
-            }
-            reverseWindow(true);
-            eventAllow();
-            View.on('Uwheel').then((function(_) {
-              return View.showLog();
-            }));
-          }
-          img.onmousedown = close;
-          View.on('menu').then(close);
-          View.logs.forEach((function(log) {
-            log.setStyles({
-              position: '',
-              height: '',
-              padding: '',
-              borderRadius: '',
-              width: '',
-              background: '',
-              boxShadow: '',
-              marginBottom: '0.5em'
-            });
-            el.append(log);
+          on('menu').then((function(_) {
+            return close(null, '閉じる');
           }));
-          this.windows.log = el;
-          el_context.append(el);
-          el.scrollTop = 1 << 15 - 1;
         }
+        setFadeIn(cw);
+        el_context.append(cw);
+        return defer.promise;
+      },
+      setBGImage: function(opt) {
+        var defer = Promise.defer();
+        var $__8 = $traceurRuntime.assertObject(opt),
+            url = $__8.url,
+            sys = $__8.sys;
+        var fr = View.imageFrame;
+        if (url) {
+          var img = new Image;
+          img.onload = (function(_) {
+            fr.setStyles({
+              backgroundImage: ("url(" + url + ")"),
+              backgroundSize: 'cover'
+            });
+            defer.resolve();
+          });
+          img.src = url;
+          if (!sys)
+            Data.current.active.BGImage = opt;
+        } else {
+          fr.setStyles({
+            backgroundImage: 'none',
+            backgroundSize: 'cover'
+          });
+          defer.resolve();
+        }
+        return defer.promise;
+      },
+      setFDImages: function(ary) {
+        var $__7;
+        var $__8 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
+            sys = ($__7 = $__8.sys) === void 0 ? false : $__7;
+        var defer = Promise.defer();
+        var fr = View.imageFrame;
+        Promise.all(ary.map((function(opt) {
+          return new Promise((function(ok) {
+            Util.setDefaults(opt, {
+              left: null,
+              right: null,
+              top: null,
+              bottom: null
+            });
+            var mar = parseInt(opt.top) || parseInt(opt.bottom) || 0;
+            var height = opt.height ? opt.height : ((100 - mar) + "%");
+            var img = new DOM('img', {
+              position: 'absolute',
+              left: opt.left,
+              right: opt.right,
+              top: opt.top,
+              bottom: opt.bottom,
+              height: height
+            });
+            img.onload = (function(_) {
+              return ok(img);
+            });
+            img.src = opt.url;
+          }));
+        }))).then((function(els) {
+          fr.removeChildren();
+          els.forEach((function(el) {
+            return fr.append(el);
+          }));
+          defer.resolve();
+        }));
+        if (!sys)
+          Data.current.active.FDImages = ary;
+        return defer.promise;
+      },
+      prepareFade: function() {
+        if (View.fake)
+          return Promise.reject('２重にエフェクトの準備をしようとした');
+        var fr = View.imageFrame;
+        var fake = View.fake = fr.cloneNode(true);
+        el_context.append(fake);
+        Data.saveDisabled = true;
+        return Promise.resolve();
+      },
+      fade: function() {
+        var $__8,
+            $__9;
+        var $__7 = $traceurRuntime.assertObject(arguments[0] !== (void 0) ? arguments[0] : {}),
+            msec = ($__8 = $__7.msec) === void 0 ? 1000 : $__8,
+            visited = ($__9 = $__7.visited) === void 0 ? false : $__9;
+        if (!View.fake)
+          return Promise.reject('このエフェクトには事前準備が必要');
+        var fr = View.imageFrame,
+            fake = View.fake;
+        var cancelled = false;
+        View.on('go').then((function(_) {
+          return cancelled = true;
+        }));
+        if (visited)
+          setAuto(null, {visited: true});
+        return setAnimate((function(delay, complete, pause) {
+          var per = delay / msec;
+          if (per >= 1 || cancelled) {
+            per = 1;
+            complete();
+          }
+          fake.style.opacity = 1 - per;
+        })).then((function(_) {
+          fake.remove();
+          delete View.fake;
+          Data.saveDisabled = false;
+        }));
+      },
+      flash: function() {
+        var $__9,
+            $__7,
+            $__10;
+        var $__8 = $traceurRuntime.assertObject(arguments[0] !== (void 0) ? arguments[0] : {}),
+            msec = ($__9 = $__8.msec) === void 0 ? 300 : $__9,
+            color = ($__7 = $__8.color) === void 0 ? 'white' : $__7,
+            visited = ($__10 = $__8.visited) === void 0 ? false : $__10;
+        var fake = View.imageFrame.cloneNode(false);
+        fake.style.background = '';
+        fake.style.backgroundColor = color;
+        fake.style.opacity = '0';
+        el_context.append(fake);
+        var cancelled = false;
+        View.on('go').then((function(_) {
+          return cancelled = true;
+        }));
+        if (visited)
+          setAuto(null, {visited: true});
+        return setAnimate((function(delay, complete, pause) {
+          var per = delay / msec;
+          if (per >= 1 || cancelled) {
+            per = 1;
+            complete();
+          }
+          fake.style.opacity = per < 0.5 ? per * 2 : 2 - per * 2;
+        })).then((function(_) {
+          fake.remove();
+        }));
+      },
+      nextPage: function(name, opt) {
+        View.mainMessageWindow.nextPage(name, opt);
+      },
+      addSentence: function(text, opt) {
+        return View.mainMessageWindow.addSentence(text, opt);
+      },
+      showMenu: function() {
+        if (Data.phase != 'play' || View.menuIndex > 0)
+          return View.on('Rclick').then((function(_) {
+            return View.showMenu();
+          }));
+        View.menuIndex = (View.menuIndex || 0) + 1;
+        eventBlock();
+        var ary = ['セーブ', 'ロード', 'ウィンドウ消去', 'ログ表示', 'オート', '既読スキップ', 'リセット'].map((function(name) {
+          return ({name: name});
+        }));
+        if (Data.saveDisabled)
+          ary[0].disabled = true;
+        reverseWindow().then((function(_) {
+          return View.setChoiceWindow(ary, {
+            sys: true,
+            closeable: true,
+            half: true,
+            plus: true
+          });
+        })).then((function(kind) {
+          switch (kind) {
+            case 'セーブ':
+              Player.saveSaveData().check().through(close).then((function(f) {
+                return f && View.showNotice('セーブしました。');
+              }), (function(err) {
+                return View.showNotice('セーブに失敗しました。');
+              }));
+              break;
+            case 'ロード':
+              Game.loadSaveData().then(close);
+              break;
+            case 'ウィンドウ消去':
+              eventBlock();
+              View.on('*', (function(_) {
+                close();
+                eventAllow();
+              }));
+              break;
+            case 'ログ表示':
+              close();
+              eventFire('Uwheel');
+              break;
+            case 'オート':
+              close();
+              startAuto();
+              break;
+            case '既読スキップ':
+              close();
+              startSkip();
+              break;
+            case 'リセット':
+              View.setConfirmWindow('リセットする').then((function(f) {
+                if (f)
+                  Game.reset();
+                else
+                  close();
+              }));
+              break;
+            case '閉じる':
+              close();
+              break;
+            default:
+              throw 'illegal choice type';
+          }
+        }));
+        function close(evt) {
+          if (!View.menuIndex)
+            return;
+          --View.menuIndex;
+          eventAllow();
+          View.on('menu').then((function(_) {
+            return View.showMenu();
+          }));
+          reverseWindow(true);
+        }
+      },
+      showLog: function(text) {
+        if (Data.phase != 'play' || View.windows.log)
+          return;
+        eventBlock();
+        reverseWindow();
+        var el = new DOM('div', {
+          position: 'absolute',
+          left: '1em',
+          top: '1em',
+          width: 'calc(100% - 1em * 2)',
+          height: 'calc(100% - 1em * 2)',
+          overflowX: 'hidden',
+          overflowY: 'scroll',
+          background: 'rgba(50,50,50,0.9)',
+          boxShadow: 'rgba(50,50,50,0.9) 0 0 1em 1em',
+          zIndex: '2500'
+        });
+        var img = new DOM('img', {
+          position: 'absolute',
+          right: '2%',
+          top: '0%',
+          width: '3em',
+          height: '3em',
+          opacity: '0.75',
+          zIndex: '3000'
+        });
+        if ($isWebkit) {
+          Util.toBlobSysPartsURL('閉じるボタン').then((function(url) {
+            img.src = url;
+          })).check();
+        } else {
+          img.src = 'エンジン/画像/閉じるボタン.svg';
+        }
+        el_context.append(img);
+        function close(evt) {
+          cancelEvent(evt);
+          img.remove();
+          if (View.windows.log) {
+            View.windows.log.remove();
+            delete View.windows.log;
+          }
+          reverseWindow(true);
+          eventAllow();
+          View.on('Uwheel').then((function(_) {
+            return View.showLog();
+          }));
+        }
+        img.onmousedown = close;
+        View.on('menu').then(close);
+        View.logs.forEach((function(log) {
+          log.setStyles({
+            position: '',
+            height: '',
+            padding: '',
+            borderRadius: '',
+            width: '',
+            background: '',
+            boxShadow: '',
+            marginBottom: '0.5em'
+          });
+          el.append(log);
+        }));
+        View.windows.log = el;
+        el_context.append(el);
+        el.scrollTop = 1 << 15 - 1;
       }
     };
     var $__9 = $traceurRuntime.assertObject(((function(_) {
@@ -1824,7 +1822,7 @@ System.register("ES6/ビュー", [], function() {
           setAuto(null, {visited: 1});
         }
       };
-      Util.setProperties(COMMON, my);
+      Util.setProperties(View, my);
       return my;
     }))()),
         setAuto = $__9.setAuto,
@@ -1895,23 +1893,28 @@ System.register("ES6/ビュー", [], function() {
             return [kind];
         }
       }
+      var blocked = 0;
       var my = {
         hookInput: function(kind, resolve) {
+          var weak = arguments[2] !== (void 0) ? arguments[2] : true;
           var hook = toHook(kind);
           hook.resolve = resolve;
-          hook.blocked = 0;
+          hook.blocked = weak ? blocked : 0;
           hooks.push(hook);
         },
         hookClear: function() {
           hooks.length = 0;
+          blocked = 0;
           eventSysOnly(false);
         },
         eventBlock: function() {
+          ++blocked;
           hooks.forEach((function(hook) {
             return ++hook.blocked;
           }));
         },
         eventAllow: function() {
+          --blocked;
           hooks.forEach((function(hook) {
             return --hook.blocked;
           }));
@@ -1924,7 +1927,7 @@ System.register("ES6/ビュー", [], function() {
           sysOnly = flag;
         }
       };
-      Util.setProperties(COMMON, my);
+      Util.setProperties(View, my);
       return my;
     }))()),
         hookInput = $__9.hookInput,
@@ -1945,15 +1948,21 @@ System.register("ES6/ビュー", [], function() {
       if (Data.phase == 'play')
         return 'セーブされていないデータは失われます。';
     });
+    Util.setProperties(View, {
+      fadeIn: function(msec) {
+        return setFadeIn(el_context, msec);
+      },
+      fadeOut: function(msec) {
+        return setFadeOut(el_context, msec);
+      }
+    });
     var $full = false;
     var $ratio = 16 / 9;
-    var $mode = '';
     var width = document.body.clientWidth * devicePixelRatio;
     var $scale = (width / $ratio >= 540 ? 540 : width / $ratio) / devicePixelRatio;
-    METHODS.TEST.changeMode('TEST');
     var p = adjustScale($scale, $ratio);
     p.then((function(_) {
-      return READY.View.ready(null);
+      return READY.View.ready(View);
     }));
   })).check();
   return {};
@@ -2355,7 +2364,6 @@ System.register("ES6/プレーヤー", [], function() {
       if (!sname)
         LOG('!!!sname');
       sname = sname.split('#')[0];
-      View.changeModeIfNeeded('NOVEL');
       Data.phase = 'play';
       var run = Promise.defer();
       if (!masterComp)
@@ -2857,11 +2865,6 @@ System.register("ES6/プレーヤー", [], function() {
       }));
       return eval(effect);
     }
-    function print(message) {
-      if (!View.print)
-        View.changeMode('TEST');
-      View.print(message);
-    }
     function loadSaveData() {
       return Util.co($traceurRuntime.initGeneratorFunction(function $__22() {
         var saves,
@@ -3117,7 +3120,7 @@ System.register("ES6/プレーヤー", [], function() {
       Data.phase = 'pause';
       document.title = 'openノベルプレーヤー';
       Util.paramClear(true);
-      View.clean();
+      View.init();
     }
     function setSetting(scenario, setting) {
       return Util.co($traceurRuntime.initGeneratorFunction(function $__22() {
@@ -3212,7 +3215,6 @@ System.register("ES6/プレーヤー", [], function() {
       fetchSettingData: fetchSettingData,
       fetchScriptData: fetchScriptData,
       runScript: runScript,
-      print: print,
       loadSaveData: loadSaveData,
       saveSaveData: saveSaveData,
       deleteSaveData: deleteSaveData,
@@ -3235,7 +3237,6 @@ System.register("ES6/ゲーム", [], function() {
       var abort = Util.NOP;
       return (function(text) {
         abort();
-        View.changeModeIfNeeded('NOVEL');
         View.nextPage('システム', {sys: true});
         var p = View.addSentence(text, {weight: 10});
         abort = p.abort;
@@ -3270,7 +3271,6 @@ System.register("ES6/ゲーム", [], function() {
               $ctx.state = 8;
               break;
             case 8:
-              View.on('menu').then(resetup);
               message('再生する作品を選んでください');
               $ctx.state = 44;
               break;
@@ -3433,7 +3433,7 @@ System.register("ES6/ゲーム", [], function() {
               $ctx.state = 12;
               break;
             case 12:
-              View.clean();
+              View.init();
               $ctx.state = 22;
               break;
             case 22:
@@ -3460,7 +3460,7 @@ System.register("ES6/ゲーム", [], function() {
               LOG(err);
               if (typeof err !== 'string')
                 err = '致命的なエラーが発生したため再生を継続できません';
-              View.clean();
+              View.init();
               $ctx.state = 8;
               break;
             case 8:
@@ -3487,71 +3487,28 @@ System.register("ES6/ゲーム", [], function() {
           while (true)
             switch ($ctx.state) {
               case 0:
-                View.eventBlock();
-                View.mainMessageWindow.el.hidden = true;
-                $ctx.state = 26;
-                break;
-              case 26:
-                $ctx.state = 2;
-                return message('');
-              case 2:
-                $ctx.maybeThrow();
-                $ctx.state = 4;
-                break;
-              case 4:
+                View.fadeIn().through((function(_) {
+                  fading = false;
+                }));
                 $ctx.state = 6;
-                return View.setBGImage({
-                  url: null,
-                  sys: true
-                });
+                break;
               case 6:
-                $ctx.maybeThrow();
-                $ctx.state = 8;
-                break;
-              case 8:
-                $ctx.state = 10;
-                return View.setFDImages([], {sys: true});
-              case 10:
-                $ctx.maybeThrow();
-                $ctx.state = 12;
-                break;
-              case 12:
-                $ctx.state = 14;
-                return View.prepareFade();
-              case 14:
-                $ctx.maybeThrow();
-                $ctx.state = 16;
-                break;
-              case 16:
-                $ctx.state = 18;
+                $ctx.state = 2;
                 return Util.toBlobURL('画像', '背景', 'png', true).then((function(url) {
                   return View.setBGImage({
                     url: url,
                     sys: true
                   });
                 }));
-              case 18:
+              case 2:
                 $ctx.maybeThrow();
-                $ctx.state = 20;
-                break;
-              case 20:
-                $ctx.state = 22;
-                return View.fade({msec: 250});
-              case 22:
-                $ctx.maybeThrow();
-                $ctx.state = 24;
-                break;
-              case 24:
-                View.mainMessageWindow.el.hidden = false;
                 $ctx.state = -2;
                 break;
               default:
                 return $ctx.end();
             }
         }, $__35, this);
-      }))().through((function(_) {
-        fading = false;
-      }));
+      }))();
     }
     function fadeOut() {
       fading = true;
@@ -3560,50 +3517,14 @@ System.register("ES6/ゲーム", [], function() {
           while (true)
             switch ($ctx.state) {
               case 0:
-                View.eventBlock();
-                View.mainMessageWindow.el.hidden = true;
-                $ctx.state = 22;
-                break;
-              case 22:
                 $ctx.state = 2;
-                return message('');
+                return View.fadeOut();
               case 2:
                 $ctx.maybeThrow();
                 $ctx.state = 4;
                 break;
               case 4:
-                $ctx.state = 6;
-                return View.prepareFade();
-              case 6:
-                $ctx.maybeThrow();
-                $ctx.state = 8;
-                break;
-              case 8:
-                $ctx.state = 10;
-                return View.setBGImage({
-                  url: null,
-                  sys: true
-                });
-              case 10:
-                $ctx.maybeThrow();
-                $ctx.state = 12;
-                break;
-              case 12:
-                $ctx.state = 14;
-                return View.setFDImages([], {sys: true});
-              case 14:
-                $ctx.maybeThrow();
-                $ctx.state = 16;
-                break;
-              case 16:
-                $ctx.state = 18;
-                return View.fade({msec: 250});
-              case 18:
-                $ctx.maybeThrow();
-                $ctx.state = 20;
-                break;
-              case 20:
-                View.clean();
+                View.init();
                 $ctx.state = -2;
                 break;
               default:
@@ -3635,7 +3556,7 @@ System.register("ES6/ゲーム", [], function() {
             case 4:
               Data.SystemVersion = setting['システムバージョン'][0];
               startSE = new Sound('sysSE', '起動');
-              View.changeMode('NOVEL');
+              View.init();
               $ctx.state = 12;
               break;
             case 12:
