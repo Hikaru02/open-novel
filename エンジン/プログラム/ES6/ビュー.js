@@ -240,8 +240,8 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 			if (el.hidden) {
 				if (del) setFadeIn(el)
 			} else {
-				if (del) el.remove()
-				else setFadeOut(el)
+				if (!del) setFadeOut(el)
+				//else el.remove()
 			}
 		} )
 		return Promise.delay(Config.fadeDuration)
@@ -285,8 +285,8 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 			hookClear()
 			stopAuto()
 
-			on('menu').then(_ => View.showMenu()).check()
-			on('Uwheel').then(_ => View.showLog())
+			View.on('menu').then(_ => View.showMenu()).check()
+			View.on('Uwheel').then(_ => View.showLog())
 
 			Util.setDefaults(opt, {
 				color			: 'rgba(255,255,255,0.9)',
@@ -651,13 +651,13 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 
 			function close(evt, val) {
 				cancelEvent(evt)
+				if (img) img.remove()
 				setFadeOut(cw).then( _ => {
-					defer.resolve(val)
 					if (!sys) delete View.windows.choice
 					else delete View.windows.choiceBack
 					cw.remove()
-					if (img) img.remove()
 				})
+				defer.resolve(val)
 			}
 
 			if (half) {
@@ -712,15 +712,17 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 				}
 
 				if ($isWebkit) {
-					Util.toBlobSysPartsURL('閉じるボタン').then( url => {img.src = url} ).check()
+					Util.toBlobSysPartsURL('閉じるボタン').then( url => {
+						img.src = url
+						el_context.append(img)
+					} ).check()
 				} else {
 					img.src = 'エンジン/画像/閉じるボタン.svg'
+					el_context.append(img)
 				}
 				img.onmousedown = evt => {
 					close(evt, '閉じる')
 				}
-
-				el_context.append(img)
 
 				on('menu').then( _ => close(null, '閉じる') )
 
@@ -869,7 +871,8 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 			
 			var ary = ['セーブ', 'ロード', 'ウィンドウ消去', 'ログ表示', 'オート', '既読スキップ', 'リセット'].map(name => ({name}))
 			if (Data.saveDisabled) ary[0].disabled = true
-			reverseWindow().then( _ => View.setChoiceWindow(ary, {sys: true, closeable: true, half: true, plus: true}) ).then( kind => {
+			reverseWindow()
+			View.setChoiceWindow(ary, {sys: true, closeable: true, half: true, plus: true}).then( kind => {
 
 				switch (kind) {
 					case 'セーブ':
@@ -945,28 +948,33 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 				zIndex			: '3000'
 			})
 			if ($isWebkit) {
-				Util.toBlobSysPartsURL('閉じるボタン').then( url => {img.src = url} ).check()
+				Util.toBlobSysPartsURL('閉じるボタン').then( url => {
+					img.src = url
+					el_context.append(img)
+				} ).check()
 			} else {
 				img.src = 'エンジン/画像/閉じるボタン.svg'
+				el_context.append(img)
 			}
-			el_context.append(img)
 
 			function close(evt) {
 				cancelEvent(evt)
 				img.remove()
-				if (View.windows.log) {
-					View.windows.log.remove()
-					delete View.windows.log
-				}
 				reverseWindow(true)
-				
-				//eventSysOnly(false)
-				eventAllow()
-				View.on('Uwheel').then(_ => View.showLog())
+
+				setFadeOut(el).then( _ => {
+					if (View.windows.log) {
+						View.windows.log.remove()
+						delete View.windows.log
+					}
+					//eventSysOnly(false)
+					eventAllow()
+					View.on('Uwheel').then(_ => View.showLog())
+				})
 			}
 
 			img.onmousedown = close
-			View.on('menu').then(close)
+			on('menu').then(close)
 
 
 			View.logs.forEach(log => {
@@ -985,6 +993,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 			})
 			View.windows.log = el
 
+			setFadeIn(el)
 			el_context.append(el)
 			el.scrollTop = 1<<15-1
 

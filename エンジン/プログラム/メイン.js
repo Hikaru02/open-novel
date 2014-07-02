@@ -953,9 +953,7 @@ System.register("ES6/ビュー", [], function() {
           if (del)
             setFadeIn(el);
         } else {
-          if (del)
-            el.remove();
-          else
+          if (!del)
             setFadeOut(el);
         }
       }));
@@ -997,10 +995,10 @@ System.register("ES6/ビュー", [], function() {
         var opt = arguments[0] !== (void 0) ? arguments[0] : {};
         hookClear();
         stopAuto();
-        on('menu').then((function(_) {
+        View.on('menu').then((function(_) {
           return View.showMenu();
         })).check();
-        on('Uwheel').then((function(_) {
+        View.on('Uwheel').then((function(_) {
           return View.showLog();
         }));
         Util.setDefaults(opt, {
@@ -1396,16 +1394,16 @@ System.register("ES6/ビュー", [], function() {
         });
         function close(evt, val) {
           cancelEvent(evt);
+          if (img)
+            img.remove();
           setFadeOut(cw).then((function(_) {
-            defer.resolve(val);
             if (!sys)
               delete View.windows.choice;
             else
               delete View.windows.choiceBack;
             cw.remove();
-            if (img)
-              img.remove();
           }));
+          defer.resolve(val);
         }
         if (half) {
           on('up', (function(rehook) {
@@ -1479,14 +1477,15 @@ System.register("ES6/ビュー", [], function() {
           if ($isWebkit) {
             Util.toBlobSysPartsURL('閉じるボタン').then((function(url) {
               img.src = url;
+              el_context.append(img);
             })).check();
           } else {
             img.src = 'エンジン/画像/閉じるボタン.svg';
+            el_context.append(img);
           }
           img.onmousedown = (function(evt) {
             close(evt, '閉じる');
           });
-          el_context.append(img);
           on('menu').then((function(_) {
             return close(null, '閉じる');
           }));
@@ -1648,14 +1647,13 @@ System.register("ES6/ビュー", [], function() {
         }));
         if (Data.saveDisabled)
           ary[0].disabled = true;
-        reverseWindow().then((function(_) {
-          return View.setChoiceWindow(ary, {
-            sys: true,
-            closeable: true,
-            half: true,
-            plus: true
-          });
-        })).then((function(kind) {
+        reverseWindow();
+        View.setChoiceWindow(ary, {
+          sys: true,
+          closeable: true,
+          half: true,
+          plus: true
+        }).then((function(kind) {
           switch (kind) {
             case 'セーブ':
               Player.saveSaveData().check().through(close).then((function(f) {
@@ -1741,26 +1739,29 @@ System.register("ES6/ビュー", [], function() {
         if ($isWebkit) {
           Util.toBlobSysPartsURL('閉じるボタン').then((function(url) {
             img.src = url;
+            el_context.append(img);
           })).check();
         } else {
           img.src = 'エンジン/画像/閉じるボタン.svg';
+          el_context.append(img);
         }
-        el_context.append(img);
         function close(evt) {
           cancelEvent(evt);
           img.remove();
-          if (View.windows.log) {
-            View.windows.log.remove();
-            delete View.windows.log;
-          }
           reverseWindow(true);
-          eventAllow();
-          View.on('Uwheel').then((function(_) {
-            return View.showLog();
+          setFadeOut(el).then((function(_) {
+            if (View.windows.log) {
+              View.windows.log.remove();
+              delete View.windows.log;
+            }
+            eventAllow();
+            View.on('Uwheel').then((function(_) {
+              return View.showLog();
+            }));
           }));
         }
         img.onmousedown = close;
-        View.on('menu').then(close);
+        on('menu').then(close);
         View.logs.forEach((function(log) {
           log.setStyles({
             position: '',
@@ -1775,6 +1776,7 @@ System.register("ES6/ビュー", [], function() {
           el.append(log);
         }));
         View.windows.log = el;
+        setFadeIn(el);
         el_context.append(el);
         el.scrollTop = 1 << 15 - 1;
       }
