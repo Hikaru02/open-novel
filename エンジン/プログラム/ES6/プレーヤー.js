@@ -197,6 +197,7 @@ READY().then( ({Util}) => {
 
 					case '背景':
 						var name = data[0]
+						if (typeof name == 'object') name = name[1][0]
 						append(['背景', name, 'jpg'])
 					break
 
@@ -240,14 +241,15 @@ READY().then( ({Util}) => {
 
 			} catch (err) {
 				LOG(`キャッシュ中にコマンド『${act}』で『${err}』が起きた`)
+				--caching
 			}
 
 		}
 
 		//LOG(caching)
-		if (caching == 0) defer.resolve()
+		if (caching < 0) defer.resolve()
 
-		return defer.promise
+		return Promise.race([Promise.defer(5000), defer.promise])
 
 
 	}
@@ -323,8 +325,19 @@ READY().then( ({Util}) => {
 			},
 
 			背景(data, done, failed) {
-				var name = replaceEffect(data[0])
-				Util.toBlobURL('背景', name, 'jpg').then( url => View.setBGImage({ name, url }) ).then(done, failed)
+				if (typeof data[0] == 'object') {
+					var name = replaceEffect(data[0][1][0])
+					var pos = Util.toHalfWidth(replaceEffect(data[0][0])).match(/[+\-0-9.]+/g)
+					if (!pos) return failed('不正な位置検出')
+					var [left, top = '0', height = null] = pos
+
+				} else {
+					var name = replaceEffect(data[0])
+					var [left, top, height] = [0, 0, null]
+				}
+				left += '%', top += '%'
+				height = Util.toSize(height)
+				Util.toBlobURL('背景', name, 'jpg').then( url => View.setBGImage({ name, url, left, top, height }) ).then(done, failed)
 			},
 
 			立絵: otherName('立ち絵'),
@@ -368,17 +381,24 @@ READY().then( ({Util}) => {
 			効果: otherName('エフェクト'),
 			エフェクト(data, done, failed, {visited}) {
 				data.forEach( prog => {
-					if (prog == 'フェード準備') return View.prepareFade().then(done, failed)
+					switch (prog) {
+						case '準備':
+							return View.prepare().then(done, failed)
+
+					}
 					var act = prog[0], opt = Util.toHalfWidth(replaceEffect(prog[1][0])).split(/\s+/)
 					var msec = opt[0].match(/[\d.]+/)*1000
 					switch (act) {
 						case 'フェード':
 							return View.fade({msec, visited}).then(done, failed)
-						break
+
+						case 'トランス':
+							return View.trans({msec, visited}).then(done, failed)
+
 						case 'フラッシュ':
 							var color = opt[1]
 							return View.flash({msec, color, visited}).then(done, failed)
-						break
+
 						default: failed('想定外のエフェクトタイプ')
 					}
 				})

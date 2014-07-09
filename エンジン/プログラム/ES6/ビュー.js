@@ -311,6 +311,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 
 			View.logs = []
 			View.windows = {}
+			View.fake = null
 			View.mainMessageWindow = View.addMessageWindow()
 			View.imageFrame = View.addImageFrame()
 
@@ -737,25 +738,34 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 		},
 
 
-		setBGImage(opt) {
+		setBGImage(opt, {sys = false} = {}) {
 			var defer = Promise.defer()
-			var {url, sys} = opt
+			Util.setDefaults(opt, {
+				backgroundPosition	: `${opt.left} ${opt.top}`,
+				backgroundRepeat	: 'no-repeat',
+				backgroundSize		: opt.height ? `auto ${opt.height}` : 'cover',
+				backgroundImage		: `url(${opt.url})`,
+			})
+			Util.setProperties(opt, {
+				left	: null,
+				top		: null,
+				height	: null,
+				width	: null,
+			})
+			var {url} = opt
 			var fr = View.imageFrame
 			if (url) {
 				var img = new Image
 				img.onload = _ => {
-					fr.setStyles({
-						backgroundImage: `url(${url})`,
-						backgroundSize: 'cover',
-					})
+					fr.setStyles(opt)
 					defer.resolve()
 				}
 				img.src = url
 				if (!sys) Data.current.active.BGImage = opt
 			} else {
 				fr.setStyles({
-					backgroundImage: 'none',
-					backgroundSize: 'cover',
+					backgroundImage	: 'none',
+					backgroundSize	: 'cover',
 				})
 				defer.resolve()
 			}
@@ -798,8 +808,9 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 		},
 
 
+
 		// エフェクト
-		prepareFade() {
+		prepare() {
 			if (View.fake) return Promise.reject('２重にエフェクトの準備をしようとした')
 			var fr = View.imageFrame
 			var fake = View.fake = fr.cloneNode(true)
@@ -811,22 +822,52 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 
 		fade({msec = 1000, visited = false} = {}) {
 			//debugger
-			if (!View.fake) return Promise.reject('このエフェクトには事前準備が必要')
+			if (!View.fake) return Promise.reject('フェードエフェクトには準備が必要')
 			var fr = View.imageFrame, fake = View.fake
 			var cancelled = false
-			View.on('go').then(_ => cancelled = true)
 			if (visited) setAuto(null, {visited: true})
-			return setAnimate( (delay, complete, pause) => {
-				var per = delay/msec
-				if (per >= 1 || cancelled) {
-					per = 1
-					complete()
-				}
-				fake.style.opacity = 1 - per
-				//fr.style.opacity = per 
+			return  new Promise( (ok, ng) => {
+				var player = fake.animate({opacity: 0}, {duration: msec, fill: 'forwards'})
+				View.on('go').then( _ => player.finish() )
+				player.onfinish = ok 
 			}).then( _ => {
 				fake.remove()
-				delete View.fake
+				View.fake = null
+				Data.saveDisabled = false
+			})
+		},
+
+		trans({msec = 1000, visited = false} = {}) {
+			//debugger
+			if (!View.fake) return Promise.reject('スクロールエフェクトには準備が必要')
+			var fr = View.imageFrame, fake = View.fake
+			
+			if (visited) setAuto(null, {visited: true})
+			return new Promise( (ok, ng) => {
+				//debugger
+				var anims = [].map.call(fake.getElementsByTagName('img'), el => {
+					var tar = fr.querySelector('[src="'+el.src+'"]')
+					if (!tar) return null
+					return new Animation(el, {
+						left	: tar.style.left,
+						right	: tar.style.right,
+						top		: tar.style.top,
+						bottom	: tar.style.bottom,
+						height	: tar.style.height,
+					}, {duration: msec, fill: 'forwards'})
+				}).filter( obj => !!obj )
+
+				anims.push(new Animation(fake, {
+					backgroundPosition	: fr.style.backgroundPosition,
+					backgroundSize		: fr.style.backgroundSize,
+				}, {duration: msec, fill: 'forwards'}))
+
+				var player = document.timeline.play(new AnimationGroup(anims))
+				View.on('go').then( _ => player.finish() )
+				player.onfinish = ok 
+			}).then( _ => {
+				fake.remove()
+				View.fake = null
 				Data.saveDisabled = false
 			})
 		},
@@ -897,7 +938,11 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 
 					case '既読スキップ': close(); startSkip() ; break
 
-					case 'リセット': View.setConfirmWindow('リセットする').then(f => { if (f) Game.reset() ;else close() }) ; break
+					case 'リセット': View.setConfirmWindow('リセットする').then(f => {
+							if (f) { close(); Game.reset() }
+							else close()
+						})
+					break
 
 					case '閉じる': close(); break
 

@@ -24,14 +24,14 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 		yield fadeIn()
 
 		//message('作品一覧を読み込んでいます...')
-		var setting = yield Player.fetchSettingData(Data.URL.ContentsSetting)
+		var setting = yield Player.fetchSettingData(Config.URL.ContentsSetting)
 
 		message('再生する作品を選んでください')
 		var scenario = yield new Promise( (ok, ng) => {
 
 			var novels = setting['作品']
 
-			if (!novels || !novels.length) return message('再生できる作品がありません\n『データ/作品.txt』を確認してください')
+			if (!novels || !novels.length) return message('再生できる作品がありません\n『作品/設定.txt』を確認してください')
 			if (novels.length === 1) return ok(novels[0])
 
 			var opts = novels.reduce( (opts, name) => {
@@ -44,7 +44,7 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 
 
 		//message('作品情報を読み込んでいます...')
-		var setting = yield Player.fetchSettingData(`データ/${scenario}/設定.txt`)
+		var setting = yield Player.fetchSettingData(`作品/${scenario}/設定.txt`)
 
 		var reqNew = yield Player.setSetting(scenario, setting)
 
@@ -150,7 +150,7 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 		fading = true
 		return Util.co(function* () {
 			View.fadeIn().through(_ => { fading = false })
-			yield Util.toBlobURL('画像', '背景', 'png', true).then( url => View.setBGImage({ url, sys: true }) )
+			yield Util.toBlobURL('画像', '背景', 'png', true).then( url => View.setBGImage({ url }, {sys: true }) )
 		})()
 	}
 
@@ -171,9 +171,6 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 
 	var start = Util.co(function* () {
 
-		var setting = yield Player.fetchSettingData(Data.URL.EngineSetting)
-
-		Data.SystemVersion = setting['システムバージョン'][0]
 		var startSE = new Sound('sysSE', '起動')
 
 		View.init()
@@ -183,7 +180,7 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 			Promise.race([
 				Promise.all([
 					startSE.play(),
-					View.addSentence('openノベルプレイヤー by Hikaru02\n\nシステムバージョン：　' + Data.SystemVersion, { weight: 0 }).delay(3000)
+					View.addSentence('openノベルプレイヤー by Hikaru02\n\nシステムバージョン：　' + Config.systemVersion, { weight: 0 }).delay(3000)
 				]),
 				View.on('go')
 			]).through( _ => startSE.fadeout() )

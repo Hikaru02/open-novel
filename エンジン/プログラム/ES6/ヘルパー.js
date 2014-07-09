@@ -7,16 +7,9 @@
 
 	var Data = {
 		debug :true,
-		URL: {
-			ContentsSetting: 'データ/作品.txt',
-			EngineSetting: 'エンジン/エンジン定義.txt',
-		},
 		current: {},
 	}
 
-	var Config = Object.freeze({
-			fadeDuration: 100,
-		})
 
 	var Util = {
 
@@ -89,18 +82,18 @@
 
 		Default: undefined,
 
-		co(func) {
+		co(gen) {
 			return function (...args) {
 				return new Promise( (ok, ng) => {
-					var iter = func.apply(this, args)
-					var loop = v => {
+					var iter = gen.apply(this, args)
+					var chain = v => {
 						var {value, done} = iter.next(v)
-						Promise.resolve(value).then(done ? ok : loop).catch(err => {
+						Promise.resolve(value).then(done ? ok : chain).catch(err => {
 							LOG('co', err)
 							ng(err)
 						})
 					}
-					loop()
+					chain()
 				})
 			}
 
@@ -141,7 +134,7 @@
 
 
 		toBlobURL(kind, name, type, sys = false) {
-			var root = sys ? 'エンジン' : 'データ'
+			var root = sys ? 'エンジン' : '作品'
 			var sub = Util.forceName(kind, name, type)
 			var subkey = sys ? `${sub}` : `${Data.scenarioName}/${sub}`
 			if (Util.isNoneType(name)) return Promise.resolve(null)
@@ -421,14 +414,15 @@
 	var READY = ( _ => {
 		function READY(type) {
 			var types = (arguments.length != 1) ? [].slice.call(arguments) : (Array.isArray(type)) ? type : [type]
+			types.push('Util')
 			return $Promise.all(types.map(type => {
 				if (!(type in READY)) throw 'illegal READY type "' +type+ '"'
 				return READY[type]
 			})).then( _ => Util.overrides )
 		}
-		;['DOM', 'Player', 'View', 'Storage', 'Sound', 'Game'].forEach(type => {
+		;['Util', 'DOM', 'Player', 'View', 'Storage', 'Sound', 'Game'].forEach(type => {
 			global[type] = null
-			var defer = $Promise.defer()
+			var defer = Promise.defer()
 			READY[type] = defer.promise
 			READY[type].ready = obj => {
 				if (obj) global[type] = obj
@@ -440,9 +434,14 @@
 
 	window.addEventListener('DOMContentLoaded', READY.DOM.ready)
 
-
 	Util.setDefaults(global, {
-		global, READY, Util, LOG, Data, Config, BitArray,
+		global, READY, LOG, Data, BitArray,
 	})
+
+	Util.load('エンジン/設定.json', 'json').then(obj => {
+		var Config = Object.freeze(obj)
+		global.Config = Config
+		READY.Util.ready(Util)
+	}).check()
 
 })();

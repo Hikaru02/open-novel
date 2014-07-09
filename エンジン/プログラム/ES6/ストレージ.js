@@ -1,4 +1,4 @@
-READY().then( _ => {
+READY().then( ({Util}) => {
 	'use strict'
 
 	var db, scenario, VERSION = 6

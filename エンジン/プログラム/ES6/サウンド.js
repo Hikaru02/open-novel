@@ -32,7 +32,7 @@ READY('Storage', 'Player').then( ({Util}) => {
 				gain.linearRampToValueAtTime(1, t0 + duration)
 			}
 
-			off() {
+			mute() {
 				var t0 = ctx.currentTime, gain = this.gain.gain
 				gain.cancelScheduledValues(t0)
 				gain.value = 0
@@ -55,10 +55,10 @@ READY('Storage', 'Player').then( ({Util}) => {
 
 			var rootVolume = new GainChanger(gainRoot) 
 			document.addEventListener('visibilitychange', _ => {
-				if (document.hidden) rootVolume.off() 
+				if (document.hidden) rootVolume.mute() 
 				else rootVolume.up()
 			})
-			if (document.hidden) rootVolume.off()
+			if (document.hidden) rootVolume.mute()
 
 		}
 
