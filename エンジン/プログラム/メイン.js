@@ -1637,10 +1637,7 @@ System.register("ES6/ビュー", [], function() {
           })).filter((function(obj) {
             return !!obj;
           }));
-          anims.push(new Animation(fake, {
-            backgroundPosition: fr.style.backgroundPosition,
-            backgroundSize: fr.style.backgroundSize
-          }, {
+          anims.push(new Animation(fake, {backgroundPosition: fr.style.backgroundPosition}, {
             duration: msec,
             fill: 'forwards'
           }));

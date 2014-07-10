@@ -859,7 +859,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 
 				anims.push(new Animation(fake, {
 					backgroundPosition	: fr.style.backgroundPosition,
-					backgroundSize		: fr.style.backgroundSize,
+				//	backgroundSize		: fr.style.backgroundSize,
 				}, {duration: msec, fill: 'forwards'}))
 
 				var player = document.timeline.play(new AnimationGroup(anims))
