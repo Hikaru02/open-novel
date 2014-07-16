@@ -1494,9 +1494,13 @@ System.register("ES6/ビュー", [], function() {
         return defer.promise;
       },
       setBGImage: function(opt) {
-        var $__10;
+        var $__10,
+            $__12,
+            $__13;
         var $__11 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
-            sys = ($__10 = $__11.sys) === void 0 ? false : $__10;
+            sys = ($__10 = $__11.sys) === void 0 ? false : $__10,
+            fade = ($__12 = $__11.fade) === void 0 ? false : $__12,
+            visited = ($__13 = $__11.visited) === void 0 ? false : $__13;
         var defer = Promise.defer();
         Util.setDefaults(opt, {
           backgroundPosition: (opt.left + " " + opt.top),
@@ -1512,28 +1516,50 @@ System.register("ES6/ビュー", [], function() {
         });
         var url = $traceurRuntime.assertObject(opt).url;
         var fr = View.imageFrame;
-        if (url) {
-          var img = new Image;
-          img.onload = (function(_) {
-            fr.setStyles(opt);
+        new Promise((function(ok) {
+          if (url) {
+            var img = new Image;
+            img.onload = (function(_) {
+              return ok(opt);
+            });
+            img.src = url;
+            if (!sys)
+              Data.current.active.BGImage = opt;
+          } else {
+            ok({
+              backgroundImage: 'none',
+              backgroundSize: 'cover'
+            });
+          }
+        })).then((function(opt) {
+          var temp = fr.cloneNode(true);
+          el_context.append(temp);
+          fr.setStyles(opt);
+          var end = (function(_) {
+            temp.remove();
             defer.resolve();
           });
-          img.src = url;
-          if (!sys)
-            Data.current.active.BGImage = opt;
-        } else {
-          fr.setStyles({
-            backgroundImage: 'none',
-            backgroundSize: 'cover'
+          if (View.fake)
+            return end();
+          var pl = temp.animate({opacity: 0}, {
+            duration: Config.fadeDuration,
+            fill: 'forwards'
           });
-          defer.resolve();
-        }
+          View.on('go').then((function(_) {
+            return pl.finish();
+          }));
+          pl.onfinish = end;
+        }));
         return defer.promise;
       },
       setFDImages: function(ary) {
-        var $__11;
+        var $__12,
+            $__13,
+            $__11;
         var $__10 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
-            sys = ($__11 = $__10.sys) === void 0 ? false : $__11;
+            sys = ($__12 = $__10.sys) === void 0 ? false : $__12,
+            fade = ($__13 = $__10.fade) === void 0 ? false : $__13,
+            visited = ($__11 = $__10.visited) === void 0 ? false : $__11;
         var defer = Promise.defer();
         var fr = View.imageFrame;
         Promise.all(ary.map((function(opt) {
@@ -1560,11 +1586,26 @@ System.register("ES6/ビュー", [], function() {
             img.src = opt.url;
           }));
         }))).then((function(els) {
+          var temp = fr.cloneNode(true);
+          el_context.append(temp);
           fr.removeChildren();
           els.forEach((function(el) {
             return fr.append(el);
           }));
-          defer.resolve();
+          var end = (function(_) {
+            temp.remove();
+            defer.resolve();
+          });
+          if (View.fake)
+            return end();
+          var pl = temp.animate({opacity: 0}, {
+            duration: Config.fadeDuration,
+            fill: 'forwards'
+          });
+          View.on('go').then((function(_) {
+            return pl.finish();
+          }));
+          pl.onfinish = end;
         }));
         if (!sys)
           Data.current.active.FDImages = ary;
@@ -1580,11 +1621,11 @@ System.register("ES6/ビュー", [], function() {
         return Promise.resolve();
       },
       fade: function() {
-        var $__10,
-            $__12;
-        var $__11 = $traceurRuntime.assertObject(arguments[0] !== (void 0) ? arguments[0] : {}),
-            msec = ($__10 = $__11.msec) === void 0 ? 1000 : $__10,
-            visited = ($__12 = $__11.visited) === void 0 ? false : $__12;
+        var $__13,
+            $__11;
+        var $__12 = $traceurRuntime.assertObject(arguments[0] !== (void 0) ? arguments[0] : {}),
+            msec = ($__13 = $__12.msec) === void 0 ? 1000 : $__13,
+            visited = ($__11 = $__12.visited) === void 0 ? false : $__11;
         if (!View.fake)
           return Promise.reject('フェードエフェクトには準備が必要');
         var fr = View.imageFrame,
@@ -1608,11 +1649,11 @@ System.register("ES6/ビュー", [], function() {
         }));
       },
       trans: function() {
-        var $__12,
-            $__11;
-        var $__10 = $traceurRuntime.assertObject(arguments[0] !== (void 0) ? arguments[0] : {}),
-            msec = ($__12 = $__10.msec) === void 0 ? 1000 : $__12,
-            visited = ($__11 = $__10.visited) === void 0 ? false : $__11;
+        var $__11,
+            $__12;
+        var $__13 = $traceurRuntime.assertObject(arguments[0] !== (void 0) ? arguments[0] : {}),
+            msec = ($__11 = $__13.msec) === void 0 ? 1000 : $__11,
+            visited = ($__12 = $__13.visited) === void 0 ? false : $__12;
         if (!View.fake)
           return Promise.reject('スクロールエフェクトには準備が必要');
         var fr = View.imageFrame,
@@ -1653,13 +1694,13 @@ System.register("ES6/ビュー", [], function() {
         }));
       },
       flash: function() {
-        var $__11,
-            $__10,
-            $__13;
-        var $__12 = $traceurRuntime.assertObject(arguments[0] !== (void 0) ? arguments[0] : {}),
-            msec = ($__11 = $__12.msec) === void 0 ? 300 : $__11,
-            color = ($__10 = $__12.color) === void 0 ? 'white' : $__10,
-            visited = ($__13 = $__12.visited) === void 0 ? false : $__13;
+        var $__12,
+            $__13,
+            $__10;
+        var $__11 = $traceurRuntime.assertObject(arguments[0] !== (void 0) ? arguments[0] : {}),
+            msec = ($__12 = $__11.msec) === void 0 ? 300 : $__12,
+            color = ($__13 = $__11.color) === void 0 ? 'white' : $__13,
+            visited = ($__10 = $__11.visited) === void 0 ? false : $__10;
         var fake = View.imageFrame.cloneNode(false);
         fake.style.background = '';
         fake.style.backgroundColor = color;
@@ -1843,15 +1884,15 @@ System.register("ES6/ビュー", [], function() {
         el.scrollTop = 1 << 15 - 1;
       }
     };
-    var $__11 = $traceurRuntime.assertObject(((function(_) {
+    var $__12 = $traceurRuntime.assertObject(((function(_) {
       var enabled = false;
       var delay = 0;
       var wait = true;
       var my = {
         setAuto: function(p) {
-          var $__13;
-          var $__10 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
-              visited = ($__13 = $__10.visited) === void 0 ? false : $__13;
+          var $__10;
+          var $__13 = $traceurRuntime.assertObject(arguments[1] !== (void 0) ? arguments[1] : {}),
+              visited = ($__10 = $__13.visited) === void 0 ? false : $__10;
           if (!enabled)
             return;
           if (wait && p)
@@ -1889,11 +1930,11 @@ System.register("ES6/ビュー", [], function() {
       Util.setProperties(View, my);
       return my;
     }))()),
-        setAuto = $__11.setAuto,
-        startAuto = $__11.startAuto,
-        stopAuto = $__11.stopAuto,
-        startSkip = $__11.startSkip;
-    var $__11 = $traceurRuntime.assertObject(((function(_) {
+        setAuto = $__12.setAuto,
+        startAuto = $__12.startAuto,
+        stopAuto = $__12.stopAuto,
+        startSkip = $__12.startSkip;
+    var $__12 = $traceurRuntime.assertObject(((function(_) {
       var keyboardTable = {
         8: 'backspace',
         13: 'enter',
@@ -1994,12 +2035,12 @@ System.register("ES6/ビュー", [], function() {
       Util.setProperties(View, my);
       return my;
     }))()),
-        hookInput = $__11.hookInput,
-        hookClear = $__11.hookClear,
-        eventBlock = $__11.eventBlock,
-        eventAllow = $__11.eventAllow,
-        eventFire = $__11.eventFire,
-        eventSysOnly = $__11.eventSysOnly;
+        hookInput = $__12.hookInput,
+        hookClear = $__12.hookClear,
+        eventBlock = $__12.eventBlock,
+        eventAllow = $__12.eventAllow,
+        eventFire = $__12.eventFire,
+        eventSysOnly = $__12.eventSysOnly;
     function vibrate() {
       var $__14;
       for (var args = [],

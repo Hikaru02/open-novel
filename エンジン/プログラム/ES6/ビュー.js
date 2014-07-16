@@ -738,7 +738,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 		},
 
 
-		setBGImage(opt, {sys = false} = {}) {
+		setBGImage(opt, {sys = false, fade = false, visited = false} = {}) {
 			var defer = Promise.defer()
 			Util.setDefaults(opt, {
 				backgroundPosition	: `${opt.left} ${opt.top}`,
@@ -754,25 +754,41 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 			})
 			var {url} = opt
 			var fr = View.imageFrame
-			if (url) {
-				var img = new Image
-				img.onload = _ => {
-					fr.setStyles(opt)
+
+			new Promise( ok => {
+				if (url) {
+					var img = new Image
+					img.onload = _ => ok(opt)
+					img.src = url
+					if (!sys) Data.current.active.BGImage = opt
+				} else {
+					ok({
+						backgroundImage	: 'none',
+						backgroundSize	: 'cover',
+					})
+				}
+			}).then( opt => {
+
+				var temp = fr.cloneNode(true)
+				el_context.append(temp)
+				fr.setStyles(opt)
+				
+				var end = _ => {
+					temp.remove()
 					defer.resolve()
 				}
-				img.src = url
-				if (!sys) Data.current.active.BGImage = opt
-			} else {
-				fr.setStyles({
-					backgroundImage	: 'none',
-					backgroundSize	: 'cover',
-				})
-				defer.resolve()
-			}
+				if (View.fake) return end()
+
+				var pl = temp.animate({opacity: 0}, {duration: Config.fadeDuration, fill: 'forwards'})
+				View.on('go').then( _ => pl.finish() )
+				pl.onfinish = end
+
+			})
+
 			return defer.promise
 		},
 
-		setFDImages(ary, {sys = false} = {}) {
+		setFDImages(ary, {sys = false, fade = false, visited = false} = {}) {
 			var defer = Promise.defer()
 			var fr = View.imageFrame
 			//var ch = [].slice.call(el.children)
@@ -798,9 +814,20 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 				img.src = opt.url
 				
 			}) ) ).then( els => {
+				var temp = fr.cloneNode(true)
+				el_context.append(temp)
 				fr.removeChildren()
 				els.forEach( el => fr.append(el) )
-				defer.resolve()
+				
+				var end = _ => {
+					temp.remove()
+					defer.resolve()
+				}
+				if (View.fake) return end()
+
+				var pl = temp.animate({opacity: 0}, {duration: Config.fadeDuration, fill: 'forwards'})
+				View.on('go').then( _ => pl.finish() )
+				pl.onfinish = end
 			})
 
 			if (!sys) Data.current.active.FDImages = ary
@@ -826,7 +853,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 			var fr = View.imageFrame, fake = View.fake
 			var cancelled = false
 			if (visited) setAuto(null, {visited: true})
-			return  new Promise( (ok, ng) => {
+			return new Promise( (ok, ng) => {
 				var player = fake.animate({opacity: 0}, {duration: msec, fill: 'forwards'})
 				View.on('go').then( _ => player.finish() )
 				player.onfinish = ok 
