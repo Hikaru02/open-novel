@@ -166,8 +166,10 @@
 		load(url, type) {
 			return new Promise(function (ok, ng) {
 				var xhr = new XMLHttpRequest()
-				xhr.onload = _ => ok(xhr.response)
-				xhr.onerror = _ => ng(new Error(`ファイルURL『${url}』のロードに失敗`))
+				xhr.onloadend = _ => {
+					if (xhr.status < 300 && xhr.response) ok(xhr.response)
+					else ng(new Error(`ファイルURL『${url}』のロードに失敗`))
+				}
 				xhr.open('GET', url)
 				if (type) xhr.responseType = type
 				xhr.send()

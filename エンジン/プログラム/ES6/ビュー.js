@@ -4,8 +4,8 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 
 	var View = null
 
-	var clickSE = new Sound('sysSE', '選択')
-	var focusSE = new Sound('sysSE', 'フォーカス')
+	var clickSE = new Sound.SE('選択', {sys: true})
+	var focusSE = new Sound.SE('フォーカス', {sys: true})
 
 	var EP = Element.prototype
 	Util.setDefaults(EP, {

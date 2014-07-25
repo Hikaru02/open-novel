@@ -46,14 +46,15 @@ READY('Storage', 'Player').then( ({Util}) => {
 
 			ctx = new AudioContext()
 			
-			var gainRoot   = ctx.createGain(); gainRoot.connect(ctx.destination)
-			var compMaster = ctx.createDynamicsCompressor(); compMaster.connect(gainRoot)
+			var gainRoot    = ctx.createGain(); gainRoot.connect(ctx.destination)
+			var compMaster  = ctx.createDynamicsCompressor(); compMaster.connect(gainRoot)
 
-			var gainMaster = ctx.createGain(); gainMaster.connect(compMaster); gainMaster.gain.value = 0.5
-			var gainSysSE  = ctx.createGain(); gainSysSE.connect(gainMaster)
-			var gainBGM    = ctx.createGain(); gainBGM.connect(gainMaster)
+			var gainMaster  = ctx.createGain(); gainMaster.connect(compMaster); gainMaster.gain.value = 0.5
+			var gainSysSE   = ctx.createGain(); gainSysSE.connect(gainMaster)
+			var gainUserBGM = ctx.createGain(); gainUserBGM.connect(gainMaster)
+			var gainBGM     = ctx.createGain(); gainBGM.connect(gainMaster)
 
-			var rootVolume = new GainChanger(gainRoot) 
+			var rootVolume  = new GainChanger(gainRoot) 
 			document.addEventListener('visibilitychange', _ => {
 				if (document.hidden) rootVolume.mute() 
 				else rootVolume.up()
@@ -67,27 +68,34 @@ READY('Storage', 'Player').then( ({Util}) => {
 		}
 
 
-		class Sound {
 
-			constructor(kind, name) {
-				if (!kind) throw 'タイプが未指定'
+		class SEnBGN {
+
+			fadeout(duration = 0.5) {
+				if (!canplay()) return
+				var t0 = ctx.currentTime, gain = this.gain.gain
+				gain.cancelScheduledValues(t0)
+				gain.setValueAtTime(gain.value, t0)
+				gain.linearRampToValueAtTime(0, t0 + duration)
+				Promise.delay(duration).then( _ => this.src.stop() )
+			}
+
+		}
+
+
+		class SE extends SEnBGN {
+
+			constructor(name, {sys = false} = {}) {
 				if (!name) throw '名前が未指定'
 				if (!soundAvailability) return
-				switch (kind) {
-					case 'sysSE':
-						var url = `エンジン/効果音/${name}.ogg`
-						var des = gainSysSE
-						var type = 'SE'
-					break
-					default: throw `想定外のタイプ『${kind}』`
-				}
+				var url = `エンジン/効果音/${name}.ogg`
+				var des = gainSysSE					
 				var gain = ctx.createGain()
 				gain.connect(des)
-				this.readyState = 0
-				this.type = type 
-				this.url = url
-				this.buf = null
-				this.src = null
+
+				this.url  = url
+				this.buf  = null
+				this.src  = null
 				this.gain = gain
 				this.prepare()
 			}
@@ -126,21 +134,93 @@ READY('Storage', 'Player').then( ({Util}) => {
 				return new Promise( ok => { src.onended = ok } )
 			}
 
-			fadeout(duration = 0.5) {
-				if (!canplay()) return
-				var t0 = ctx.currentTime, gain = this.gain.gain
-				gain.cancelScheduledValues(t0)
-				gain.setValueAtTime(gain.value, t0)
-				gain.linearRampToValueAtTime(0, t0 + duration)
-			}
-
 		}
 
-		Object.assign(Sound, {
-			soundEnabled, soundAvailability, CTX: ctx, rootVolume,
-		})
 
-		READY.Sound.ready(Sound)
+		class BGM extends SEnBGN {
+
+			constructor(name, {sys = false} = {}) {
+				if (!name) throw '名前が未指定'
+				if (!soundAvailability) return
+				var type = 'BGM'
+				var url = 'not use'
+				var des = gainUserBGM
+				var gain = ctx.createGain()
+				gain.connect(des)
+
+				this.name = name
+				this.url  = url
+				this.buf  = null
+				this.src  = null
+				this.gain = gain
+				
+			}
+
+			prepare() {
+				return Util.toBlobURL('BGM', this.name, 'ogg').then( url => {
+					var a = new Audio(url)
+					a.loop = true
+					this.src = a
+					ctx.createMediaElementSource(a).connect(this.gain)
+				})
+
+			}
+
+			play() {
+				if (!canplay()) return Promise.resolve(null)
+				var {src} = this
+				if (!src) return this.prepare().then( _ => this.play() )
+				var t0 = ctx.currentTime, gain = this.gain.gain
+				src.play()
+				return new Promise( ok => { src.onended = ok } )
+			}
+
+			fadein(duration = 0.5) {
+				if (!canplay()) return Promise.resolve(null)
+				var {src} = this
+				if (!src) return this.prepare().then( _ => this.play() )
+				var t0 = ctx.currentTime, gain = this.gain.gain
+				gain.cancelScheduledValues(t0)
+				gain.setValueAtTime(0, t0)
+				src.play()
+				gain.linearRampToValueAtTime(1, t0 + duration)
+				return new Promise( ok => { src.onended = ok } )
+			}
+			
+		}
+
+
+		var changeBGM = ( _ => {
+
+			var currentBGM = null
+
+			return name => {
+				var duration = 0.5
+				return new Promise( ok => {
+					if (currentBGM) {
+						currentBGM.fadeout(duration)
+						Promise.delay(duration).then(ok)
+					} else ok()
+				}).then( _ => {
+					if (!name) return
+					currentBGM = new Sound.BGM(name)
+					Data.current.active.BGM = name
+					currentBGM.fadein(duration)
+					return Promise.delay(duration)
+
+				})
+			}
+
+		})()
+
+		var init = _ => { changeBGM(null) }
+
+
+
+		READY.Sound.ready({
+			soundEnabled, soundAvailability, CTX: ctx, rootVolume,
+			SE, BGM, changeBGM, init,
+		})
 
 	}
 

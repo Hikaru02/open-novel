@@ -198,6 +198,7 @@ READY().then( ({Util}) => {
 					case '背景':
 						var name = data[0]
 						if (typeof name == 'object') name = name[1][0]
+						if (Util.isNoneType(name)) return
 						append(['背景', name, 'jpg'])
 					break
 
@@ -213,6 +214,12 @@ READY().then( ({Util}) => {
 
 							append(['立ち絵', name, 'png'])
 						})
+					break
+
+					case 'BGM': case 'ＢＧＭ':
+						var name = data[0]
+						if (Util.isNoneType(name)) return
+						append(['BGM', name, 'ogg'])
 					break
 
 					case '繰返': case '繰返し': case '繰り返し':
@@ -333,7 +340,7 @@ READY().then( ({Util}) => {
 
 				} else {
 					var name = replaceEffect(data[0])
-					var [left, top, height] = [0, 0, null]
+					var [left, top, height] = ['0', '0', null]
 				}
 				left += '%', top += '%'
 				height = Util.toSize(height)
@@ -375,7 +382,14 @@ READY().then( ({Util}) => {
 
 					base.push(Util.toBlobURL('立ち絵', name, 'png').then( url => ({ name, url, height, [a_type]: `${a_per}%`, [v_type]: `${v_per}%` }) ))
 					return base
-				}, [])).then( opt => View.setFDImages(opt) ).then(done, failed)
+				}, [])).then( ary => View.setFDImages(ary) ).then(done, failed)
+			},
+
+			ＢＧＭ: otherName('BGM'),
+			BGM(data, done, failed) {
+				var name = replaceEffect(data[0])
+				if (Util.isNoneType(name)) name = null
+				Sound.changeBGM(name).then(done, failed)
 			},
 
 			効果: otherName('エフェクト'),
@@ -640,6 +654,9 @@ READY().then( ({Util}) => {
 						Util.toBlobURL('立ち絵', obj.name, 'png').then( url => {obj.url = url; return obj} ) : 1 ))
 					.then( opts => View.setFDImages(opts) ) )
 				}
+
+				var name = active.BGM
+				if (name) p.push( Sound.changeBGM(name) )
 
 				Promise.all(p).then(ok).check()
 

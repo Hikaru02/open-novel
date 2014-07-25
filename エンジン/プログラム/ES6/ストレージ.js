@@ -1,7 +1,7 @@
 READY().then( ({Util}) => {
 	'use strict'
 
-	var db, scenario, VERSION = 6
+	var db, scenario, VERSION = 7
 
 	var Storage = {
 		add(key, val) {

@@ -20,6 +20,7 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 	var setup = Util.co(function* () {
 
 		Player.init()
+		Sound.init()
 
 		yield fadeIn()
 
@@ -121,6 +122,7 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 
 		yield Player.runScript(script)
 		View.init()
+		Sound.init()
 
 		yield message('再生が終了しました\n作品選択メニューに戻ります').delay(1000)
 
@@ -171,7 +173,7 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 
 	var start = Util.co(function* () {
 
-		var startSE = new Sound('sysSE', '起動')
+		var startSE = new Sound.SE('起動', {sys: true})
 
 		View.init()
 
