@@ -1,8 +1,8 @@
 {
 
-	"systemVersion": "みじんこ　0.45mm",
+	"systemVersion": "みじんこ　0.46mm",
 
-	"fadeDuration": 200,
+	"fadeDuration": 150,
 
 	"URL": {
 		"ContentsSetting": "作品/設定.txt"

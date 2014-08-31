@@ -428,6 +428,7 @@
 			READY[type] = defer.promise
 			READY[type].ready = obj => {
 				if (obj) global[type] = obj
+				
 				defer.resolve()
 			} 
 		})
