@@ -182,7 +182,7 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 			Promise.race([
 				Promise.all([
 					startSE.play(),
-					View.addSentence('openノベルプレイヤー by Hikaru02\n\nシステムバージョン：　' + Config.systemVersion, { weight: 0 }).delay(3000)
+					View.addSentence('openノベルプレイヤー by Hikaru02\n\nシステムバージョン：　' + Config.systemVersion, { weight: 0 })//.delay(3000)
 				]),
 				View.on('go')
 			]).through( _ => startSE.fadeout() )

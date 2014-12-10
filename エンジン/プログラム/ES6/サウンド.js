@@ -77,7 +77,7 @@ READY('Storage', 'Player').then( ({Util}) => {
 				gain.cancelScheduledValues(t0)
 				gain.setValueAtTime(gain.value, t0)
 				gain.linearRampToValueAtTime(0, t0 + duration)
-				Promise.delay(duration).then( _ => this.src.stop() )
+				//Promise.delay(duration).then( _ => {console.log(this.src);this.src.stop()} )
 			}
 
 		}

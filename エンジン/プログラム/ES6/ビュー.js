@@ -188,6 +188,7 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 				return _ => requestAnimationFrame(loop)
 			}
 			var loop = now => {
+				now = performance.now()
 				if (cancelled) return
 				var delta = now - start
 				if (delta < 0) delta = 0

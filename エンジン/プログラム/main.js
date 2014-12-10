@@ -1,9 +1,6 @@
-System.register("ES6/ヘルパー", [], function() {
+System.registerModule("ES6/ヘルパー.js", [], function() {
   "use strict";
-  var __moduleName = "ES6/ヘルパー";
-  function require(path) {
-    return $traceurRuntime.require("ES6/ヘルパー", path);
-  }
+  var __moduleName = "ES6/ヘルパー.js";
   ;
   ((function(_) {
     'use strict';
@@ -485,13 +482,10 @@ System.register("ES6/ヘルパー", [], function() {
   }))();
   return {};
 });
-System.get("ES6/ヘルパー" + '');
-System.register("ES6/ストレージ", [], function() {
+System.get("ES6/ヘルパー.js" + '');
+System.registerModule("ES6/ストレージ.js", [], function() {
   "use strict";
-  var __moduleName = "ES6/ストレージ";
-  function require(path) {
-    return $traceurRuntime.require("ES6/ストレージ", path);
-  }
+  var __moduleName = "ES6/ストレージ.js";
   READY().then((function($__0) {
     'use strict';
     var Util = $__0.Util;
@@ -717,13 +711,10 @@ System.register("ES6/ストレージ", [], function() {
   })).check();
   return {};
 });
-System.get("ES6/ストレージ" + '');
-System.register("ES6/ビュー", [], function() {
+System.get("ES6/ストレージ.js" + '');
+System.registerModule("ES6/ビュー.js", [], function() {
   "use strict";
-  var __moduleName = "ES6/ビュー";
-  function require(path) {
-    return $traceurRuntime.require("ES6/ビュー", path);
-  }
+  var __moduleName = "ES6/ビュー.js";
   READY('Storage', 'Player', 'DOM', 'Sound').then((function($__2) {
     'use strict';
     var Util = $__2.Util;
@@ -902,6 +893,7 @@ System.register("ES6/ビュー", [], function() {
           });
         });
         var loop = (function(now) {
+          now = performance.now();
           if (cancelled)
             return;
           var delta = now - start;
@@ -2081,13 +2073,10 @@ System.register("ES6/ビュー", [], function() {
   })).check();
   return {};
 });
-System.get("ES6/ビュー" + '');
-System.register("ES6/サウンド", [], function() {
+System.get("ES6/ビュー.js" + '');
+System.registerModule("ES6/サウンド.js", [], function() {
   "use strict";
-  var __moduleName = "ES6/サウンド";
-  function require(path) {
-    return $traceurRuntime.require("ES6/サウンド", path);
-  }
+  var __moduleName = "ES6/サウンド.js";
   READY('Storage', 'Player').then((function($__2) {
     'use strict';
     var Util = $__2.Util;
@@ -2150,7 +2139,6 @@ System.register("ES6/サウンド", [], function() {
       var SEnBGN = function SEnBGN() {};
       ($traceurRuntime.createClass)(SEnBGN, {fadeout: function() {
           var duration = arguments[0] !== (void 0) ? arguments[0] : 0.5;
-          var $__0 = this;
           if (!canplay())
             return;
           var t0 = ctx.currentTime,
@@ -2158,9 +2146,6 @@ System.register("ES6/サウンド", [], function() {
           gain.cancelScheduledValues(t0);
           gain.setValueAtTime(gain.value, t0);
           gain.linearRampToValueAtTime(0, t0 + duration);
-          Promise.delay(duration).then((function(_) {
-            return $__0.src.stop();
-          }));
         }}, {});
       var SE = function SE(name) {
         var $__6;
@@ -2330,13 +2315,10 @@ System.register("ES6/サウンド", [], function() {
   })).check();
   return {};
 });
-System.get("ES6/サウンド" + '');
-System.register("ES6/プレーヤー", [], function() {
+System.get("ES6/サウンド.js" + '');
+System.registerModule("ES6/プレーヤー.js", [], function() {
   "use strict";
-  var __moduleName = "ES6/プレーヤー";
-  function require(path) {
-    return $traceurRuntime.require("ES6/プレーヤー", path);
-  }
+  var __moduleName = "ES6/プレーヤー.js";
   READY().then((function($__1) {
     'use strict';
     var Util = $__1.Util;
@@ -3277,13 +3259,10 @@ System.register("ES6/プレーヤー", [], function() {
   })).check();
   return {};
 });
-System.get("ES6/プレーヤー" + '');
-System.register("ES6/ゲーム", [], function() {
+System.get("ES6/プレーヤー.js" + '');
+System.registerModule("ES6/ゲーム.js", [], function() {
   "use strict";
-  var __moduleName = "ES6/ゲーム";
-  function require(path) {
-    return $traceurRuntime.require("ES6/ゲーム", path);
-  }
+  var __moduleName = "ES6/ゲーム.js";
   READY('Player', 'View', 'Sound').then((function($__0) {
     'use strict';
     var Util = $__0.Util;
@@ -3426,7 +3405,7 @@ System.register("ES6/ゲーム", [], function() {
     var start = Util.co(function*() {
       var startSE = new Sound.SE('起動', {sys: true});
       View.init();
-      yield Promise.all([setSysBG(), Promise.race([Promise.all([startSE.play(), View.addSentence('openノベルプレイヤー by Hikaru02\n\nシステムバージョン：　' + Config.systemVersion, {weight: 0}).delay(3000)]), View.on('go')]).through((function(_) {
+      yield Promise.all([setSysBG(), Promise.race([Promise.all([startSE.play(), View.addSentence('openノベルプレイヤー by Hikaru02\n\nシステムバージョン：　' + Config.systemVersion, {weight: 0})]), View.on('go')]).through((function(_) {
         return startSE.fadeout();
       }))]).check();
       return resetup();
@@ -3460,4 +3439,4 @@ System.register("ES6/ゲーム", [], function() {
   })).check();
   return {};
 });
-System.get("ES6/ゲーム" + '');
+System.get("ES6/ゲーム.js" + '');
