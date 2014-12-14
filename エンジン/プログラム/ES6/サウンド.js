@@ -5,7 +5,7 @@ READY('Storage', 'Player').then( ({Util}) => {
 
 	var init = Util.co(function* () {
 
-		var soundEnabled = yield Storage.getSetting('soundEnabled', false)
+		var soundEnabled = yield Storage.getSetting('soundEnabled', true)
 
 		return setup ({soundEnabled})
 	})
@@ -35,7 +35,8 @@ READY('Storage', 'Player').then( ({Util}) => {
 			mute() {
 				var t0 = ctx.currentTime, gain = this.gain.gain
 				gain.cancelScheduledValues(t0)
-				gain.value = 0
+				gain.setValueAtTime(0, t0)
+				//gain.value = 0
 			}
 
 		}
@@ -55,17 +56,26 @@ READY('Storage', 'Player').then( ({Util}) => {
 			var gainBGM     = ctx.createGain(); gainBGM.connect(gainMaster)
 
 			var rootVolume  = new GainChanger(gainRoot) 
-			document.addEventListener('visibilitychange', _ => {
-				if (document.hidden) rootVolume.mute() 
-				else rootVolume.up()
-			})
-			if (document.hidden) rootVolume.mute()
 
+			document.addEventListener('visibilitychange', muteOrUp)
+			muteOrUp()
+
+		}
+
+		function muteOrUp() {
+			if (document.hidden || !soundEnabled) rootVolume.mute() 
+			else rootVolume.up()
+		}
+
+		function changeSoundEnabled(f) {
+			Sound.soundEnabled = soundEnabled = f
+			muteOrUp()
 		}
 
 		function canplay() {
-			return ctx && soundAvailability && Sound.soundEnabled
+			return soundAvailability && ctx //&& Sound.soundEnabled
 		}
+
 
 
 
@@ -219,7 +229,7 @@ READY('Storage', 'Player').then( ({Util}) => {
 
 		READY.Sound.ready({
 			soundEnabled, soundAvailability, CTX: ctx, rootVolume,
-			SE, BGM, changeBGM, init,
+			SE, BGM, changeBGM, changeSoundEnabled, init,
 		})
 
 	}

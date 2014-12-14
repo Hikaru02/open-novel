@@ -852,13 +852,13 @@ System.registerModule("ES6/ビュー.js", [], function() {
     var el = el_debugSub.append(new DOM('button', bs));
     el.append(new DOM('text', 'サウンド有無'));
     el.on('click', (function(_) {
-      var e = !Sound.soundEnabled;
-      Sound.soundEnabled = e;
-      Storage.setSetting('soundEnabled', e).check();
+      var f = !Sound.soundEnabled;
+      Sound.changeSoundEnabled(f);
+      Storage.setSetting('soundEnabled', f).check();
       if (Sound.soundAvailability)
-        View.showNotice(("サウンドを" + (e ? '有' : '無') + "効に設定しました"));
+        View.showNotice(("サウンドを" + (f ? '有' : '無') + "効に設定しました"));
       else
-        View.showNotice(("サウンドを" + (e ? '有' : '無') + "効に設定しました") + '\nただしお使いの環境では音が出せません');
+        View.showNotice(("サウンドを" + (f ? '有' : '無') + "効に設定しました") + '\nただしお使いの環境では音が出せません');
     }));
     var el = el_debugSub.append(new DOM('button', bs));
     el.append(new DOM('text', 'キャシュ削除'));
@@ -2081,7 +2081,7 @@ System.registerModule("ES6/サウンド.js", [], function() {
     'use strict';
     var Util = $__2.Util;
     var init = Util.co(function*() {
-      var soundEnabled = yield Storage.getSetting('soundEnabled', false);
+      var soundEnabled = yield Storage.getSetting('soundEnabled', true);
       return setup({soundEnabled: soundEnabled});
     });
     var setup = (function(config) {
@@ -2104,7 +2104,7 @@ System.registerModule("ES6/サウンド.js", [], function() {
           var t0 = ctx.currentTime,
               gain = this.gain.gain;
           gain.cancelScheduledValues(t0);
-          gain.value = 0;
+          gain.setValueAtTime(0, t0);
         }
       }, {});
       var soundAvailability = !!global.AudioContext;
@@ -2124,17 +2124,21 @@ System.registerModule("ES6/サウンド.js", [], function() {
         var gainBGM = ctx.createGain();
         gainBGM.connect(gainMaster);
         var rootVolume = new GainChanger(gainRoot);
-        document.addEventListener('visibilitychange', (function(_) {
-          if (document.hidden)
-            rootVolume.mute();
-          else
-            rootVolume.up();
-        }));
-        if (document.hidden)
+        document.addEventListener('visibilitychange', muteOrUp);
+        muteOrUp();
+      }
+      function muteOrUp() {
+        if (document.hidden || !soundEnabled)
           rootVolume.mute();
+        else
+          rootVolume.up();
+      }
+      function changeSoundEnabled(f) {
+        Sound.soundEnabled = soundEnabled = f;
+        muteOrUp();
       }
       function canplay() {
-        return ctx && soundAvailability && Sound.soundEnabled;
+        return soundAvailability && ctx;
       }
       var SEnBGN = function SEnBGN() {};
       ($traceurRuntime.createClass)(SEnBGN, {fadeout: function() {
@@ -2308,6 +2312,7 @@ System.registerModule("ES6/サウンド.js", [], function() {
         SE: SE,
         BGM: BGM,
         changeBGM: changeBGM,
+        changeSoundEnabled: changeSoundEnabled,
         init: init
       });
     });
@@ -3405,7 +3410,7 @@ System.registerModule("ES6/ゲーム.js", [], function() {
     var start = Util.co(function*() {
       var startSE = new Sound.SE('起動', {sys: true});
       View.init();
-      yield Promise.all([setSysBG(), Promise.race([Promise.all([startSE.play(), View.addSentence('openノベルプレイヤー by Hikaru02\n\nシステムバージョン：　' + Config.systemVersion, {weight: 0})]), View.on('go')]).through((function(_) {
+      yield Promise.all([setSysBG(), Promise.race([Promise.all([startSE.play(), View.addSentence('openノベルプレイヤー by Hikaru02\n\nシステムバージョン：　' + Config.systemVersion, {weight: 0}).delay(3000)]), View.on('go')]).through((function(_) {
         return startSE.fadeout();
       }))]).check();
       return resetup();

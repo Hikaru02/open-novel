@@ -148,13 +148,13 @@ READY('Storage', 'Player', 'DOM', 'Sound').then( ({Util}) => {
 	var el = el_debugSub.append(new DOM('button', bs))
 	el.append(new DOM('text', 'サウンド有無'))
 	el.on('click', _ => {
-		var e = !Sound.soundEnabled
-		Sound.soundEnabled = e
-		Storage.setSetting('soundEnabled', e).check()
+		var f = !Sound.soundEnabled
+		Sound.changeSoundEnabled(f)
+		Storage.setSetting('soundEnabled', f).check()
 		if (Sound.soundAvailability)
-			View.showNotice(`サウンドを${e?'有':'無'}効に設定しました`)
+			View.showNotice(`サウンドを${f?'有':'無'}効に設定しました`)
 		else
-			View.showNotice(`サウンドを${e?'有':'無'}効に設定しました`+'\nただしお使いの環境では音が出せません')
+			View.showNotice(`サウンドを${f?'有':'無'}効に設定しました`+'\nただしお使いの環境では音が出せません')
 	})
 	var el = el_debugSub.append(new DOM('button', bs))
 	el.append(new DOM('text', 'キャシュ削除'))
