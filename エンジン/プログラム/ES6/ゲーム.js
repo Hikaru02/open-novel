@@ -103,9 +103,8 @@ READY('Player', 'View', 'Sound').then( ({Util}) => {
 
 
 	var deleteAfter = [
-		f => {
-			if (f) return message('初期化しました').delay(1000).then(resetup)
-			else return message('作品選択メニューに戻ります').delay(1000).then(resetup)
+		_ => {
+			return message('初期化しました').delay(1000).then(resetup)
 		}, 
 		err => {
 			return message('消去中にエラーが発生しました').delay(1000).then(resetup)

@@ -766,7 +766,6 @@ READY().then( ({Util}) => {
 			if (!con) return false
 			yield Storage.deleteSaveDatas(true)
 			yield Storage.setGlobalData({scenarioVersion: Data.current.scenarioVersion})
-			return true
 
 		})()
 	}

@@ -3188,7 +3188,6 @@ System.registerModule("ES6/プレーヤー.js", [], function() {
           return false;
         yield Storage.deleteSaveDatas(true);
         yield Storage.setGlobalData({scenarioVersion: Data.current.scenarioVersion});
-        return true;
       })();
     }
     function init() {
@@ -3355,11 +3354,8 @@ System.registerModule("ES6/ゲーム.js", [], function() {
         return resetup();
       return load(script);
     });
-    var deleteAfter = [(function(f) {
-      if (f)
-        return message('初期化しました').delay(1000).then(resetup);
-      else
-        return message('作品選択メニューに戻ります').delay(1000).then(resetup);
+    var deleteAfter = [(function(_) {
+      return message('初期化しました').delay(1000).then(resetup);
     }), (function(err) {
       return message('消去中にエラーが発生しました').delay(1000).then(resetup);
     })];
