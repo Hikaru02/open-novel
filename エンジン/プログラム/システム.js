@@ -1,3 +1,7 @@
+/*
+These codes are licensed under CC0.
+http://creativecommons.org/publicdomain/zero/1.0
+*/
 
 import * as $ from './ヘルパー.js'
 import { Layer } from './レイヤー.js'
@@ -97,7 +101,7 @@ await playSystemOpening( )
 
 async function playSystemOpening ( ) {
 
-	await showText( 'openノベルプレイヤー 0.9.0', 10 )
+	await showText( 'openノベルプレイヤー 0.9.0α', 10 )
 	$.log( 'DONE!' )
 
 }
