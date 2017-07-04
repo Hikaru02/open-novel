@@ -91,7 +91,6 @@ export const Renderer = { async start ( ctx ) {
 
 		draw ( ) { 
 			let { img } = this
-			if ( img ) $.log( 'img' )
 			if ( img ) ctx.drawImage( img, 0, 0, W, H )
 
 		}
