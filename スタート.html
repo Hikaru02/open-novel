@@ -1,23 +1,13 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 
 <meta charset="UTF-8">
 <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
 
 <title>openノベルプレーヤー</title>
 
-<script src="エンジン/プログラム/web-animations.js"></script>
+<script nomodule> alert( '※お使いの実行環境は本プレイヤーに対応しておりません※' ) </script>
+<script type=module src="エンジン/プログラム/メイン.js"></script>
 
-<script src="エンジン/プログラム/traceur-runtime.js"></script>
-<script src="エンジン/プログラム/main.js"></script>
-
-<!--
-<script src="エンジン/プログラム/ES6/ヘルパー.js"></script>
-<script src="エンジン/プログラム/ES6/ストレージ.js"></script>
-<script src="エンジン/プログラム/ES6/ビュー.js"></script>
-<script src="エンジン/プログラム/ES6/サウンド.js"></script>
-<script src="エンジン/プログラム/ES6/プレーヤー.js"></script>
-<script src="エンジン/プログラム/ES6/ゲーム.js"></script>
--->
 
 <style>
 	body {
@@ -25,12 +15,8 @@
 		overflow: hidden;
 	}
 
-	#ONPwrapper > * {
-		box-shadow: 0px 0px 10px 1px blue;
-		margin    : 5px auto;
-	}
-
-	#ONP {
+	#ONPWrapper > * {
+		width: 100%;
 		user-select: none;
 		-moz-user-select: none;
 		-webkit-user-select: none;
@@ -40,7 +26,7 @@
 	}
 </style>
 
-<div id="ONPwrapper">読み込み中...</div>
+<div id="ONPWrapper">読み込み中...</div>
 
 <div style="text-align:center;">
 <br>・<a href="https://github.com/Hikaru02/open-novel/archive/gh-pages.zip">Zipでダウンロードする</a>
