@@ -36,7 +36,7 @@ async function main( ) {
 
 	
 
-	const onp = await Player.create( canvas )
+	const onp = await Player.start( canvas )
 	
 
 

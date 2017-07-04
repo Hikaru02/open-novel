@@ -4,105 +4,41 @@ http://creativecommons.org/publicdomain/zero/1.0
 */
 
 import * as $ from './ヘルパー.js'
-import { Layer } from './レイヤー.js'
+import { Scenario } from './シナリオ.js'
+import { Action } from './アクション.js'
 
-export const Player = { create: async function create ( canvas ) {
+export const Player = { async start ( canvas ) {
 	
 
 
 
 const ctx = canvas.getContext( '2d' )
-$.log ( ctx )
 
-const layer = await Layer.create( ctx )
+let action = await Action.start( ctx )
+let { show } = action
 
-let mesText = layer.root.messageBox.textArea
-
-
-
-const Anime = ( drawCanvas => {
-
-
-	const registrants = new Set
-
-	loop()
-	function loop ( now ) {
-		window.requestAnimationFrame( loop )
-
-		let acts = [ ]
-
-		for ( let reg of registrants ) {
-			let { promise, resolve } = new $.Deferred
-			acts.push( promise )
-			reg.ready = resolve
-			reg.resolve( now - reg.baseTime )
-		}
-
-		Promise.all( acts ).then( drawCanvas )
-	}
-
-
-
-	return class AnimationRegister {	
-
-		constructor ( ) {
-			this.baseTime = performance.now( )
-			registrants.add( this )
-			this.nextFrame( )
-		}
-
-		nextFrame ( ) {
-			let { promise, resolve } = new $.Deferred
-			this.resolve = resolve
-			return promise	
-		}
-
-		cancal ( ) {
-			registrants.delete( this )
-			this.resolve( 0 )
-		}
-
-	}
-
-} ) ( layer.drawCanvas )
-
-
-
-
-
-
-const showText = ( ( ) => {
-
-	
-	let anime = new Anime
-
-	return async function showText ( text, speed ) {
-
-		anime.cancal( )
-		anime = new Anime
-
-		let time = 0 
-
-		while ( time = await anime.nextFrame( ) ) {
-			let to = speed * time / 1000 | 0
-			mesText.text = text.slice( 0,  to )
-			anime.ready( )
-			if ( to >= text.length ) anime.cancal( )
-		}
-
-	}
-} ) ( ) 
 
 
 
 await playSystemOpening( )
 
 
-
 async function playSystemOpening ( ) {
 
-	await showText( 'openノベルプレイヤー 0.9.0α', 10 )
-	$.log( 'DONE!' )
+	let bgimage = await ( await fetch( 'エンジン/画像/背景.png' ) ).blob( )
+
+	await show.BGImage( bgimage )
+	
+	await show.text( '', 'openノベルプレイヤー 0.9.0α', 100 )
+	
+	await $.timeout( 0 )
+
+	let text = await ( await fetch( '作品/デモ・基本/シナリオ/基本.txt' ) ).text( )
+
+	let scenario = await Scenario.parse( text )
+
+	await Scenario.start( scenario, action )
+
 
 }
 
