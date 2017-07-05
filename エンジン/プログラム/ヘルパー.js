@@ -18,3 +18,28 @@ export function timeout ( ms ) {
 	return promise
 }
 
+
+export function AwaitRegister ( fn ) {
+		
+	let registrants = new Set
+
+	return {
+
+		target ( ...args ) {
+			let v = fn( ...args )
+			for ( let reg of registrants ) { reg( ) }
+			registrants.clear( )
+			return v
+		},
+
+		register ( ) {
+
+			let { promise, resolve } = new Deferred
+			registrants.add( resolve )
+			return promise
+
+		}
+	}
+
+}
+

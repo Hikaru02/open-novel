@@ -4,7 +4,7 @@ http://creativecommons.org/publicdomain/zero/1.0
 */
 
 import * as $ from './ヘルパー.js'
-import { Player } from './システム.js'
+import * as Player from './システム.js'
 
 window.addEventListener( 'DOMContentLoaded', main )
 
@@ -36,7 +36,7 @@ async function main( ) {
 
 	
 
-	const onp = await Player.start( canvas )
+	const onp = await Player.initPlayer( canvas )
 	
 
 

@@ -4,23 +4,37 @@ http://creativecommons.org/publicdomain/zero/1.0
 */
 
 import * as $ from './ヘルパー.js'
-import { Renderer } from './レンダラー.js'
+import * as Renderer from './レンダラー.js'
 
-export const Action = { async start ( ctx ) {
+
+let layerRoot, backgroundImage, conversationBox, nameArea, textArea
+
+updatingLayerCache( )
+
+
+export function init ( ctx ) {
 	
+	Renderer.initRanderer( ctx )
 
-const canvas = ctx.canvas
-const renderer = await Renderer.start( ctx )
+}
 
-let { layerRoot } = renderer
-let { backgroundImage, conversationBox } = layerRoot
-let { nameArea, textArea } = conversationBox
+export let { target: initAction, register: nextInit } = new $.AwaitRegister( init )
 
 
+async function updatingLayerCache ( ) {
+	
+	while ( true ) {
+		await Renderer.nextInit( )
+		;( { backgroundImage, conversationBox } = layerRoot = Renderer.getLayerRoot( ) )
+		;( { nameArea, textArea } = conversationBox ) 
+	}
 
-const Anime = ( drawCanvas => {
+}
 
 
+let Anime = null
+
+{
 	const registrants = new Set
 
 	loop()
@@ -36,12 +50,12 @@ const Anime = ( drawCanvas => {
 			reg.resolve( now - reg.baseTime )
 		}
 
-		Promise.all( acts ).then( drawCanvas )
+		Promise.all( acts ).then( Renderer.drawCanvas )
 	}
 
 
 
-	return class AnimationRegister {	
+	class AnimationRegister {	
 
 		constructor ( ) {
 			this.baseTime = performance.now( )
@@ -63,48 +77,7 @@ const Anime = ( drawCanvas => {
 
 	}
 
-} ) ( renderer.drawCanvas )
-
-
-
-
-
-
-const show = {
-
-	text: ( ( ) => {
-		
-		let anime = new Anime
-
-		return async function showText ( name, text, speed ) {
-
-			anime.cancal( )
-			anime = new Anime
-
-			nameArea.text = name
-
-			let time = 0 
-
-			while ( time = await anime.nextFrame( ) ) {
-				let to = speed * time / 1000 | 0
-				textArea.text = text.slice( 0,  to )
-				anime.ready( )
-				if ( to >= text.length ) anime.cancal( )
-			}
-
-		}
-	} ) ( ),
-
-	async BGImage ( blob ) {
-
-		let img = new Image
-		let { promise, resolve } = new $.Deferred
-		img.onload = resolve
-		img.src = URL.createObjectURL( blob )
-		await promise
-		backgroundImage.img = img
-
-	},
+	Anime = AnimationRegister
 }
 
 
@@ -112,6 +85,36 @@ const show = {
 
 
 
-return { show }
 
-} }
+let anime = new Anime
+export async function showText( name, text, speed ) {
+		
+	anime.cancal( )
+	anime = new Anime
+
+	nameArea.text = name
+
+	let time = 0 
+
+	while ( time = await anime.nextFrame( ) ) {
+		let to = speed * time / 1000 | 0
+		textArea.text = text.slice( 0,  to )
+		anime.ready( )
+		if ( to >= text.length ) anime.cancal( )
+	}
+
+}
+
+
+export async function showBGImage ( blob ) {
+
+	let img = new Image
+	let { promise, resolve } = new $.Deferred
+	img.onload = resolve
+	img.src = URL.createObjectURL( blob )
+	await promise
+	backgroundImage.img = img
+
+}
+
+
