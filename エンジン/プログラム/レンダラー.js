@@ -16,7 +16,7 @@ export function getLayerRoot( ) { return layerRoot }
 
 function init ( context ) { 
 
-	ctx = context 
+	ctx = context || ctx
 	initLayer( )
 }
 
