@@ -80,20 +80,26 @@ class TextNode extends Node {
 	draw ( { x, y, w, h } ) { 
 		let { fill, stroke, text, size } = this
 
+		let n = .075
+		let x2 = x + h * size * n, y2 = y + h * size * n
+
+		let max = w - size * n   
+
 		ctx.font = `${ h * size }px serif`
+
 
 		if ( fill ) {
 			ctx.fillStyle = 'black'
-			ctx.fillText( text, x + h * size * .075, y + h * size * .075 )
+			ctx.fillText( text, x2, y2, max )
 			ctx.fillStyle = fill
-			ctx.fillText( text, x, y )
+			ctx.fillText( text, x, y, max )
 		}
 
 		if ( stroke ) {
 			ctx.strokeStyle = 'black'
-			ctx.strokeText( text, x + h * size * .1, y + h * size * .1 )
+			ctx.strokeText( text, x2, y2, max )
 			ctx.strokeStyle = stroke
-			ctx.strokeText( text, x, y )
+			ctx.strokeText( text, x, y, max )
 		}
 
 
@@ -132,7 +138,7 @@ function initLayer ( ) {
 	let nameArea = new TextNode( { name: 'nameArea', x: .1, w: .2, y: .4, size: .2, fill: 'white' } )
 	convBox.append( nameArea )
 
-	let textArea = new TextNode( { name: 'textArea', x: .3, y: .4, size: .2, fill: 'white' } )
+	let textArea = new TextNode( { name: 'textArea', x: .3, w: .6, y: .4, size: .2, fill: 'white' } )
 	convBox.append( textArea )
 
 	$.log( layerRoot )
@@ -144,8 +150,9 @@ export function drawCanvas ( ) {
 
 	if ( !ctx ) return
 
-	W = ctx.canvas.width
-	H = ctx.canvas.height
+	let rect = ctx.canvas.getBoundingClientRect( )
+	ctx.canvas.width = W = rect.width
+	ctx.canvas.height = H = rect.height
 
 	ctx.clearRect( 0, 0, W, H )
 

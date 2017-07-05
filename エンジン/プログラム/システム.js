@@ -26,7 +26,7 @@ async function init ( canvas ) {
 
 		await Action.showBGImage( bgimage )
 		
-		await Action.showText( '', 'openノベルプレイヤー 0.9.0α', 50 )
+		await Action.showText( '', 'openノベルプレイヤー 0.9α', 50 )
 		
 		await $.timeout( 200 )
 

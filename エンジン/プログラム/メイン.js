@@ -18,10 +18,14 @@ async function main( ) {
 	const player = document.createElement( 'div' )
 
 	Object.assign( player.style, {
-		width: '960px',
-		height: '540px',
+		width: '970px',
+		height: '550px',
 		margin: '10px auto',
-		boxShadow: '0px 0px 10px 1px blue',
+		padding: '5px',
+		borderRadius: '5px',
+		boxShadow: '0px 0px 10px 1px blue inset',
+		overflow: 'hidden',
+		resize: 'both',
 	} )
 	wrapper.appendChild( player )
 
@@ -30,6 +34,11 @@ async function main( ) {
 		width: 960,
 		height: 540,
 	} )
+	Object.assign( canvas.style, {
+		width: '100%',
+		height: '100%',
+	} )
+
 
 	Array.from( wrapper.childNodes, node => node.remove( ) )
 	player.appendChild( canvas )
