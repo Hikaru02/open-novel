@@ -11,13 +11,11 @@ let [ W, H ] = [ 0, 0 ]
 
 let layerRoot = null
 
-export function getLayerRoot( ) { return layerRoot }
 
-
-function init ( context ) { 
+async function init ( context ) { 
 
 	ctx = context || ctx
-	initLayer( )
+	return await initLayer( )
 }
 
 
@@ -41,15 +39,38 @@ class Node {
 	draw ( ) { }
 
 	append ( node ) {
+
+		node.parent = this
 		this.children.push( node )
-		this[ node.name ] = node
+
+		let that = this
+		do {
+			that[ node.name ] = that[ node.name ] === undefined ? 
+				node : $.warn( `"${ node.name }"　同名のノードが同時に定義されています` ) || null
+			that = that.parent
+		} while ( that ) 
+
 	}
 
-	removeAll( ) {
-		this.children.length = 0
+	removeChildren( ) {
+		
+		for ( let node of this.children ) {
+			let that = this
+			do {
+				that[ node.name ] = undefined
+				that = that.parent
+			} while ( that ) 
+		}
+
+		this.children.length = [ ]
+
 	}
 
 }
+
+
+class GroupNode extends Node { }
+
 
 class RectangleNode extends Node {
 
@@ -77,29 +98,20 @@ class TextNode extends Node {
 		super ( opt )
 	}
 
+	set( text ) { this.text = text }
+
 	draw ( { x, y, w, h } ) { 
 		let { fill, stroke, text, size } = this
 
 		let n = .075
-		let x2 = x + h * size * n, y2 = y + h * size * n
-
-		let max = w - size * n   
-
 		ctx.font = `${ h * size }px serif`
 
 
 		if ( fill ) {
-			ctx.fillStyle = 'black'
-			ctx.fillText( text, x2, y2, max )
 			ctx.fillStyle = fill
-			ctx.fillText( text, x, y, max )
-		}
-
-		if ( stroke ) {
+			ctx.fillText( text, x, y, w )
 			ctx.strokeStyle = 'black'
-			ctx.strokeText( text, x2, y2, max )
-			ctx.strokeStyle = stroke
-			ctx.strokeText( text, x, y, max )
+			ctx.strokeText( text, x, y, w )
 		}
 
 
@@ -107,7 +119,7 @@ class TextNode extends Node {
 
 }
 
-class ImageNode extends Node {
+export class ImageNode extends Node {
 
 	constructor ( opt ) {
 		const def = { img: null }
@@ -127,10 +139,13 @@ class ImageNode extends Node {
 
 function initLayer ( ) {
 
-	layerRoot = new Node( { name: 'root' } )
+	layerRoot = new GroupNode( { name: 'root' } )
 
 	let bgImage = new ImageNode( { name: 'backgroundImage' } )
 	layerRoot.append( bgImage )
+
+	let portGroup = new GroupNode( { name: 'portraitGroup' } ) 
+	layerRoot.append( portGroup )
 
 	let convBox = new RectangleNode( { name: 'conversationBox', y: .75, h: .25, fill: 'rgba(0,0,0,0.1)' } ) 
 	layerRoot.append( convBox )
@@ -141,8 +156,7 @@ function initLayer ( ) {
 	let textArea = new TextNode( { name: 'textArea', x: .3, w: .6, y: .4, size: .2, fill: 'white' } )
 	convBox.append( textArea )
 
-	$.log( layerRoot )
-
+	return layerRoot
 }
 
 

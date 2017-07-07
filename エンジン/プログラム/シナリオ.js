@@ -8,7 +8,7 @@ import * as Action from './アクション.js'
 import * as Renderer from './レンダラー.js'
 
 
-export async function play ( scenario ) {
+export async function play ( scenario, setting ) {
 
 	await Renderer.initRanderer( )
 
@@ -23,8 +23,15 @@ export async function play ( scenario ) {
 				await Action.showText( name, text, 20 )
 				await $.timeout( 500 )
 
-			} ;break
+			} break
+			case '立絵': case '立ち絵': {
 
+				let [ pos, name ] = prop
+				let subURL = `立ち絵/${ name }.png`
+				await Action.showPortraits( setting, subURL, pos )
+
+
+			} break
 			default :
 				$.log( `The action "${ type }" was skiped.` )
 
@@ -96,6 +103,7 @@ export async function parse ( text ) {
 				let child = children.shift( )
 				if ( child[ 0 ] != '\t' ) {
 					if ( key ) addAct( type, [ key, value.trim( ) ] )
+					value = ''
 					key = child.replace( '・', '' )
 				} else {
 					if ( value ) value += '\\w'  // 『会話』用

@@ -22,7 +22,7 @@ async function main( ) {
 		height: '550px',
 		margin: '10px auto',
 		padding: '5px',
-		borderRadius: '5px',
+		borderRadius: '10px 10px 0px 10px',
 		boxShadow: '0px 0px 10px 1px blue inset',
 		overflow: 'hidden',
 		resize: 'both',

@@ -7,9 +7,8 @@ import * as $ from './ヘルパー.js'
 import * as Renderer from './レンダラー.js'
 
 
-let layerRoot, backgroundImage, conversationBox, nameArea, textArea
+let layer, backgroundImage, conversationBox, nameArea, textArea
 
-updatingLayerCache( )
 
 
 export function init ( ctx ) {
@@ -18,18 +17,13 @@ export function init ( ctx ) {
 
 }
 
+
 export let { target: initAction, register: nextInit } = new $.AwaitRegister( init )
 
 
-async function updatingLayerCache ( ) {
-	
-	while ( true ) {
-		await Renderer.nextInit( )
-		;( { backgroundImage, conversationBox } = layerRoot = Renderer.getLayerRoot( ) )
-		;( { nameArea, textArea } = conversationBox ) 
-	}
-
-}
+;( async function updatingLayerCache ( ) {
+	while ( true ) layer = await Renderer.nextInit( )
+} )( )
 
 
 let Anime = null
@@ -92,13 +86,13 @@ export async function showText( name, text, speed ) {
 	anime.cancal( )
 	anime = new Anime
 
-	nameArea.text = name
+	layer.nameArea.set( name )
 
 	let time = 0 
 
 	while ( time = await anime.nextFrame( ) ) {
 		let to = speed * time / 1000 | 0
-		textArea.text = text.slice( 0,  to )
+		layer.textArea.set( text.slice( 0,  to ) )
 		anime.ready( )
 		if ( to >= text.length ) anime.cancal( )
 	}
@@ -106,14 +100,33 @@ export async function showText( name, text, speed ) {
 }
 
 
-export async function showBGImage ( blob ) {
-
+async function getImage( blob ) {
 	let img = new Image
 	let { promise, resolve } = new $.Deferred
 	img.onload = resolve
 	img.src = URL.createObjectURL( blob )
 	await promise
-	backgroundImage.img = img
+	return img
+}
+
+
+export async function showBGImage ( setting, subURL ) {
+
+	let blob = await $.fetchFile( 'blob', setting, subURL )
+	let img = await getImage( blob )
+	layer.backgroundImage.img = img
+
+}
+
+
+export async function showPortraits( setting, subURL, pos ) {
+	
+	let blob = await $.fetchFile( 'blob', setting, subURL )
+	let img = await getImage( blob )
+	let portrait = new Renderer.ImageNode( { name: 'portrait' })
+	portrait.img = img
+	layer.portraitGroup.removeChildren( )
+	layer.portraitGroup.append( portrait )
 
 }
 

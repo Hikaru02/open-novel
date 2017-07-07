@@ -22,19 +22,25 @@ async function init ( canvas ) {
 
 	async function playSystemOpening ( ) {
 
-		let bgimage = await ( await fetch( 'エンジン/画像/背景.png' ) ).blob( )
+		let systemSetting = {
+			baseURL: './エンジン'
+		}
 
-		await Action.showBGImage( bgimage )
+		await Action.showBGImage( systemSetting, '画像/背景.png' )
 		
 		await Action.showText( '', 'openノベルプレイヤー 0.9α', 50 )
 		
 		await $.timeout( 200 )
 
-		let text = await ( await fetch( '作品/デモ・基本/シナリオ/基本.txt' ) ).text( )
+		let scenarioSetting = {
+			baseURL: './作品/デモ・基本'
+		}
+
+		let text = await $.fetchFile( 'text', scenarioSetting, 'シナリオ/基本.txt' )
 
 		let scenario = await Scenario.parse( text )
 
-		await Scenario.play( scenario )
+		await Scenario.play( scenario, scenarioSetting )
 
 
 	}

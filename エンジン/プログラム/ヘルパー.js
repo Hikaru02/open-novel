@@ -3,7 +3,9 @@ These codes are licensed under CC0.
 http://creativecommons.org/publicdomain/zero/1.0
 */
 
-export const log = ( ...args ) => console.log( ...args )
+export const log = console.log.bind( console )
+
+export const warn = console.warn.bind( console )
 
 export function Deferred ( ) {
 	let resolve, reject
@@ -27,7 +29,7 @@ export function AwaitRegister ( fn ) {
 
 		target ( ...args ) {
 			let v = fn( ...args )
-			for ( let reg of registrants ) { reg( ) }
+			for ( let reg of registrants ) { reg( v ) }
 			registrants.clear( )
 			return v
 		},
@@ -42,4 +44,9 @@ export function AwaitRegister ( fn ) {
 	}
 
 }
+
+export async function fetchFile( type, { baseURL }, subURL ) {
+	return await ( await fetch( baseURL + '/' + subURL ) )[ type ]( )
+}
+
 
