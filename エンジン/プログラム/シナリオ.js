@@ -56,9 +56,9 @@ export async function play ( scenario, setting ) {
 
 
 			} break
-			default :
+			default : {
 				$.log( `The action "${ type }" was skiped.` )
-
+			}
 
 		}
 

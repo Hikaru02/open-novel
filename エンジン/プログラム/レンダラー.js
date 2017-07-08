@@ -112,14 +112,15 @@ class TextNode extends Node {
 		let { fill, stroke, text, size } = this
 
 		let n = .075
-		ctx.font = `bold ${ h * size }px "Yu Gothic", YuGothic, fantasy`
+		ctx.font = `${ h * size }px "Hiragino Kaku Gothic ProN", Meiryo`
 
+		let b = h * size * .1
 
 		if ( fill ) {
+			ctx.fillStyle = 'rgba(0, 0, 0, 0.9)'
+			ctx.fillText( text, x + b, y + b, w - b )
 			ctx.fillStyle = fill
-			ctx.fillText( text, x, y, w )
-			ctx.strokeStyle = 'black'
-			ctx.strokeText( text, x, y, w )
+			ctx.fillText( text, x, y, w - b )
 		}
 
 
