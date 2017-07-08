@@ -5,12 +5,12 @@ http://creativecommons.org/publicdomain/zero/1.0
 
 import * as $ from './ヘルパー.js'
 import * as Action from './アクション.js'
-import * as Renderer from './レンダラー.js'
+//import * as Renderer from './レンダラー.js'
 
 
 export async function play ( scenario, setting ) {
 
-	await Renderer.initRanderer( )
+	await Action.initAction( )
 
 	for ( let act of scenario ) {
 		let { type, prop } = act
@@ -20,6 +20,7 @@ export async function play ( scenario, setting ) {
 			case '会話': {
 
 				let [ name, text ] = prop
+
 				await Action.showText( name, text, 20 )
 				await $.timeout( 500 )
 
@@ -27,8 +28,31 @@ export async function play ( scenario, setting ) {
 			case '立絵': case '立ち絵': {
 
 				let [ pos, name ] = prop
+
+				if ( pos == '無し' ) {
+					Action.removePortraits( )
+					continue
+				}
+
+				if ( pos == '左' ) pos = [ 0, 0, 1 ]
+				if ( pos == '右' ) pos = [ -0, 0, 1 ]
+
 				let subURL = `立ち絵/${ name }.png`
 				await Action.showPortraits( setting, subURL, pos )
+
+
+			} break
+			case '背景': {
+
+				let name = prop
+
+				if ( name == '無し' ) {
+					Action.removeBGImage( )
+					continue
+				}
+
+				let subURL = `背景/${ name }.jpg`
+				await Action.showBGImage( setting, subURL )
 
 
 			} break
@@ -85,6 +109,7 @@ export async function parse ( text ) {
 		let prev = actRoot
 
 		function addAct ( type, prop ) {
+
 			let act = { type, prop } 
 			let index = progList.push( act )
 
@@ -102,7 +127,7 @@ export async function parse ( text ) {
 			while ( children.length ) {
 				let child = children.shift( )
 				if ( child[ 0 ] != '\t' ) {
-					if ( key ) addAct( type, [ key, value.trim( ) ] )
+					if ( key ) addAct( type, [ key.trim( ), value.trim( ) ] )
 					value = ''
 					key = child.replace( '・', '' )
 				} else {
@@ -122,8 +147,10 @@ export async function parse ( text ) {
 				case 'コメント': /* 何もしない */
 				break
 
-				case '会話':
 				case '立ち絵': case '立絵':
+					type = '立ち絵'
+					if ( progList[ progList.length -1 ].type != '立ち絵' ) addAct( '立ち絵', [ '無し', '' ] )
+				case '会話':
 				case '選択肢':
 					subParse( type, children )
 				break

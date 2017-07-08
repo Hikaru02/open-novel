@@ -119,15 +119,25 @@ export async function showBGImage ( setting, subURL ) {
 }
 
 
-export async function showPortraits( setting, subURL, pos ) {
+export async function removeBGImage( ) {
+	layer.backgroundImage.img = null
+}
+
+
+export async function showPortraits( setting, subURL, [ x, y, h ] ) {
 	
 	let blob = await $.fetchFile( 'blob', setting, subURL )
 	let img = await getImage( blob )
-	let portrait = new Renderer.ImageNode( { name: 'portrait' })
+	let w = 9 / 16 * h * img.naturalWidth / img.naturalHeight
+	$.log( { x, y, w, h, img } )
+	let portrait = new Renderer.ImageNode( { name: 'portrait', x, y, w, h } )
 	portrait.img = img
-	layer.portraitGroup.removeChildren( )
 	layer.portraitGroup.append( portrait )
 
 }
 
+
+export async function removePortraits( ) {
+	layer.portraitGroup.removeChildren( )
+}
 
