@@ -49,3 +49,11 @@ async function init ( canvas ) {
 
 
 export let { target: initPlayer, register: nextInit } = new $.AwaitRegister( init )
+
+
+export function onInputEvent( { type, x, y } ) {
+	
+	$.log( { type, x, y } )
+}
+
+

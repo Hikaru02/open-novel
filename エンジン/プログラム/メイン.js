@@ -45,9 +45,16 @@ async function main( ) {
 
 	
 
-	const onp = await Player.initPlayer( canvas )
-	
+	const onp = Player.initPlayer( canvas )
 
+
+	let captureEventTypes = [ 'down', 'up', 'move' ]
+
+	for ( let type of captureEventTypes ) {
+		canvas.addEventListener( `pointer${ type }`, e => {
+			Player.onInputEvent( { type, x: e.clientX, y: e.clientY } )
+		} )
+	}
 
 
 }
