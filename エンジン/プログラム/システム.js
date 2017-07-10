@@ -53,7 +53,7 @@ export let { target: initPlayer, register: nextInit } = new $.AwaitRegister( ini
 
 export function onInputEvent( { type, x, y } ) {
 	
-	$.log( { type, x, y } )
+	//$.log( { type, x, y } )
 }
 
 
