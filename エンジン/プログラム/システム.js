@@ -6,6 +6,7 @@ http://creativecommons.org/publicdomain/zero/1.0
 import * as $ from './ヘルパー.js'
 import * as Scenario from './シナリオ.js'
 import * as Action from './アクション.js'
+import * as Renderer from './レンダラー.js'
 
 
 async function init ( canvas ) {
@@ -51,9 +52,9 @@ async function init ( canvas ) {
 export let { target: initPlayer, register: nextInit } = new $.AwaitRegister( init )
 
 
-export function onInputEvent( { type, x, y } ) {
+export function onInputEvent ( { type, x, y } ) {
 	
-	//$.log( { type, x, y } )
+	Renderer.onPointed( { type, x, y } )
 }
 
 

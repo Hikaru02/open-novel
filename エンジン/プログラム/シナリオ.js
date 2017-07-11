@@ -22,7 +22,7 @@ export async function play ( scenario, setting ) {
 				let [ name, text ] = prop
 
 				await Action.showText( name, text, 20 )
-				await $.timeout( 500 )
+				//await $.timeout( 500 )
 
 			} break
 			case '立絵': case '立ち絵': {

@@ -11,6 +11,8 @@ let [ W, H ] = [ 0, 0 ]
 
 let layerRoot = null
 
+let HRCanvas = new OffscreenCanvas( W, H, { alpha: false } )
+let HRCtx = HRCanvas.getContext( '2d' )
 
 async function init ( context ) { 
 
@@ -22,13 +24,14 @@ async function init ( context ) {
 export let { target: initRanderer, register: nextInit } = new $.AwaitRegister( init )
 
 
+const registrants = new Map
 
 class Node {
 
 	constructor ( opt ) {
 
 		const def = { name: 'undefined', x: 0, y: 0, w: 1, h: 1, o: 1,
-			fill: '', stroke: '', children: [ ] }
+			fill: '', stroke: '', region: false, children: [ ] }
 
 		Object.assign( this, def, opt )
 
@@ -46,6 +49,8 @@ class Node {
 
 	draw ( ) { }
 
+	drawHR ( ) { }
+
 	append ( node ) {
 
 		node.parent = this
@@ -60,7 +65,7 @@ class Node {
 
 	}
 
-	removeChildren( ) {
+	removeChildren ( ) {
 		
 		for ( let node of this.children ) {
 			let that = this
@@ -74,13 +79,44 @@ class Node {
 
 	}
 
+	fire ( type ) {
+		if ( type == 'up' ) {
+			let obj = registrants.get( this )
+			if ( ( ! obj ) || ( ! obj.click.resolve ) ) return
+			obj.click.resolve( Infinity )
+		}
+
+	}
+
+	nextClick ( ) {
+		let obj = registrants.get( this )
+		if ( ! obj ) {
+			obj = {
+				click: { resolve: null }
+			}
+			registrants.set( this, obj )
+		}
+		let { promise, resolve } = new $.Deferred
+		obj.click.resolve = resolve
+		return promise
+	}
+
 }
 
 
-class GroupNode extends Node { }
+class GroupNode extends Node {
+
+	drawHR ( { x, y, w, h }, style ) {
+
+		HRCtx.fillStyle = style
+		HRCtx.fillRect( x, y, w, h )
+	
+	}
+
+}
 
 
-class RectangleNode extends Node {
+class RectangleNode extends GroupNode {
 
 	draw ( { x, y, w, h } ) {
 
@@ -149,7 +185,7 @@ export class ImageNode extends Node {
 
 function initLayer ( ) {
 
-	layerRoot = new GroupNode( { name: 'root' } )
+	layerRoot = new GroupNode( { name: 'root', region: true } )
 
 	let bgImage = new ImageNode( { name: 'backgroundImage' } )
 	layerRoot.append( bgImage )
@@ -157,7 +193,7 @@ function initLayer ( ) {
 	let portGroup = new GroupNode( { name: 'portraitGroup' } ) 
 	layerRoot.append( portGroup )
 
-	let convBox = new RectangleNode( { name: 'conversationBox', y: .75, h: .25, fill: 'rgba(0, 0, 100, 0.5)' } ) 
+	let convBox = new RectangleNode( { name: 'conversationBox', y: .75, h: .25, fill: 'rgba(0, 0, 100, 0.5)', region: true } ) 
 	layerRoot.append( convBox )
 
 	let nameArea = new TextNode( { name: 'nameArea', x: .1, w: .2, y: .4, size: .2, fill: 'rgba(255, 255, 200, 0.9)' } )
@@ -199,6 +235,62 @@ export function drawCanvas ( ) {
 		for ( let childnode of node.children ) { draw( childnode, prop ) }
 	}
 	
+
+}
+
+
+
+export function onPointed ( { type, x, y } ) {
+	
+	let list = drawHRCanvas( )
+
+	let d = HRCtx.getImageData( 0, 0, W, H ).data
+	let i = ( x + y * W ) * 4
+	let id = d[ i ] * 256**2 + d[ i + 1 ] * 256 + d[ i + 2 ]
+
+	let node = list[ id ]
+
+	//$.log( type, id, node )
+
+	if ( node ) node.fire( type )
+
+}
+
+
+function drawHRCanvas( ) {
+	
+	HRCanvas.width = W, HRCanvas.height = H
+
+	ctx.clearRect( 0, 0, W, H )
+
+	let regionList = [ ]
+
+	drawHR( layerRoot, { x: 0, y: 0, w: W, h: H }, 0 )
+
+	function drawHR ( node, base, id ) {
+
+		++id
+
+		let prop = {
+			x: base.x + node.x * base.w,
+			y: base.y + node.y * base.h,
+			w: base.w * node.w,
+			h: base.h * node.h,
+		}
+
+		if ( node.region && node.o ) {
+
+			regionList[ id ] = node
+			node.drawHR( prop, `rgb(${ id/256**2|0 }, ${ (id/256|0)%256 }, ${ id%256 })` )
+			//$.log( 'draw', id, node, regionList )
+		}
+
+		for ( let childnode of node.children ) { id = drawHR( childnode, prop, id ) }
+
+		return id
+	}
+
+	return regionList
 
 }
 
