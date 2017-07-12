@@ -89,16 +89,16 @@ export async function showText( name, text, speed ) {
 	layer.nameArea.set( name )
 
 	let time = 0
-	let convBox = layer.conversationBox
 
-	while ( time = await Promise.race( [ anime.nextFrame( ), convBox.nextClick( ) ] ) ) {
+	while ( time = await Promise.race( [ anime.nextFrame( ), layer.nextClick( ) ] ) ) {
 		let to = speed * time / 1000 | 0
+		if ( time == Infinity ) to = text.length
 		layer.textArea.set( text.slice( 0,  to ) )
 		anime.ready( )
 		if ( to >= text.length ) anime.cancal( )
 	}
 
-	await convBox.nextClick( )
+	await layer.nextClick( )
 
 }
 

@@ -7,7 +7,7 @@ import * as $ from './ヘルパー.js'
 
 let ctx = null
 
-let [ W, H ] = [ 0, 0 ]
+let [ W, H ] = [ 1, 1 ]
 
 let layerRoot = null
 
@@ -31,7 +31,7 @@ class Node {
 	constructor ( opt ) {
 
 		const def = { name: 'undefined', x: 0, y: 0, w: 1, h: 1, o: 1,
-			fill: '', stroke: '', region: false, children: [ ] }
+			fill: '', stroke: '', region: '', children: [ ] }
 
 		Object.assign( this, def, opt )
 
@@ -49,7 +49,13 @@ class Node {
 
 	draw ( ) { }
 
-	drawHR ( ) { }
+	
+	drawHR ( { x, y, w, h }, style ) {
+
+		HRCtx.fillStyle = style
+		HRCtx.fillRect( x, y, w, h )
+	
+	}
 
 	append ( node ) {
 
@@ -106,17 +112,10 @@ class Node {
 
 class GroupNode extends Node {
 
-	drawHR ( { x, y, w, h }, style ) {
-
-		HRCtx.fillStyle = style
-		HRCtx.fillRect( x, y, w, h )
-	
-	}
-
 }
 
 
-class RectangleNode extends GroupNode {
+class RectangleNode extends Node {
 
 	draw ( { x, y, w, h } ) {
 
@@ -185,7 +184,7 @@ export class ImageNode extends Node {
 
 function initLayer ( ) {
 
-	layerRoot = new GroupNode( { name: 'root', region: true } )
+	layerRoot = new GroupNode( { name: 'root', region: 'opaque' } )
 
 	let bgImage = new ImageNode( { name: 'backgroundImage' } )
 	layerRoot.append( bgImage )
@@ -193,7 +192,7 @@ function initLayer ( ) {
 	let portGroup = new GroupNode( { name: 'portraitGroup' } ) 
 	layerRoot.append( portGroup )
 
-	let convBox = new RectangleNode( { name: 'conversationBox', y: .75, h: .25, fill: 'rgba(0, 0, 100, 0.5)', region: true } ) 
+	let convBox = new RectangleNode( { name: 'conversationBox', y: .75, h: .25, fill: 'rgba(0, 0, 100, 0.5)' } ) 
 	layerRoot.append( convBox )
 
 	let nameArea = new TextNode( { name: 'nameArea', x: .1, w: .2, y: .4, size: .2, fill: 'rgba(255, 255, 200, 0.9)' } )
@@ -252,7 +251,11 @@ export function onPointed ( { type, x, y } ) {
 
 	//$.log( type, id, node )
 
-	if ( node ) node.fire( type )
+	while ( node ) {
+		if ( node.region ) node.fire( type )
+		if ( node.region == 'opaque' ) break
+		node = node.parent
+	}
 
 }
 
