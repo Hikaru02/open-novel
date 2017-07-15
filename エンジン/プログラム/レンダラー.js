@@ -31,7 +31,7 @@ class Node {
 	constructor ( opt ) {
 
 		const def = { name: 'undefined', x: 0, y: 0, w: 1, h: 1, o: 1,
-			fill: '', stroke: '', region: '', children: [ ] }
+			fill: '', stroke: '', shadow: true, region: '', children: [ ] }
 
 		Object.assign( this, def, opt )
 
@@ -123,15 +123,19 @@ export class RectangleNode extends Node {
 
 	draw ( { x, y, w, h } ) {
 
-		if ( this.fill ) {
+		let { fill, shadow } = this
+
+		if ( fill ) {
+			if ( shadow ) {
+				ctx.shadowColor = 'rgba( 0, 0, 0, .5)' 
+				ctx.shadowOffsetX = ctx.shadowOffsetY = H * .01
+				ctx.shadowBlur = 5
+			}
 			ctx.fillStyle = this.fill
 			ctx.fillRect( x, y, w, h )
+			ctx.shadowColor = 'rgba( 0, 0, 0, 0 )' 
 		}
 
-		if ( this.stroke ) {
-			ctx.strokeStyle = this.stroke
-			ctx.strokeRect( x, y, w, h )
-		}
 
 	}
 
@@ -148,7 +152,7 @@ export class TextNode extends Node {
 	set( text ) { this.text = text }
 
 	draw ( { x, y, w, h } ) { 
-		let { fill, stroke, text, size, pos } = this
+		let { fill, shadow, text, size, pos } = this
 
 		ctx.font = `${ h * size }px "Hiragino Kaku Gothic ProN", Meiryo`
 		ctx.textBaseline = 'top'
@@ -158,10 +162,14 @@ export class TextNode extends Node {
 		let b = h * size * .075
 
 		if ( fill ) {
-			ctx.fillStyle = 'rgba(0, 0, 0, 0.9)'
-			ctx.fillText( text, x + b, y + b, w - b )
+			if( shadow ) {
+				ctx.shadowColor = 'rgba( 0, 0, 0, .9)' 
+				ctx.shadowOffsetX = ctx.shadowOffsetY = b
+				ctx.shadowBlur = 5
+			}
 			ctx.fillStyle = fill
 			ctx.fillText( text, x, y, w - b )
+			ctx.shadowColor = 'rgba( 0, 0, 0, 0 )' 
 		}
 
 
@@ -198,7 +206,7 @@ function initLayer ( ) {
 	let portGroup = new GroupNode( { name: 'portraitGroup' } ) 
 	layerRoot.append( portGroup )
 
-	let convBox = new RectangleNode( { name: 'conversationBox', y: .75, h: .25, fill: 'rgba( 0, 0, 100, .5 )' } ) 
+	let convBox = new RectangleNode( { name: 'conversationBox', y: .75, h: .25, shadow: false, fill: 'rgba( 0, 0, 100, .5 )' } ) 
 	layerRoot.append( convBox )
 
 	let nameArea = new TextNode( { name: 'nameArea', x: .1, w: .2, y: .2, size: .2, fill: 'rgba( 255, 255, 200, .9 )' } )
@@ -244,7 +252,6 @@ export function drawCanvas ( ) {
 		node.draw( prop )
 		for ( let childnode of node.children ) { draw( childnode, prop ) }
 	}
-	
 
 }
 
