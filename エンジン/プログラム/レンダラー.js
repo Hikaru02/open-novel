@@ -107,15 +107,19 @@ class Node {
 		return promise
 	}
 
+	show ( ) { this.o = 1 }
+
+	hide ( ) { this.o = 0 }
+
 }
 
 
-class GroupNode extends Node {
+export class GroupNode extends Node {
 
 }
 
 
-class RectangleNode extends Node {
+export class RectangleNode extends Node {
 
 	draw ( { x, y, w, h } ) {
 
@@ -133,10 +137,10 @@ class RectangleNode extends Node {
 
 }
 
-class TextNode extends Node {
+export class TextNode extends Node {
 
 	constructor ( opt ) {
-		const def = { size: 0, text: '' }
+		const def = { size: 0, text: '', pos: 'start' }
 		opt = Object.assign( def, opt )
 		super ( opt )
 	}
@@ -144,12 +148,14 @@ class TextNode extends Node {
 	set( text ) { this.text = text }
 
 	draw ( { x, y, w, h } ) { 
-		let { fill, stroke, text, size } = this
+		let { fill, stroke, text, size, pos } = this
 
-		let n = .075
 		ctx.font = `${ h * size }px "Hiragino Kaku Gothic ProN", Meiryo`
+		ctx.textBaseline = 'top'
+		ctx.textAlign = pos
+		if ( pos == 'center' ) x += w / 2 
 
-		let b = h * size * .1
+		let b = h * size * .075
 
 		if ( fill ) {
 			ctx.fillStyle = 'rgba(0, 0, 0, 0.9)'
@@ -169,7 +175,7 @@ export class ImageNode extends Node {
 		const def = { img: null }
 		opt = Object.assign( def, opt )
 		super ( opt )
-		$.log( { x:this.x, y:this.y, w:this.w, h:this.h } )
+		//$.log( { x:this.x, y:this.y, w:this.w, h:this.h } )
 	}
 
 	draw ( { x, y, w, h } ) { 
@@ -192,14 +198,19 @@ function initLayer ( ) {
 	let portGroup = new GroupNode( { name: 'portraitGroup' } ) 
 	layerRoot.append( portGroup )
 
-	let convBox = new RectangleNode( { name: 'conversationBox', y: .75, h: .25, fill: 'rgba(0, 0, 100, 0.5)' } ) 
+	let convBox = new RectangleNode( { name: 'conversationBox', y: .75, h: .25, fill: 'rgba( 0, 0, 100, .5 )' } ) 
 	layerRoot.append( convBox )
 
-	let nameArea = new TextNode( { name: 'nameArea', x: .1, w: .2, y: .4, size: .2, fill: 'rgba(255, 255, 200, 0.9)' } )
+	let nameArea = new TextNode( { name: 'nameArea', x: .1, w: .2, y: .2, size: .2, fill: 'rgba( 255, 255, 200, .9 )' } )
 	convBox.append( nameArea )
 
-	let textArea = new TextNode( { name: 'textArea', x: .3, w: .6, y: .4, size: .2, fill: 'rgba(255, 255, 200, 0.9)' } )
-	convBox.append( textArea )
+	let mesArea = new TextNode( { name: 'messageArea', x: .3, w: .6, y: .2, size: .2, fill: 'rgba( 255, 255, 200, .9 )' } )
+	convBox.append( mesArea )
+
+	let inputBox = new RectangleNode( { name: 'inputBox', o: 0, x: .05, y: .05, w: .9, h: .65, fill: 'rgba( 200, 200, 255, .25 )' } ) 
+	layerRoot.append( inputBox )
+
+	$.log( layerRoot )
 
 	return layerRoot
 }

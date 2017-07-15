@@ -56,6 +56,16 @@ export async function play ( scenario, setting ) {
 
 
 			} break
+			case '選択肢': {
+
+				let name = await Action.showChoices( setting, prop )
+				$.log( name )
+
+				let text = await $.fetchFile( 'text', setting, `シナリオ/${ name }.txt` )
+				let scenario = await parse( text )
+				await play( scenario, setting )
+
+			} break
 			default : {
 				$.log( `The action "${ type }" was skiped.` )
 			}
@@ -118,16 +128,23 @@ export async function parse ( text ) {
 		}
 
 
-		function subParse ( type, children ) {
+		function subParse ( type, children, separatable ) {
 
 			let tabs = '\t'.repeat( ( children[ 0 ].match( /^\t+/ ) || [ '' ] ) [ 0 ].length )
 			children = children.map( child => child.replace( tabs, '' ) )
 
-			let key = '', value = ''
+			let key = '', value = '', prop = [ ]
+			children.push( '' )
 			while ( children.length ) {
 				let child = children.shift( )
 				if ( child[ 0 ] != '\t' ) {
-					if ( key ) addAct( type, [ key.trim( ), value.trim( ) ] )
+					if ( key ) {
+						// \t以外から始まったときで初回以外（バッファを見て判断）
+						if ( separatable ) addAct( type, [ key.trim( ), value.trim( ) ] )
+						  // 細かく分離する
+						else prop.push( [ key.trim( ), value.trim( ) ] )
+						  // 配列に貯める
+					}
 					value = ''
 					key = child.replace( '・', '' )
 				} else {
@@ -135,7 +152,8 @@ export async function parse ( text ) {
 					value += child
 				}
 			}
-			if ( key ) addAct( type, [ key, value.trim( ) ] )
+			if ( ! separatable ) addAct( type, prop )
+
 
 		}
 
@@ -151,8 +169,10 @@ export async function parse ( text ) {
 					type = '立ち絵'
 					if ( progList[ progList.length -1 ].type != '立ち絵' ) addAct( '立ち絵', [ '無し', '' ] )
 				case '会話':
+					subParse( type, children, true )
+				break
 				case '選択肢':
-					subParse( type, children )
+					subParse( type, children, false )
 				break
 
 				default :

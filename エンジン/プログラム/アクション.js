@@ -57,10 +57,11 @@ let Anime = null
 			this.nextFrame( )
 		}
 
-		nextFrame ( ) {
+		nextFrame ( ...interrupters ) {
 			if ( ! registrants.has( this ) ) return Promise.resolve( 0 )
 			let { promise, resolve } = new $.Deferred
 			this.resolve = resolve
+			Promise.race( interrupters ).then( resolve )
 			return promise	
 		}
 
@@ -90,10 +91,10 @@ export async function showText( name, text, speed ) {
 
 	let time = 0
 
-	while ( time = await Promise.race( [ anime.nextFrame( ), layer.nextClick( ) ] ) ) {
+	while ( time = await anime.nextFrame( layer.nextClick( ) ) ) {
 		let to = speed * time / 1000 | 0
 		if ( time == Infinity ) to = text.length
-		layer.textArea.set( text.slice( 0,  to ) )
+		layer.messageArea.set( text.slice( 0,  to ) )
 		anime.ready( )
 		if ( to >= text.length ) anime.cancal( )
 	}
@@ -103,7 +104,7 @@ export async function showText( name, text, speed ) {
 }
 
 
-async function getImage( blob ) {
+async function getImage ( blob ) {
 	let img = new Image
 	let { promise, resolve } = new $.Deferred
 	img.onload = resolve
@@ -122,17 +123,17 @@ export async function showBGImage ( setting, subURL ) {
 }
 
 
-export async function removeBGImage( ) {
+export async function removeBGImage ( ) {
 	layer.backgroundImage.img = null
 }
 
 
-export async function showPortraits( setting, subURL, [ x, y, h ] ) {
+export async function showPortraits ( setting, subURL, [ x, y, h ] ) {
 	
 	let blob = await $.fetchFile( 'blob', setting, subURL )
 	let img = await getImage( blob )
 	let w = 9 / 16 * h * img.naturalWidth / img.naturalHeight
-	$.log( { x, y, w, h, img } )
+	//$.log( { x, y, w, h, img } )
 	let portrait = new Renderer.ImageNode( { name: 'portrait', x, y, w, h } )
 	portrait.img = img
 	layer.portraitGroup.append( portrait )
@@ -140,7 +141,44 @@ export async function showPortraits( setting, subURL, [ x, y, h ] ) {
 }
 
 
-export async function removePortraits( ) {
+export async function removePortraits ( ) {
 	layer.portraitGroup.removeChildren( )
+}
+
+
+export async function showChoices ( setting, choices ) {
+	
+	let m = .05
+
+	let inputBox = layer.inputBox
+	let nextClicks = [ ]
+
+	let len = choices.length
+	let colLen = 1 + ( ( len - 1 ) / 3 | 0 )
+	let w = ( ( 1 - m ) - m * colLen ) / colLen
+	let h = ( ( 1 - m ) - m * 3 ) / 3
+
+	for ( let i = 0; i < len; i++ ) {
+		let [ key, val ] = choices[ i ]
+		let row = i % 3, col = i / 3 | 0
+		let [ x, y ] = [ m + ( w + m ) * col, m + ( h + m ) * row ]
+
+		let choiceBox = new Renderer.RectangleNode( { name: 'choiceBox', 
+			x, y, w, h, pos: 'center', region: 'opaque', fill: 'rgba( 100, 100, 255, .8 )' } ) 
+		inputBox.append( choiceBox )
+
+		let textArea = new Renderer.TextNode( { name: 'textArea',
+			size: .7, y: .05, pos: 'center', fill: 'rgba( 255, 255, 255, .9 )' } )
+		choiceBox.append( textArea )
+		nextClicks.push( choiceBox.nextClick( ).then( _ => val ) )
+		textArea.set( key )
+	}
+
+	inputBox.show( )
+	let val = await Promise.race( nextClicks )
+	inputBox.removeChildren( )
+	inputBox.hide( )
+	return val
+
 }
 
