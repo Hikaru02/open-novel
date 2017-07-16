@@ -21,7 +21,7 @@ async function init ( ctx ) {
 
 	await Action.showBGImage( systemSetting, 'エンジン/画像/背景.png' )
 	
-	await Action.showText( '', 'openノベルプレイヤー 0.9α', 50 )
+	await Action.showText( '', 'openノベルプレイヤー v1.0α', 50 )
 
 	while ( true ) {
 		let res = await playSystemOpening( ).catch( e => $.error( e ) || 'error' )
