@@ -11,30 +11,31 @@ import * as Renderer from './レンダラー.js'
 
 let ctx = null
 
-async function init ( canvas ) {
+let systemSetting = {
+	baseURL: './'
+}
 
-
-	ctx = canvas.getContext( '2d' )
+async function init ( ctx ) {
 
 	await Action.initAction( ctx )
 
+	await Action.showBGImage( systemSetting, 'エンジン/画像/背景.png' )
+	
+	await Action.showText( '', 'openノベルプレイヤー 0.9α', 50 )
 
+	while ( true ) {
+		let res = await playSystemOpening( ).catch( e => $.error( e ) || 'error' )
 
-	await playSystemOpening( )
-
+		if ( res == 'error' ) await Action.showText( '', '問題が発生しました', 50 )
+		else await  Action.showText( '', '再生が終了しました', 50 )
+	}
 
 }
 
 
 async function playSystemOpening ( ) {
 
-	let systemSetting = {
-		baseURL: './'
-	}
-
 	await Action.showBGImage( systemSetting, 'エンジン/画像/背景.png' )
-	
-	await Action.showText( '', 'openノベルプレイヤー 0.9α', 50 )
 
 	Action.showText( '', '開始する作品を選んで下さい', 50 )
 
@@ -56,7 +57,6 @@ async function playSystemOpening ( ) {
 	let scenario = await Scenario.parse( text )
 
 	await Scenario.play( scenario, scenarioSetting )
-
 
 } 
 

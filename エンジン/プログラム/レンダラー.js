@@ -184,7 +184,11 @@ export class DecoTextNode extends Node {
 
 	draw ( { x, y, w, h } ) { 
 
-		for ( let { text, mag = 1, bold = false, color = this.fill } of this.decoList ) {
+		let preRow = 0, xBuf = 0
+
+		for ( let { text, mag = 1, bold = false, color = this.fill, row = 0 } of this.decoList ) {
+			if ( preRow != row ) xBuf = 0
+			preRow = row
 			let size = this.size * mag
 			ctx.font = `${ bold ? 'bold' : '' } ${ h * size }px "Hiragino Kaku Gothic ProN", Meiryo`
 			ctx.textBaseline = 'top'
@@ -193,9 +197,9 @@ export class DecoTextNode extends Node {
 
 			shadowOn( { offset: b } )
 			ctx.fillStyle = color
-			ctx.fillText( text, x, y )
+			ctx.fillText( text, x + xBuf, y + ( row * h * size * 1.4 ) )
 			let metrics = ctx.measureText( text )
-			x += metrics.width
+			xBuf += metrics.width
 			shadowOff( ) 
 
 		}
@@ -238,10 +242,10 @@ function initLayer ( ) {
 	let convBox = new RectangleNode( { name: 'conversationBox', y: .75, h: .25, shadow: false, fill: 'rgba( 0, 0, 100, .5 )' } ) 
 	layerRoot.append( convBox )
 
-	let nameArea = new TextNode( { name: 'nameArea', x: .05, w: .15, y: .2, size: .2, fill: 'rgba( 255, 255, 200, .9 )' } )
+	let nameArea = new TextNode( { name: 'nameArea', x: .05, w: .1, y: .2, size: .175, fill: 'rgba( 255, 255, 200, .9 )' } )
 	convBox.append( nameArea )
 
-	let mesArea = new DecoTextNode( { name: 'messageArea', x: .3, w: .6, y: .2, size: .2, fill: 'rgba( 255, 255, 200, .9 )' } )
+	let mesArea = new DecoTextNode( { name: 'messageArea', x: .2, w: .75, y: .2, size: .175, fill: 'rgba( 255, 255, 200, .9 )' } )
 	convBox.append( mesArea )
 
 	let inputBox = new RectangleNode( { name: 'inputBox', o: 0, x: .05, y: .05, w: .9, h: .65, fill: 'rgba( 200, 200, 255, .25 )' } ) 

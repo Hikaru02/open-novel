@@ -43,9 +43,9 @@ async function main( ) {
 	Array.from( wrapper.childNodes, node => node.remove( ) )
 	player.appendChild( canvas )
 
-	
+	let ctx = canvas.getContext( '2d' )
 
-	const onp = Player.initPlayer( canvas )
+	const onp = Player.initPlayer( ctx )
 
 
 	let captureEventTypes = [ 'down', 'up', 'move' ]

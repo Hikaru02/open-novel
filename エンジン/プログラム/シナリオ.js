@@ -141,16 +141,16 @@ export async function parse ( text ) {
 				if ( child[ 0 ] != '\t' ) {
 					if ( key ) {
 						// \t以外から始まったときで初回以外（バッファを見て判断）
-						if ( separatable ) addAct( type, [ key.trim( ), value.trim( ) ] )
+						if ( separatable ) addAct( type, [ key, value ] )
 						  // 細かく分離する
-						else prop.push( [ key.trim( ), value.trim( ) ] )
+						else prop.push( [ key, value ] )
 						  // 配列に貯める
 					}
 					value = ''
-					key = child.replace( '・', '' )
+					key = child.replace( '・', '' ).trim( )
 				} else {
-					if ( value ) value += '\\w'  // 『会話』用
-					value += child
+					if ( value ) value += '\\w\\n'  // 『会話』用
+					value += child.trim( )
 				}
 			}
 			if ( ! separatable ) addAct( type, prop )

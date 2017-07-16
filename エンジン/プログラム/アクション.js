@@ -135,7 +135,7 @@ function text2decoList ( text ) {
 
 	let decoList = [ ]
 
-	let mag = 1, bold = false, color = undefined
+	let mag = 1, bold = false, color = undefined, row = 0
 
 	for ( let unit of text.match( /\\\w(\[\w+\])?|./g ) ) {
 		let magic = unit.match( /\\(\w)\[?(\w+)?\]?/ )
@@ -143,14 +143,15 @@ function text2decoList ( text ) {
 			let [ , type, val ] = magic
 			switch ( type ) {
 						case 'w': decoList.push( { wait: val || Infinity } )
+				break;	case 'n': row ++	
 				break;	case 'b': bold = true
 				break;	case 'B': bold = false
 				break;	case 'c': color = val
-				break;	case 's': mag = val				
+				break;	case 's': mag = val	
 				break;	default : $.warn( `"${ type }" このメタ文字は未実装です`　)
 			}
 		} else {
-			decoList.push( { text: unit, mag, bold, color } )
+			decoList.push( { text: unit, mag, bold, color, row } )
 		}
 
 	}

@@ -3,11 +3,11 @@ These codes are licensed under CC0.
 http://creativecommons.org/publicdomain/zero/1.0
 */
 
-export const log = console.log.bind( console )
+export const log	= console.log.bind( console )
+export const info	= console.info.bind( console )
+export const warn	= console.warn.bind( console )
+export const error	= console.error.bind( console )
 
-export const info = console.info.bind( console )
-
-export const warn = console.warn.bind( console )
 
 export function Deferred ( ) {
 	let resolve, reject
