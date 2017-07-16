@@ -65,7 +65,7 @@ class Node {
 		let that = this
 		do {
 			that[ node.name ] = that[ node.name ] === undefined ? 
-				node : $.warn( `"${ node.name }"　同名のノードが同時に定義されています` ) || null
+				node : $.info( `"${ node.name }"　同名のノードが同時に定義されています` ) || null
 			that = that.parent
 		} while ( that ) 
 
@@ -126,14 +126,10 @@ export class RectangleNode extends Node {
 		let { fill, shadow } = this
 
 		if ( fill ) {
-			if ( shadow ) {
-				ctx.shadowColor = 'rgba( 0, 0, 0, .5)' 
-				ctx.shadowOffsetX = ctx.shadowOffsetY = H * .01
-				ctx.shadowBlur = 5
-			}
+			if ( shadow ) shadowOn( { offset: H * .01, alpha: .5 } )
 			ctx.fillStyle = this.fill
 			ctx.fillRect( x, y, w, h )
-			ctx.shadowColor = 'rgba( 0, 0, 0, 0 )' 
+			shadowOff( )
 		}
 
 
@@ -162,20 +158,53 @@ export class TextNode extends Node {
 		let b = h * size * .075
 
 		if ( fill ) {
-			if( shadow ) {
-				ctx.shadowColor = 'rgba( 0, 0, 0, .9)' 
-				ctx.shadowOffsetX = ctx.shadowOffsetY = b
-				ctx.shadowBlur = 5
-			}
+			if( shadow ) shadowOn( { offset: b } )
 			ctx.fillStyle = fill
 			ctx.fillText( text, x, y, w - b )
-			ctx.shadowColor = 'rgba( 0, 0, 0, 0 )' 
+			shadowOff( ) 
 		}
 
 
 	}
 
 }
+
+
+export class DecoTextNode extends Node {
+
+	constructor ( opt ) {
+		const def = { size: 0, decoList: [ ], }
+		opt = Object.assign( def, opt )
+		super ( opt )
+	}
+
+	add ( deco ) { this.decoList.push( deco ) }
+
+	clear ( ) { this.decoList.length = 0 }
+
+	draw ( { x, y, w, h } ) { 
+
+		for ( let { text, mag = 1, bold = false, color = this.fill } of this.decoList ) {
+			let size = this.size * mag
+			ctx.font = `${ bold ? 'bold' : '' } ${ h * size }px "Hiragino Kaku Gothic ProN", Meiryo`
+			ctx.textBaseline = 'top'
+
+			let b = h * size * .075
+
+			shadowOn( { offset: b } )
+			ctx.fillStyle = color
+			ctx.fillText( text, x, y )
+			let metrics = ctx.measureText( text )
+			x += metrics.width
+			shadowOff( ) 
+
+		}
+
+
+	}
+
+}
+
 
 export class ImageNode extends Node {
 
@@ -209,10 +238,10 @@ function initLayer ( ) {
 	let convBox = new RectangleNode( { name: 'conversationBox', y: .75, h: .25, shadow: false, fill: 'rgba( 0, 0, 100, .5 )' } ) 
 	layerRoot.append( convBox )
 
-	let nameArea = new TextNode( { name: 'nameArea', x: .1, w: .2, y: .2, size: .2, fill: 'rgba( 255, 255, 200, .9 )' } )
+	let nameArea = new TextNode( { name: 'nameArea', x: .05, w: .15, y: .2, size: .2, fill: 'rgba( 255, 255, 200, .9 )' } )
 	convBox.append( nameArea )
 
-	let mesArea = new TextNode( { name: 'messageArea', x: .3, w: .6, y: .2, size: .2, fill: 'rgba( 255, 255, 200, .9 )' } )
+	let mesArea = new DecoTextNode( { name: 'messageArea', x: .3, w: .6, y: .2, size: .2, fill: 'rgba( 255, 255, 200, .9 )' } )
 	convBox.append( mesArea )
 
 	let inputBox = new RectangleNode( { name: 'inputBox', o: 0, x: .05, y: .05, w: .9, h: .65, fill: 'rgba( 200, 200, 255, .25 )' } ) 
@@ -312,6 +341,20 @@ function drawHRCanvas( ) {
 	}
 
 	return regionList
+
+}
+
+
+function shadowOn ( { offset, alpha = .9, blur = 5 } ) {
+	ctx.shadowOffsetX = ctx.shadowOffsetY = offset
+	ctx.shadowColor = `rgba( 0, 0, 0, ${ alpha } )`
+	ctx.shadowBlur = blur
+	ctx.globalCompositeOperation = 'source-atop'
+}
+
+function shadowOff ( ) {
+	ctx.shadowColor = 'rgba( 0, 0, 0, 0 )'
+	ctx.globalCompositeOperation = 'source-over'
 
 }
 

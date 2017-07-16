@@ -22,6 +22,7 @@ export async function play ( scenario, setting ) {
 				let [ name, text ] = prop
 
 				await Action.showText( name, text, 20 )
+
 				//await $.timeout( 500 )
 
 			} break
@@ -67,7 +68,7 @@ export async function play ( scenario, setting ) {
 
 			} break
 			default : {
-				$.log( `The action "${ type }" was skiped.` )
+				$.warn( `"${ type }" このアクションは未実装です` )
 			}
 
 		}

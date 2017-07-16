@@ -38,6 +38,7 @@ let Anime = null
 		let acts = [ ]
 
 		for ( let reg of registrants ) {
+			if ( reg.pauseTime ) continue
 			let { promise, resolve } = new $.Deferred
 			acts.push( promise )
 			reg.ready = resolve
@@ -52,17 +53,27 @@ let Anime = null
 	class AnimationRegister {	
 
 		constructor ( ) {
+			this.pauseTime = 0
 			this.baseTime = performance.now( )
 			registrants.add( this )
-			this.nextFrame( )
+			this.nextFrameOr( )
 		}
 
-		nextFrame ( ...interrupters ) {
+		nextFrameOr ( ...interrupters ) {
 			if ( ! registrants.has( this ) ) return Promise.resolve( 0 )
 			let { promise, resolve } = new $.Deferred
 			this.resolve = resolve
 			Promise.race( interrupters ).then( resolve )
-			return promise	
+			return promise 
+		}
+
+		async pauseUntil ( ...interrupters ) {
+			this.ready( )
+			this.pauseTime = performance.now( )
+			await Promise.race( interrupters )
+			this.baseTime += performance.now( ) - this.pauseTime
+			this.pauseTime = 0
+			this.resolve( performance.now( ) - this.baseTime )
 		}
 
 		cancal ( ) {
@@ -91,16 +102,61 @@ export async function showText( name, text, speed ) {
 
 	let time = 0
 
-	while ( time = await anime.nextFrame( layer.nextClick( ) ) ) {
+	let decoList = text2decoList( text )
+
+	$.log( decoList )
+
+	layer.messageArea.clear( )
+
+	let index = 0
+
+	loop: while ( time = await anime.nextFrameOr( layer.nextClick( ) ) ) {
 		let to = speed * time / 1000 | 0
-		if ( time == Infinity ) to = text.length
-		layer.messageArea.set( text.slice( 0,  to ) )
+		if ( time == Infinity ) to = decoList.length
+		for ( ; index < to; index ++ ) {
+			let deco = decoList[ index ], wait = deco.wait || 0 
+			if ( wait ) {
+				index ++
+				await anime.pauseUntil( $.timeout( wait / speed * 1000 ), layer.nextClick( ) )
+				continue loop
+			}
+			layer.messageArea.add( deco )
+		}
 		anime.ready( )
-		if ( to >= text.length ) anime.cancal( )
+		if ( to >= decoList.length ) anime.cancal( )
 	}
 
 	await layer.nextClick( )
 
+}
+
+
+function text2decoList ( text ) {
+
+	let decoList = [ ]
+
+	let mag = 1, bold = false, color = undefined
+
+	for ( let unit of text.match( /\\\w(\[\w+\])?|./g ) ) {
+		let magic = unit.match( /\\(\w)\[?(\w+)?\]?/ )
+		if ( magic ) {
+			let [ , type, val ] = magic
+			switch ( type ) {
+						case 'w': decoList.push( { wait: val || Infinity } )
+				break;	case 'b': bold = true
+				break;	case 'B': bold = false
+				break;	case 'c': color = val
+				break;	case 's': mag = val				
+				break;	default : $.warn( `"${ type }" このメタ文字は未実装です`　)
+			}
+		} else {
+			decoList.push( { text: unit, mag, bold, color } )
+		}
+
+	}
+
+	return decoList
+	
 }
 
 

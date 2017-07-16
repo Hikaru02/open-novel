@@ -5,6 +5,8 @@ http://creativecommons.org/publicdomain/zero/1.0
 
 export const log = console.log.bind( console )
 
+export const info = console.info.bind( console )
+
 export const warn = console.warn.bind( console )
 
 export function Deferred ( ) {
@@ -16,7 +18,7 @@ export function Deferred ( ) {
 export function timeout ( ms ) {
 	
 	let { promise, resolve } = new Deferred
-	setTimeout( resolve, ms )
+	if ( ms != Infinity ) setTimeout( resolve, ms )
 	return promise
 }
 
@@ -35,11 +37,9 @@ export function AwaitRegister ( fn ) {
 		},
 
 		register ( ) {
-
 			let { promise, resolve } = new Deferred
 			registrants.add( resolve )
 			return promise
-
 		}
 	}
 
@@ -49,4 +49,24 @@ export async function fetchFile( type, { baseURL }, subURL ) {
 	return await ( await fetch( baseURL + '/' + subURL ) )[ type ]( )
 }
 
+
+export function parseSetting ( text ) {
+	
+	let setting = { }
+	let key = ''
+
+	for ( let chunk of text.split( '\n' ) ) {
+		chunk = chunk.trim( )
+		if ( !chunk ) continue
+		if ( chunk.match( /^・/ ) ) {
+			key = chunk.replace( '・', '' )
+			setting[ key ] = [ ]
+		} else {
+			setting[ key ].push( chunk )
+		}
+	}
+
+	log( setting )
+	return setting
+}
 

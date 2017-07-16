@@ -9,10 +9,12 @@ import * as Action from './アクション.js'
 import * as Renderer from './レンダラー.js'
 
 
+let ctx = null
+
 async function init ( canvas ) {
 
 
-	const ctx = canvas.getContext( '2d' )
+	ctx = canvas.getContext( '2d' )
 
 	await Action.initAction( ctx )
 
@@ -21,30 +23,40 @@ async function init ( canvas ) {
 	await playSystemOpening( )
 
 
-	async function playSystemOpening ( ) {
-
-		let systemSetting = {
-			baseURL: './エンジン'
-		}
-
-		await Action.showBGImage( systemSetting, '画像/背景.png' )
-		
-		await Action.showText( '', 'openノベルプレイヤー 0.9α', 50 )
-		
-		await $.timeout( 200 )
-
-		let scenarioSetting = {
-			baseURL: './作品/デモ・基本'
-		}
-
-		let text = await $.fetchFile( 'text', scenarioSetting, 'シナリオ/基本.txt' )
-
-		let scenario = await Scenario.parse( text )
-
-		await Scenario.play( scenario, scenarioSetting )
+}
 
 
+async function playSystemOpening ( ) {
+
+	let systemSetting = {
+		baseURL: './'
 	}
+
+	await Action.showBGImage( systemSetting, 'エンジン/画像/背景.png' )
+	
+	await Action.showText( '', 'openノベルプレイヤー 0.9α', 50 )
+
+	Action.showText( '', '開始する作品を選んで下さい', 50 )
+
+	let titleList = $.parseSetting(
+		await $.fetchFile( 'text', systemSetting, '作品/設定.txt' )
+	) [ '作品' ]
+
+	let title = await Action.showChoices( { }, titleList.map( title => [ title, title ] ) )
+
+
+
+	let scenarioSetting =  $.parseSetting(
+		await $.fetchFile( 'text', systemSetting, `作品/${ title }/設定.txt` )
+	)
+	scenarioSetting.baseURL = `./作品/${ title }`
+	
+	let text = await $.fetchFile( 'text', scenarioSetting, `シナリオ/${ scenarioSetting[ '開始シナリオ' ] }.txt` )
+
+	let scenario = await Scenario.parse( text )
+
+	await Scenario.play( scenario, scenarioSetting )
+
 
 } 
 
