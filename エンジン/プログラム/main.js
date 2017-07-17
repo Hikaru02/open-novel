@@ -742,7 +742,7 @@ System.registerModule("ES6/ビュー.js", [], function() {
         return this;
       }
     });
-    EP.append = function( elm ) { EP.appendChild( elm ); return elm }
+    EP.append = function( elm ) { this.appendChild( elm ); return elm }
     if (!document.onfullscreenchange)
       Object.defineProperty(document, 'onfullscreenchange', {set: (function(val) {
           if ('onwebkitfullscreenchange' in document)
