@@ -725,7 +725,6 @@ System.registerModule("ES6/ビュー.js", [], function() {
     Util.setDefaults(EP, {
       on: EP.addEventListener,
       requestFullscreen: EP.webkitRequestFullscreen || EP.mozRequestFullScreen,
-      append: function( elm ) { EP.appendChild( elm ); return elm },
       removeChildren: function() {
         var ch = this.childNodes,
             len = ch.length;
@@ -743,6 +742,7 @@ System.registerModule("ES6/ビュー.js", [], function() {
         return this;
       }
     });
+    EP.append = function( elm ) { EP.appendChild( elm ); return elm }
     if (!document.onfullscreenchange)
       Object.defineProperty(document, 'onfullscreenchange', {set: (function(val) {
           if ('onwebkitfullscreenchange' in document)
