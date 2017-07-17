@@ -725,7 +725,7 @@ System.registerModule("ES6/ビュー.js", [], function() {
     Util.setDefaults(EP, {
       on: EP.addEventListener,
       requestFullscreen: EP.webkitRequestFullscreen || EP.mozRequestFullScreen,
-      append: EP.appendChild,
+      append: function( elm ) { EP.appendChild( elm ); return elm },
       removeChildren: function() {
         var ch = this.childNodes,
             len = ch.length;
