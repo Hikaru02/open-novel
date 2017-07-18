@@ -11,9 +11,9 @@ let layer, backgroundImage, conversationBox, nameArea, textArea
 
 
 
-export function init ( ctx ) {
+export async function init ( ctx ) {
 	
-	Renderer.initRanderer( ctx )
+	await Renderer.initRanderer( ctx )
 
 }
 

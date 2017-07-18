@@ -19,7 +19,7 @@ async function init ( ctx ) {
 
 	await Action.initAction( ctx )
 
-	await Action.showBGImage( systemSetting, 'エンジン/画像/背景.png' )
+	//await Action.showBGImage( systemSetting, 'エンジン/画像/背景.png' )
 	
 	await Action.showText( '', 'openノベルプレイヤー v1.0α', 50 )
 

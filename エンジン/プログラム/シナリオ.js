@@ -147,10 +147,10 @@ export async function parse ( text ) {
 						  // 配列に貯める
 					}
 					value = ''
-					key = child.replace( '・', '' ).trim( )
+					key = child.replace( '・', '' )
 				} else {
 					if ( value ) value += '\\w\\n'  // 『会話』用
-					value += child.trim( )
+					value += child.replace( '\t', '' )
 				}
 			}
 			if ( ! separatable ) addAct( type, prop )
