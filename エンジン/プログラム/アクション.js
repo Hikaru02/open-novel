@@ -112,7 +112,7 @@ export async function showMessage( name, text, speed ) {
 
 	let decoList = decoText( text )
 
-	$.log( decoList )
+	//$.log( decoList )
 
 
 	let index = 0

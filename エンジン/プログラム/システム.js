@@ -14,13 +14,10 @@ let opt = { }
 
 let setting = { }
 
-let systemSetting = {
-	baseURL: './'
-}
 
 async function init ( { ctx } ) {
 
-	opt = await $.fetchJSON( 'エンジン/設定.json' )
+	opt = await $.fetchFile( 'json', 'エンジン/設定.json' )
 	opt.ctx = ctx
 	opt.setting = setting
 	//Object.assign( setting, systemSetting )

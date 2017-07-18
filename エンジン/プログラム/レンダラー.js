@@ -298,6 +298,8 @@ export function drawCanvas ( ) {
 
 
 export function onPointed ( { type, x, y } ) {
+
+	if ( ! ctx ) return
 	
 	let list = drawHRCanvas( )
 

@@ -27,7 +27,7 @@ export async function play ( scenario, baseURL ) {
 
 				let [ pos, name ] = prop
 
-				if ( pos == '無し' ) {
+				if ( pos.match( /無し|なし/ ) ) {
 					Action.removePortraits( )
 					continue
 				}
@@ -42,9 +42,10 @@ export async function play ( scenario, baseURL ) {
 			} break
 			case '背景': {
 
-				let name = prop
+				let [ pos, name ] = prop
+				if ( ! name ) [ name, pos ] = [ pos, name ]
 
-				if ( name == '無し' ) {
+				if ( name.match( /無し|なし/ ) ) {
 					Action.removeBGImage( )
 					continue
 				}
@@ -96,7 +97,11 @@ export async function parse ( text ) {
 			if ( sta[ 0 ] == '・' ) {
 				addAct( sta )
 			} else {
-				if ( sta[ 0 ] != '\t' ) {
+				if ( sta.slice( 0, 2 ) == '/\/' ) continue
+				else if ( sta[ 0 ].match( /#|＃/ ) ) {
+					addAct( 'マーク' )			
+					sta = sta.slice( 1 )
+				} else if ( sta[ 0 ] != '\t' ) {
 					addAct( '会話' )
 				}
 				propTarget.push( sta )
@@ -144,10 +149,10 @@ export async function parse ( text ) {
 						  // 配列に貯める
 					}
 					value = ''
-					key = child.replace( '・', '' )
+					key = child.replace( '・', '' ).replace( '\s+$', '' )
 				} else {
 					if ( value ) value += '\\w\\n'  // 『会話』用
-					value += child.replace( '\t', '' )
+					value += child.replace( '\t', '' ).replace( '\s+$', '' )
 				}
 			}
 			if ( ! separatable ) addAct( type, prop )
@@ -167,12 +172,12 @@ export async function parse ( text ) {
 					type = '立ち絵'
 					if ( progList[ progList.length -1 ].type != '立ち絵' ) addAct( '立ち絵', [ '無し', '' ] )
 				case '会話':
+				case '背景':
 					subParse( type, children, true )
 				break
 				case '選択肢':
 					subParse( type, children, false )
 				break
-
 				default :
 					addAct( type, children[ 0 ].trim( ) )
 

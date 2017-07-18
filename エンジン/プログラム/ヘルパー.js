@@ -49,9 +49,6 @@ export async function fetchFile( type, url ) {
 	return await ( await fetch( url ) )[ type ]( )
 }
 
-export async function fetchJSON( url ) {
-	return await ( await fetch( url ) ).json( )
-}
 
 export function parseSetting ( text ) {
 	
