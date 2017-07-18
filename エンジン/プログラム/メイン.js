@@ -45,7 +45,7 @@ async function main( ) {
 
 	let ctx = canvas.getContext( '2d' )
 
-	const onp = Player.initPlayer( ctx )
+	const onp = Player.initPlayer( { ctx } )
 
 
 	let captureEventTypes = [ 'down', 'up', 'move' ]
@@ -58,3 +58,26 @@ async function main( ) {
 
 
 }
+
+
+/*
+
+	構想
+		○メインスレッド
+			システム
+			サウンド
+		○レンダリングスレッド
+			シナリオ
+			アクション
+			レンダラー
+		○パーサースレッド
+			パーサー
+
+*/
+
+
+
+
+
+
+

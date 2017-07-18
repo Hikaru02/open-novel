@@ -5,15 +5,18 @@ http://creativecommons.org/publicdomain/zero/1.0
 
 import * as $ from './ヘルパー.js'
 import * as Renderer from './レンダラー.js'
+import * as Sound from './サウンド.js'
 
 
 let layer, backgroundImage, conversationBox, nameArea, textArea
+let setting
 
 
 
-export async function init ( ctx ) {
+export async function init ( opt ) {
 	
-	await Renderer.initRanderer( ctx )
+	setting = opt.setting
+	await Renderer.initRanderer( opt )
 
 }
 

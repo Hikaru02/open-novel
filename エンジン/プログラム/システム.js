@@ -7,34 +7,45 @@ import * as $ from './ヘルパー.js'
 import * as Scenario from './シナリオ.js'
 import * as Action from './アクション.js'
 import * as Renderer from './レンダラー.js'
+import * as Sound from './サウンド.js'
 
 
-let ctx = null
+let opt = { }
 
 let systemSetting = {
 	baseURL: './'
 }
 
-async function init ( ctx ) {
+async function init ( { ctx } ) {
 
-	await Action.initAction( ctx )
+	opt.ctx = ctx
+	opt.setting = systemSetting
 
-	//await Action.showBGImage( systemSetting, 'エンジン/画像/背景.png' )
-	
+	await Sound.initSound( opt )
+
+	await Action.initAction( opt )
+
+	await play( )
+
+
+}
+
+
+async function play ( ) {
+
 	await Action.showMessage( '', 'openノベルプレイヤー v1.0α', 50 )
 
 	while ( true ) {
 
 		let res = await playSystemOpening( ).catch( e => $.error( e ) || 'error' )
 
-		await Action.initAction( ctx )
+		await Action.initAction( opt )
 
 		if ( res == 'error' ) await Action.showMessage( '', '問題が発生しました', 50 )
 		else await  Action.showMessage( '', '再生が終了しました', 50 )
 
 
 	}
-
 }
 
 

@@ -5,12 +5,9 @@ http://creativecommons.org/publicdomain/zero/1.0
 
 import * as $ from './ヘルパー.js'
 import * as Action from './アクション.js'
-//import * as Renderer from './レンダラー.js'
 
 
 export async function play ( scenario, setting ) {
-
-	await Action.initAction( )
 
 	for ( let act of scenario ) {
 		let { type, prop } = act

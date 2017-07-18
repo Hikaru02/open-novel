@@ -14,9 +14,9 @@ let layerRoot = null
 let HRCanvas = new OffscreenCanvas( W, H, { alpha: false } )
 let HRCtx = HRCanvas.getContext( '2d' )
 
-async function init ( context ) { 
+async function init ( opt ) { 
 
-	ctx = context || ctx
+	ctx = opt.ctx || ctx
 	return await initLayer( )
 }
 
@@ -85,27 +85,34 @@ class Node {
 
 	}
 
-	fire ( type ) {
-		if ( type == 'up' ) {
-			let obj = registrants.get( this )
-			if ( ( ! obj ) || ( ! obj.click.resolve ) ) return
-			obj.click.resolve( Infinity )
-		}
+	fire ( eType ) {
+		let type = { up: 'click', move: 'focus' }[ eType ] || 'undefined'
+
+		let obj = registrants.get( this )
+		if ( ( ! obj ) || ( ! obj[ type ] ) || ( ! obj[ type ].resolve ) ) return
+		obj[ type ].resolve( Infinity )
+		obj[ type ].resolve = null
 
 	}
 
-	nextClick ( ) {
+	next ( type ) {
 		let obj = registrants.get( this )
 		if ( ! obj ) {
-			obj = {
-				click: { resolve: null }
-			}
+			obj = { }
 			registrants.set( this, obj )
 		}
-		let { promise, resolve } = new $.Deferred
-		obj.click.resolve = resolve
+		if ( ! obj[ type ] ) obj[ type ] = { }
+		let { promise, resolve } = obj[ type ]
+		if ( ! promise ) {
+			( { promise, resolve } = new $.Deferred )
+			obj[ type ].resolve = resolve
+		}
 		return promise
 	}
+
+	nextClick ( ) { return this.next( 'click' ) }
+
+	nextFocus ( ) { return this.next( 'focus' ) }
 
 	show ( ) { this.o = 1 }
 
