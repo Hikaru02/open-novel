@@ -121,9 +121,8 @@ export async function parse ( text ) {
 	// アクション種に応じた配下の処理と、一次元配列への展開
 	let progList = function secondParse( ) { 
 
-		let progList = [ ]
-
 		let actRoot = { type: 'ルート', prop: '' }
+		let progList = [ actRoot ]
 		let prev = actRoot
 
 		function addAct ( type, prop ) {

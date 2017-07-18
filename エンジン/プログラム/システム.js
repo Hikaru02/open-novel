@@ -42,7 +42,6 @@ async function play ( ) {
 	while ( true ) {
 
 		let res = await playSystemOpening( ).catch( e => $.error( e ) || 'error' )
-
 		await Action.initAction( opt )
 
 		if ( res == 'error' ) await Action.showMessage( '', '問題が発生しました', 50 )
@@ -66,7 +65,6 @@ async function playSystemOpening ( ) {
 	let title = await Action.showChoices( titleList.map( title => [ title, title ] ) )
 
 
-
 	let scenarioSetting =  $.parseSetting(
 		await $.fetchFile( 'text', `作品/${ title }/設定.txt` )
 	)
@@ -75,6 +73,7 @@ async function playSystemOpening ( ) {
 
 	let scenario = await Scenario.parse( text )
 
+	await Action.initAction( opt )
 	await Scenario.play( scenario, `./作品/${ title }` )
 
 } 
