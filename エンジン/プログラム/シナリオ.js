@@ -33,7 +33,12 @@ export async function play ( scenario, baseURL ) {
 				}
 
 				if ( pos == '左' ) pos = [ 0, 0, 1 ]
-				if ( pos == '右' ) pos = [ -0, 0, 1 ]
+				else if ( pos == '右' ) pos = [ -0, 0, 1 ]
+				else { 
+					pos = pos.match( /\-?\d+(?=\%)/g )
+					$.log( pos )
+					pos = pos.map( d => d / 100 )
+				}
 
 				let url = `${ baseURL }/立ち絵/${ name }.png`
 				await Action.showPortraits( url, pos )
@@ -163,6 +168,12 @@ export async function parse ( text ) {
 
 		for ( let act of actList ) {
 			let { type, children } = act
+
+			if ( children.length == 0 ) {
+				$.warn( `"${ type }" 子要素が空なので無視されました` )
+				continue
+			}
+
 			switch ( type ) {
 
 				case 'コメント': /* 何もしない */
