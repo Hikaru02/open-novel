@@ -93,20 +93,24 @@ let Anime = null
 
 
 let anime = new Anime
-export async function showText( name, text, speed ) {
+export async function showMessage( name, text, speed ) {
 		
 	anime.cancal( )
 	anime = new Anime
 
-	layer.nameArea.set( name )
-
 	let time = 0
 
-	let decoList = text2decoList( text )
+	text = culcText( text ), name = culcText( name )
+
+	layer.nameArea.clear( ), layer.messageArea.clear( )
+
+
+	for ( let deco of decoText( name ) ) { layer.nameArea.add( deco ) }
+
+	let decoList = decoText( text )
 
 	$.log( decoList )
 
-	layer.messageArea.clear( )
 
 	let index = 0
 
@@ -131,13 +135,13 @@ export async function showText( name, text, speed ) {
 }
 
 
-function text2decoList ( text ) {
+function decoText ( text ) {
 
 	let decoList = [ ]
 
 	let mag = 1, bold = false, color = undefined, row = 0
 
-	for ( let unit of text.match( /\\\w(\[\w+\])?|./g ) ) {
+	for ( let unit of ( text.match( /\\\w(\[\w+\])?|./g ) || [ ] ) ) {
 		let magic = unit.match( /\\(\w)\[?(\w+)?\]?/ )
 		if ( magic ) {
 			let [ , type, val ] = magic
@@ -159,6 +163,16 @@ function text2decoList ( text ) {
 	return decoList
 	
 }
+
+
+function culcText ( text ) {
+	
+	if ( text == '無し' ) text = ''
+
+	return text
+}
+
+
 
 
 async function getImage ( blob ) {

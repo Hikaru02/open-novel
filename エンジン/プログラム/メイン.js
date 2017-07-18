@@ -52,7 +52,7 @@ async function main( ) {
 
 	for ( let type of captureEventTypes ) {
 		canvas.addEventListener( `pointer${ type }`, e => {
-			Player.onInputEvent( { type, x: e.clientX, y: e.clientY } )
+			Player.onInputEvent( { type, x: e.layerX, y: e.layerY } )
 		} )
 	}
 

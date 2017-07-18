@@ -21,13 +21,18 @@ async function init ( ctx ) {
 
 	//await Action.showBGImage( systemSetting, 'エンジン/画像/背景.png' )
 	
-	await Action.showText( '', 'openノベルプレイヤー v1.0α', 50 )
+	await Action.showMessage( '', 'openノベルプレイヤー v1.0α', 50 )
 
 	while ( true ) {
+
 		let res = await playSystemOpening( ).catch( e => $.error( e ) || 'error' )
 
-		if ( res == 'error' ) await Action.showText( '', '問題が発生しました', 50 )
-		else await  Action.showText( '', '再生が終了しました', 50 )
+		await Action.initAction( ctx )
+
+		if ( res == 'error' ) await Action.showMessage( '', '問題が発生しました', 50 )
+		else await  Action.showMessage( '', '再生が終了しました', 50 )
+
+
 	}
 
 }
@@ -37,7 +42,7 @@ async function playSystemOpening ( ) {
 
 	await Action.showBGImage( systemSetting, 'エンジン/画像/背景.png' )
 
-	Action.showText( '', '開始する作品を選んで下さい', 50 )
+	Action.showMessage( '', '開始する作品を選んで下さい', 50 )
 
 	let titleList = $.parseSetting(
 		await $.fetchFile( 'text', systemSetting, '作品/設定.txt' )
@@ -65,7 +70,7 @@ export let { target: initPlayer, register: nextInit } = new $.AwaitRegister( ini
 
 
 export function onInputEvent ( { type, x, y } ) {
-	
+
 	Renderer.onPointed( { type, x, y } )
 }
 

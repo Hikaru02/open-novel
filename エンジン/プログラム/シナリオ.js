@@ -21,7 +21,7 @@ export async function play ( scenario, setting ) {
 
 				let [ name, text ] = prop
 
-				await Action.showText( name, text, 20 )
+				await Action.showMessage( name, text, 20 )
 
 				//await $.timeout( 500 )
 

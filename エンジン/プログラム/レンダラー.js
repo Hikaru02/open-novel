@@ -242,7 +242,7 @@ function initLayer ( ) {
 	let convBox = new RectangleNode( { name: 'conversationBox', y: .75, h: .25, shadow: false, fill: 'rgba( 0, 0, 100, .5 )' } ) 
 	layerRoot.append( convBox )
 
-	let nameArea = new TextNode( { name: 'nameArea', x: .05, w: .1, y: .2, size: .175, fill: 'rgba( 255, 255, 200, .9 )' } )
+	let nameArea = new DecoTextNode( { name: 'nameArea', x: .05, w: .1, y: .2, size: .175, fill: 'rgba( 255, 255, 200, .9 )' } )
 	convBox.append( nameArea )
 
 	let mesArea = new DecoTextNode( { name: 'messageArea', x: .2, w: .75, y: .2, size: .175, fill: 'rgba( 255, 255, 200, .9 )' } )
