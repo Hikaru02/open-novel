@@ -188,9 +188,9 @@ async function getImage ( blob ) {
 }
 
 
-export async function showBGImage ( setting, subURL ) {
+export async function showBGImage ( url ) {
 
-	let blob = await $.fetchFile( 'blob', setting, subURL )
+	let blob = await $.fetchFile( 'blob', url )
 	let img = await getImage( blob )
 	layer.backgroundImage.img = img
 
@@ -202,9 +202,9 @@ export async function removeBGImage ( ) {
 }
 
 
-export async function showPortraits ( setting, subURL, [ x, y, h ] ) {
+export async function showPortraits ( url, [ x, y, h ] ) {
 	
-	let blob = await $.fetchFile( 'blob', setting, subURL )
+	let blob = await $.fetchFile( 'blob', url )
 	let img = await getImage( blob )
 	let w = 9 / 16 * h * img.naturalWidth / img.naturalHeight
 	//$.log( { x, y, w, h, img } )
@@ -220,7 +220,7 @@ export async function removePortraits ( ) {
 }
 
 
-export async function showChoices ( setting, choices ) {
+export async function showChoices ( choices ) {
 	
 	let m = .05
 

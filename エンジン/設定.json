@@ -1,11 +1,11 @@
 ﻿{
 
-	"systemVersion": "1.00",
+	"システムバージョン": "1.00",
 
-	"fadeDuration": 150,
+	"フェード時間": 150,
 
-	"URL": {
-		"ContentsSetting": "作品/設定.txt"
+	"場所": {
+		"作品設定": "作品/設定.txt"
 	}
 
 }

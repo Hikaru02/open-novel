@@ -12,14 +12,21 @@ import * as Sound from './サウンド.js'
 
 let opt = { }
 
+let setting = { }
+
 let systemSetting = {
 	baseURL: './'
 }
 
 async function init ( { ctx } ) {
 
+	opt = await $.fetchJSON( 'エンジン/設定.json' )
 	opt.ctx = ctx
-	opt.setting = systemSetting
+	opt.setting = setting
+	//Object.assign( setting, systemSetting )
+	$.log( opt )
+
+
 
 	await Sound.initSound( opt )
 
@@ -51,28 +58,27 @@ async function play ( ) {
 
 async function playSystemOpening ( ) {
 
-	await Action.showBGImage( systemSetting, 'エンジン/画像/背景.png' )
+	await Action.showBGImage( 'エンジン/画像/背景.png' )
 
 	Action.showMessage( '', '開始する作品を選んで下さい', 50 )
 
 	let titleList = $.parseSetting(
-		await $.fetchFile( 'text', systemSetting, '作品/設定.txt' )
+		await $.fetchFile( 'text', '作品/設定.txt' )
 	) [ '作品' ]
 
-	let title = await Action.showChoices( { }, titleList.map( title => [ title, title ] ) )
+	let title = await Action.showChoices( titleList.map( title => [ title, title ] ) )
 
 
 
 	let scenarioSetting =  $.parseSetting(
-		await $.fetchFile( 'text', systemSetting, `作品/${ title }/設定.txt` )
+		await $.fetchFile( 'text', `作品/${ title }/設定.txt` )
 	)
-	scenarioSetting.baseURL = `./作品/${ title }`
 	
-	let text = await $.fetchFile( 'text', scenarioSetting, `シナリオ/${ scenarioSetting[ '開始シナリオ' ] }.txt` )
+	let text = await $.fetchFile( 'text', `作品/${ title }/シナリオ/${ scenarioSetting[ '開始シナリオ' ] }.txt` )
 
 	let scenario = await Scenario.parse( text )
 
-	await Scenario.play( scenario, scenarioSetting )
+	await Scenario.play( scenario, `./作品/${ title }` )
 
 } 
 

@@ -45,10 +45,13 @@ export function AwaitRegister ( fn ) {
 
 }
 
-export async function fetchFile( type, { baseURL }, subURL ) {
-	return await ( await fetch( baseURL + '/' + subURL ) )[ type ]( )
+export async function fetchFile( type, url ) {
+	return await ( await fetch( url ) )[ type ]( )
 }
 
+export async function fetchJSON( url ) {
+	return await ( await fetch( url ) ).json( )
+}
 
 export function parseSetting ( text ) {
 	

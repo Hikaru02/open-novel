@@ -7,7 +7,7 @@ import * as $ from './ヘルパー.js'
 import * as Action from './アクション.js'
 
 
-export async function play ( scenario, setting ) {
+export async function play ( scenario, baseURL ) {
 
 	for ( let act of scenario ) {
 		let { type, prop } = act
@@ -35,8 +35,8 @@ export async function play ( scenario, setting ) {
 				if ( pos == '左' ) pos = [ 0, 0, 1 ]
 				if ( pos == '右' ) pos = [ -0, 0, 1 ]
 
-				let subURL = `立ち絵/${ name }.png`
-				await Action.showPortraits( setting, subURL, pos )
+				let url = `${ baseURL }/立ち絵/${ name }.png`
+				await Action.showPortraits( url, pos )
 
 
 			} break
@@ -49,19 +49,19 @@ export async function play ( scenario, setting ) {
 					continue
 				}
 
-				let subURL = `背景/${ name }.jpg`
-				await Action.showBGImage( setting, subURL )
+				let url = `${ baseURL }/背景/${ name }.jpg`
+				await Action.showBGImage( url )
 
 
 			} break
 			case '選択肢': {
 
-				let name = await Action.showChoices( setting, prop )
+				let name = await Action.showChoices( prop )
 				$.log( name )
 
-				let text = await $.fetchFile( 'text', setting, `シナリオ/${ name }.txt` )
+				let text = await $.fetchFile( 'text', `${ baseURL }/シナリオ/${ name }.txt` )
 				let scenario = await parse( text )
-				await play( scenario, setting )
+				await play( scenario, baseURL )
 
 			} break
 			default : {
