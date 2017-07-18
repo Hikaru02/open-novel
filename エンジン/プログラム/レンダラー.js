@@ -38,7 +38,7 @@ class Node {
 		for ( let [ key, look ] of [ [ 'x', 'w' ], [ 'y', 'h' ] ] ) {
 			let val = this[ key ]
 			if ( ! Number.isFinite( val ) ) continue
-			if ( 1 / val == -Infinity ) {
+			if ( 1 / val < 0 ) {
 				this[ key ] = val = 1 - this[ look ] + val
 				if ( val < 0 || Object.is( val, -0 ) || 1 < val )
 					$.warn( `"${ val }" 不正な範囲の数値です` )

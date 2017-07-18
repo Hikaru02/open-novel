@@ -26,18 +26,22 @@ export async function play ( scenario, baseURL ) {
 			case '立絵': case '立ち絵': {
 
 				let [ pos, name ] = prop
+				pos = pos.normalize('NFKC')
 
 				if ( pos.match( /無し|なし/ ) ) {
 					Action.removePortraits( )
 					continue
 				}
 
+
 				if ( pos == '左' ) pos = [ 0, 0, 1 ]
 				else if ( pos == '右' ) pos = [ -0, 0, 1 ]
 				else { 
-					pos = pos.match( /\-?\d+(?=\%)/g )
-					$.log( pos )
+					pos = pos.match( /\-?\d+(?=\%|％)/g )
+					if ( pos.length == 1 ) pos[ 1 ] = 0
+					if ( pos.length == 2 ) pos[ 2 ] = 100
 					pos = pos.map( d => d / 100 )
+					$.log( pos )
 				}
 
 				let url = `${ baseURL }/立ち絵/${ name }.png`
@@ -49,6 +53,7 @@ export async function play ( scenario, baseURL ) {
 
 				let [ pos, name ] = prop
 				if ( ! name ) [ name, pos ] = [ pos, name ]
+				pos = pos.normalize('NFKC')
 
 				if ( name.match( /無し|なし/ ) ) {
 					Action.removeBGImage( )
