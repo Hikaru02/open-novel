@@ -172,7 +172,15 @@ function culcText ( text ) {
 	
 	if ( text == '無し' ) text = ''
 
+	
+
 	return text
+}
+
+
+function execText ( text ) {
+	
+
 }
 
 
