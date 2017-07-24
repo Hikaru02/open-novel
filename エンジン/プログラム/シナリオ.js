@@ -9,6 +9,21 @@ import * as Action from './アクション.js'
 
 export async function play ( scenario, baseURL ) {
 
+
+	let varMap = new Map
+
+	function textEval ( text ) {
+		$.log( 'E', text )
+		function $Get( key ) {
+			if ( ! varMap.has( key ) ) {
+				varMap.set( key, 0 ) 
+				return 0
+			} else return varMap.get( key )
+		}
+		return eval( text )
+	}
+
+
 	for ( let act of scenario ) {
 		let { type, prop } = act
 
@@ -16,7 +31,7 @@ export async function play ( scenario, baseURL ) {
 
 			case '会話': {
 
-				let [ name, text ] = prop
+				let [ name, text ] = prop.map( textEval )
 
 				await Action.showMessage( name, text, 20 )
 
@@ -25,18 +40,16 @@ export async function play ( scenario, baseURL ) {
 			} break
 			case '立絵': case '立ち絵': {
 
-				let [ pos, name ] = prop
-				pos = pos.normalize('NFKC')
+				let [ pos, name ] = prop.map( textEval )
 
-				if ( pos.match( /無し|なし/ ) ) {
+				if ( ! pos ) {
 					Action.removePortraits( )
 					continue
 				}
 
-
 				if ( pos == '左' ) pos = [ 0, 0, 1 ]
 				else if ( pos == '右' ) pos = [ -0, 0, 1 ]
-				else { 
+				else if ( pos  ) { 
 					pos = pos.match( /\-?\d+(?=\%|％)/g )
 					if ( pos.length == 1 ) pos[ 1 ] = 0
 					if ( pos.length == 2 ) pos[ 2 ] = 100
@@ -51,11 +64,9 @@ export async function play ( scenario, baseURL ) {
 			} break
 			case '背景': {
 
-				let [ pos, name ] = prop
-				if ( ! name ) [ name, pos ] = [ pos, name ]
-				pos = pos.normalize('NFKC')
+				let [ pos, name ] = prop.map( textEval )
 
-				if ( name.match( /無し|なし/ ) ) {
+				if ( ! name ) {
 					Action.removeBGImage( )
 					continue
 				}
@@ -67,7 +78,7 @@ export async function play ( scenario, baseURL ) {
 			} break
 			case '選択肢': {
 
-				let name = await Action.showChoices( prop )
+				let name = await Action.showChoices( prop.map( c => c.map( textEval ) ) )
 				$.log( name )
 
 				let text = await $.fetchFile( 'text', `${ baseURL }/シナリオ/${ name }.txt` )
@@ -90,7 +101,7 @@ export async function play ( scenario, baseURL ) {
 export async function parse ( text ) {
 
 	// 文の取り出しと、第一級アクションとその配下のグルーピング
-	let actList = function firstParse ( ) {
+	let actList = function firstParse ( text ) {
 
 		let statements = text.replace( /\r/g, '' ).split( '\n' )
 
@@ -121,10 +132,10 @@ export async function parse ( text ) {
 
 		$.log( actList )
 		return actList
-	} ( )
+	} ( text )
 
 	// アクション種に応じた配下の処理と、一次元配列への展開
-	let progList = function secondParse( ) { 
+	let progList = function secondParse ( actList ) { 
 
 		let actRoot = { type: 'ルート', prop: '' }
 		let progList = [ actRoot ]
@@ -202,9 +213,147 @@ export async function parse ( text ) {
 
 		$.log( progList )
 		return progList 
-	} ( )
+	} ( actList )
 
-	return progList
+
+	let runList = function thirdParse ( progList ) {
+
+
+
+		function parseText ( text ) {
+	
+			if ( ! text || text == '無し' || text == 'なし' ) text = ''
+
+			text = text.replace( /\\{(.*?)}/g, ( _, t ) => `'+${ subParseText( t ) }+'` )
+
+			$.log( `'${ text }'` )
+
+			return `'${ text.replace( /\\/g, '\\\\' ) }'`
+		}
+
+
+		function subParseText ( str ) {
+			
+			console.log( '式→', str )
+
+			let res = '', prev = '', mode = 'any'
+
+			for ( let c of str ) {
+
+				if ( /\s/.test( c ) ) continue
+
+				let now = ''
+
+				if ( mode == 'str' ) switch ( c ) {
+
+					       case '”': case '’': case '"': case'\'':
+						if ( prev == '\\' ) now = c
+						else mode = 'any'; now = '"'
+					break; case '\\':
+						if ( prev == '\\' ) now = '\\'
+					break; default:
+						now = c
+
+				} else switch ( c ) {
+
+					       case '＋': case '+':							now = '+'
+					break; case 'ー': case '－':　case '―': case '-':		now = '-'
+					break; case '×': case '✕': case '＊': case '*':		now = '*'
+					break; case '÷': case '／': case '/':				now = '/'
+					break; case '％': case '%':							now = '%'
+					break; case '＝': case '=':
+						if ( prev != '==' && /[=!><]/.test( prev ) )	now = '=='
+					break; case '≠':									now = '!='
+					break; case '≧':									now = '>='
+					break; case '≦':									now = '<='
+					break; case '＞':									now = '>'
+					break; case '＜':									now = '<'
+					break; case '＆': case '&':
+						if ( prev != '&&' )								now = '&&'
+					break; case '｜': case '|':
+						if ( prev != '||' )								now = '||'
+					break; case '？': case '?':							now = '?'
+					break; case '：': case ':':							now = ':'
+					break; case '（': case '(':
+						if ( !prev || /[+\-*/%=><&|?:(]/.test( prev ) )	now = '('
+						else throw `"${ str }" 式が正しくありません（括弧の開始位置）`
+					break; case '（': case '(':							now = ')'
+					break; case '”': case '’': case '"': case'\'':
+						mode = 'str'; now = '"'
+					break; case '`':
+						throw `"${ c }" この文字は式中で記号として使うことはできません`
+					break; default:
+						if ( mode != 'var_op' ) { now = '$Get(`'; if ( c = '＄' ) c = '$' }
+						mode = 'var'; now += c
+
+				}
+
+				if ( mode == 'var_op' ) { mode == 'any'; now += '`)' }
+				if ( mode == 'var' ) mode = 'var_op'
+
+				prev = now
+				res += now
+
+			}
+
+
+			if ( mode == 'var_op' ) res += '`)'
+
+
+			console.log( '→式', res )
+
+
+			return res
+		}
+
+
+		for ( let act of progList ) {
+			let { type, prop } = act
+
+			switch ( type ) {
+
+				case '会話': {
+
+					act.prop = prop.map( parseText )
+				
+				} break
+				case '立絵': case '立ち絵': {
+
+					let [ pos, name ] = prop.map( parseText )
+					pos = pos.normalize('NFKC')
+					act.prop = [ pos, name ]	
+
+				} break
+				case '背景': {
+
+					let [ pos, name ] = prop.map( parseText )
+					if ( name == `''` ) [ name, pos ] = [ pos, name ]
+					pos = pos.normalize('NFKC')
+					act.prop = [ pos, name ]	
+
+				} break
+				case '選択肢': {
+
+					act.prop = prop.map( c => c.map( parseText ) )
+
+				} break
+				default : {
+
+					$.warn( `"${ type }" このアクションは未実装です` )
+
+				}
+
+			}
+
+		}
+
+
+
+
+		return progList
+	} ( progList )
+
+	return runList
 
 }
 

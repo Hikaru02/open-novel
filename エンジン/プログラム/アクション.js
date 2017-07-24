@@ -9,13 +9,12 @@ import * as Sound from './サウンド.js'
 
 
 let layer, backgroundImage, conversationBox, nameArea, textArea
-let setting, varMap
+let setting
 
 
 export async function init ( opt ) {
 	
 	setting = opt.setting
-	varMap = new Map
 
 	await Renderer.initRanderer( opt )
 
@@ -104,8 +103,6 @@ export async function showMessage( name, text, speed ) {
 
 	let time = 0
 
-	text = culcText( text ), name = culcText( name )
-
 	layer.nameArea.clear( ), layer.messageArea.clear( )
 
 
@@ -169,97 +166,6 @@ function decoText ( text ) {
 }
 
 
-function culcText ( text ) {
-	
-	if ( text == '無し' ) text = ''
-
-	text = text.replace( /\\{(.*?)}/g, ( _, t ) => execText( t ) )
-
-	return text
-}
-
-
-function execText ( str ) {
-	
-	console.log( '式→', str )
-
-	let res = '', prev = '', mode = 'any'
-
-	for ( let c of str ) {
-
-		if ( /\s/.test( c ) ) continue
-
-		let now = ''
-
-		if ( mode == 'str' ) switch ( c ) {
-
-			       case '”': case '’': case '"': case'\'':
-				if ( prev == '\\' ) now = c
-				else mode = 'any'; now = '"'
-			break; case '\\':
-				if ( prev == '\\' ) now = '\\'
-			break; default:
-				now = c
-
-		} else switch ( c ) {
-
-			       case '＋': case '+':							now = '+'
-			break; case 'ー': case '－':　case '―': case '-':		now = '-'
-			break; case '×': case '✕': case '＊': case '*':		now = '*'
-			break; case '÷': case '／': case '/':				now = '/'
-			break; case '％': case '%':							now = '%'
-			break; case '＝': case '=':
-				if ( prev != '==' && /[=!><]/.test( prev ) )	now = '=='
-			break; case '≠':									now = '!='
-			break; case '≧':									now = '>='
-			break; case '≦':									now = '<='
-			break; case '＞':									now = '>'
-			break; case '＜':									now = '<'
-			break; case '＆': case '&':
-				if ( prev != '&&' )								now = '&&'
-			break; case '｜': case '|':
-				if ( prev != '||' )								now = '||'
-			break; case '？': case '?':							now = '?'
-			break; case '：': case ':':							now = ':'
-			break; case '（': case '(':
-				if ( !prev || /[+\-*/%=><&|?:(]/.test( prev ) )	now = '('
-				else throw `"${ str }" 式が正しくありません（括弧の開始位置）`
-			break; case '（': case '(':							now = ')'
-			break; case '”': case '’': case '"': case'\'':
-				mode = 'str'; now = '"'
-			break; case '`':
-				throw `"${ c }" この文字は式中で記号として使うことはできません`
-			break; default:
-				if ( mode != 'var_op' ) { now = '$Get(`'; if ( c = '＄' ) c = '$' }
-				mode = 'var'; now += c
-
-		}
-
-		if ( mode == 'var_op' ) { mode == 'any'; now += '`)' }
-		if ( mode == 'var' ) mode = 'var_op'
-
-		prev = now
-		res += now
-
-	}
-
-
-	if ( mode == 'var_op' ) res += '`)'
-
-
-	console.log( '→式', res )
-
-
-	function $Get( key ) {
-		if ( ! varMap.has( key ) ) {
-			varMap.set( key, 0 ) 
-			return 0
-		} else return varMap.get( key )
-	}
-
-
-	return eval( res )
-}
 
 
 

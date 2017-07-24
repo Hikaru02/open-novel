@@ -71,7 +71,7 @@ async function playSystemOpening ( ) {
 	
 	let text = await $.fetchFile( 'text', `作品/${ title }/シナリオ/${ scenarioSetting[ '開始シナリオ' ] }.txt` )
 
-	let scenario = await Scenario.parse( text )
+	let scenario = await Scenario.parse( text, `./作品/${ title }` )
 
 	await Action.initAction( opt )
 	await Scenario.play( scenario, `./作品/${ title }` )
