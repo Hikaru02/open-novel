@@ -230,7 +230,7 @@ function execText ( str ) {
 			break; case '`':
 				throw `"${ c }" この文字は式中で記号として使うことはできません`
 			break; default:
-				if ( mode != 'var_op' ) now = '$$$varMapGet$$$(`'
+				if ( mode != 'var_op' ) { now = '$Get(`'; if ( c = '＄' ) c = '$' }
 				mode = 'var'; now += c
 
 		}
@@ -250,7 +250,7 @@ function execText ( str ) {
 	console.log( '→式', res )
 
 
-	function $$$varMapGet$$$( key ) {
+	function $Get( key ) {
 		if ( ! varMap.has( key ) ) {
 			varMap.set( key, 0 ) 
 			return 0
