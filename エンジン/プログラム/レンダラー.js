@@ -65,7 +65,7 @@ class Node {
 		let that = this
 		do {
 			that[ node.name ] = that[ node.name ] === undefined ? 
-				node : $.info( `"${ node.name }"　同名のノードが同時に定義されています` ) || null
+				node : /*$.info( `"${ node.name }"　同名のノードが同時に定義されています` ) ||*/ null
 			that = that.parent
 		} while ( that ) 
 
@@ -227,8 +227,12 @@ export class ImageNode extends Node {
 	}
 
 	draw ( { x, y, w, h } ) { 
-		let { img } = this
+		let { img, fill } = this
 		if ( img ) ctx.drawImage( img, x, y, w, h )
+		else if ( fill ) {
+			ctx.fillStyle = fill
+			ctx.fillRect( x, y, w, h )
+		}
 
 	}
 
@@ -240,7 +244,7 @@ function initLayer ( ) {
 
 	layerRoot = new GroupNode( { name: 'root', region: 'opaque' } )
 
-	let bgImage = new ImageNode( { name: 'backgroundImage' } )
+	let bgImage = new ImageNode( { name: 'backgroundImage', fill: 'rgba( 0, 0, 0, 1 )' } )
 	layerRoot.append( bgImage )
 
 	let portGroup = new GroupNode( { name: 'portraitGroup' } ) 

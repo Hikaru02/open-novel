@@ -12,7 +12,14 @@ export async function play ( scenario, baseURL ) {
 
 	let varMap = new Map
 
+	let act = scenario[ 1 ]
+	return await playAct( act )
+
+
+
 	function textEval ( text ) {
+
+		if ( typeof text != 'string' ) return text
 		$.log( 'E', text )
 		function $Get( key ) {
 			if ( ! varMap.has( key ) ) {
@@ -24,73 +31,80 @@ export async function play ( scenario, baseURL ) {
 	}
 
 
-	for ( let act of scenario ) {
-		let { type, prop } = act
 
-		switch ( type ) {
+	async function playAct( act ) {
 
-			case '会話': {
+		do {
+			let { type, prop } = act
 
-				let [ name, text ] = prop.map( textEval )
+			switch ( type ) {
 
-				await Action.showMessage( name, text, 20 )
+				case '会話': {
 
-				//await $.timeout( 500 )
+					let [ name, text ] = prop.map( textEval )
 
-			} break
-			case '立絵': case '立ち絵': {
+					await Action.showMessage( name, text, 20 )
 
-				let [ pos, name ] = prop.map( textEval )
+					//await $.timeout( 500 )
 
-				if ( ! pos ) {
-					Action.removePortraits( )
-					continue
+				} break
+				case '立絵': case '立ち絵': {
+
+					let [ pos, name ] = prop.map( textEval )
+
+					if ( ! pos ) {
+						Action.removePortraits( )
+						continue
+					}
+
+					if ( pos == '左' ) pos = [ 0, 0, 1 ]
+					else if ( pos == '右' ) pos = [ -0, 0, 1 ]
+					else if ( pos  ) { 
+						pos = pos.match( /\-?\d+(?=\%|％)/g )
+						if ( pos.length == 1 ) pos[ 1 ] = 0
+						if ( pos.length == 2 ) pos[ 2 ] = 100
+						pos = pos.map( d => d / 100 )
+						$.log( pos )
+					}
+
+					let url = `${ baseURL }/立ち絵/${ name }.png`
+					await Action.showPortraits( url, pos )
+
+
+				} break
+				case '背景': {
+
+					let [ pos, name ] = prop.map( textEval )
+
+					if ( ! name ) {
+						Action.removeBGImage( )
+						continue
+					}
+
+					let url = `${ baseURL }/背景/${ name }.jpg`
+					await Action.showBGImage( url )
+
+
+				} break
+				case '選択肢': {
+
+					let sel = await Action.showChoices( prop.map( c => c.map( textEval ) ) )
+					$.log( sel )
+					if ( typeof sel == 'object' ) await playAct( sel )
+					else {
+						let text = await $.fetchFile( 'text', `${ baseURL }/シナリオ/${ sel }.txt` )
+						let scenario = await parse( text )
+						await play( scenario, baseURL )
+					}
+
+				} break
+				default : {
+					//$.warn( `"${ type }" このアクションは未実装です` )
 				}
 
-				if ( pos == '左' ) pos = [ 0, 0, 1 ]
-				else if ( pos == '右' ) pos = [ -0, 0, 1 ]
-				else if ( pos  ) { 
-					pos = pos.match( /\-?\d+(?=\%|％)/g )
-					if ( pos.length == 1 ) pos[ 1 ] = 0
-					if ( pos.length == 2 ) pos[ 2 ] = 100
-					pos = pos.map( d => d / 100 )
-					$.log( pos )
-				}
-
-				let url = `${ baseURL }/立ち絵/${ name }.png`
-				await Action.showPortraits( url, pos )
-
-
-			} break
-			case '背景': {
-
-				let [ pos, name ] = prop.map( textEval )
-
-				if ( ! name ) {
-					Action.removeBGImage( )
-					continue
-				}
-
-				let url = `${ baseURL }/背景/${ name }.jpg`
-				await Action.showBGImage( url )
-
-
-			} break
-			case '選択肢': {
-
-				let name = await Action.showChoices( prop.map( c => c.map( textEval ) ) )
-				$.log( name )
-
-				let text = await $.fetchFile( 'text', `${ baseURL }/シナリオ/${ name }.txt` )
-				let scenario = await parse( text )
-				await play( scenario, baseURL )
-
-			} break
-			default : {
-				$.warn( `"${ type }" このアクションは未実装です` )
 			}
 
-		}
+		} while ( act = act.next )
 
 	}
 
@@ -98,13 +112,17 @@ export async function play ( scenario, baseURL ) {
 
 
 
-export async function parse ( text ) {
+export function parse ( text ) {
+
+
+	return thirdParse( secondParse( firstParse( text ) ) )
+
+
 
 	// 文の取り出しと、第一級アクションとその配下のグルーピング
-	let actList = function firstParse ( text ) {
+	function firstParse ( text ) {
 
-		let statements = text.replace( /\r/g, '' ).split( '\n' )
-
+		let stateList = text.replace( /\r/g, '' ).split( '\n' )
 		let actList = [ ], propTarget = null
 
 		function addAct ( type ) {
@@ -113,7 +131,7 @@ export async function parse ( text ) {
 			actList.push( act )
 		}
 
-		for ( let sta of statements ) {
+		for ( let sta of stateList ) {
 			if ( sta.trim( ).length == 0 ) continue
 			if ( sta[ 0 ] == '・' ) {
 				addAct( sta )
@@ -130,28 +148,47 @@ export async function parse ( text ) {
 
 		}
 
-		$.log( actList )
+		//$.log( actList )
 		return actList
-	} ( text )
+	}
+
+
 
 	// アクション種に応じた配下の処理と、一次元配列への展開
-	let progList = function secondParse ( actList ) { 
+	function secondParse ( actList ) { 
 
 		let actRoot = { type: 'ルート', prop: '' }
 		let progList = [ actRoot ]
 		let prev = actRoot
 
-		function addAct ( type, prop ) {
+
+		function addAct ( type, prop, { separate = false, subjump = false } = { } ) {
 
 			let act = { type, prop } 
-			let index = progList.push( act )
 
+			if ( subjump ) {
+
+				// [k,v]を[[k,v],[k,v],...]パターンと同様に扱えるように加工
+				if ( separate ) prop = [ prop ]
+
+				for ( let p of prop ) {
+					let subList = secondParse( firstParse( p[ 1 ] ) )
+					// もし要素がコマンド郡でなく、リンクなら飛ばす
+					if ( subList.length == 2 && subList[ 1 ].type == '会話' &&
+						subList[ 1 ].prop[ 1 ] == '' ) continue
+					progList = progList.concat( subList )
+					p[ 1 ] = subList[ 1 ] 
+				}
+
+			} 
+
+			let index = progList.push( act )
 			prev.next = act
 			prev = act
 		}
 
 
-		function subParse ( type, children, separatable ) {
+		function subParse ( type, children, { separate = false, subjump = false } = { } ) {
 
 			let tabs = '\t'.repeat( ( children[ 0 ].match( /^\t+/ ) || [ '' ] ) [ 0 ].length )
 			children = children.map( child => child.replace( tabs, '' ) )
@@ -163,7 +200,7 @@ export async function parse ( text ) {
 				if ( child[ 0 ] != '\t' ) {
 					if ( key ) {
 						// \t以外から始まったときで初回以外（バッファを見て判断）
-						if ( separatable ) addAct( type, [ key, value ] )
+						if ( separate ) addAct( type, [ key, value ], { separate, subjump } )
 						  // 細かく分離する
 						else prop.push( [ key, value ] )
 						  // 配列に貯める
@@ -171,11 +208,14 @@ export async function parse ( text ) {
 					value = ''
 					key = child.replace( '・', '' ).replace( '\s+$', '' )
 				} else {
-					if ( value ) value += '\\w\\n'  // 『会話』用
+					if ( value ) {
+						if ( subjump ) value += '\n'
+						else value += '\\w\\n'  // 『会話』用
+					}
 					value += child.replace( '\t', '' ).replace( '\s+$', '' )
 				}
 			}
-			if ( ! separatable ) addAct( type, prop )
+			if ( ! separate ) addAct( type, prop, { separate, subjump } )
 
 
 		}
@@ -199,10 +239,13 @@ export async function parse ( text ) {
 					if ( progList[ progList.length -1 ].type != '立ち絵' ) addAct( '立ち絵', [ '無し', '' ] )
 				case '会話':
 				case '背景':
-					subParse( type, children, true )
+					subParse( type, children, { separate: true } )
 				break
 				case '選択肢':
-					subParse( type, children, false )
+					subParse( type, children, { subjump: true } )
+				break
+				case '分岐':
+					subParse( type, children, { separate: true, subjump: true } )
 				break
 				default :
 					addAct( type, children[ 0 ].trim( ) )
@@ -211,22 +254,26 @@ export async function parse ( text ) {
 
 		}
 
-		$.log( progList )
+		//$.log( 'PL', progList )
 		return progList 
-	} ( actList )
+	}
 
 
-	let runList = function thirdParse ( progList ) {
 
+	//実行時に最小限の処理で済むよう式などをできるだけパースする
+	function thirdParse ( progList ) {
+		//$.log( 'PL', progList )
 
 
 		function parseText ( text ) {
+
+			if ( typeof text != 'string' ) return text
 	
 			if ( ! text || text == '無し' || text == 'なし' ) text = ''
 
 			text = text.replace( /\\{(.*?)}/g, ( _, t ) => `'+${ subParseText( t ) }+'` )
 
-			$.log( `'${ text }'` )
+			//$.log( `'${ text }'` )
 
 			return `'${ text.replace( /\\/g, '\\\\' ) }'`
 		}
@@ -234,7 +281,7 @@ export async function parse ( text ) {
 
 		function subParseText ( str ) {
 			
-			console.log( '式→', str )
+			//console.log( '式→', str )
 
 			let res = '', prev = '', mode = 'any'
 
@@ -300,7 +347,7 @@ export async function parse ( text ) {
 			if ( mode == 'var_op' ) res += '`)'
 
 
-			console.log( '→式', res )
+			//console.log( '→式', res )
 
 
 			return res
@@ -339,7 +386,7 @@ export async function parse ( text ) {
 				} break
 				default : {
 
-					$.warn( `"${ type }" このアクションは未実装です` )
+					//$.warn( `"${ type }" このアクションは未実装です` )
 
 				}
 
@@ -351,9 +398,7 @@ export async function parse ( text ) {
 
 
 		return progList
-	} ( progList )
-
-	return runList
+	}
 
 }
 
