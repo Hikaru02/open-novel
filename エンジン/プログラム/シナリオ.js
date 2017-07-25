@@ -11,6 +11,7 @@ export async function play ( scenario, baseURL ) {
 
 
 	let varMap = new Map
+	$.log( varMap )
 
 	let act = scenario[ 1 ]
 	return await playAct( act )
@@ -48,7 +49,7 @@ export async function play ( scenario, baseURL ) {
 					//await $.timeout( 500 )
 
 				} break
-				case '立絵': case '立ち絵': {
+				case '立絵': {
 
 					let [ pos, name ] = prop.map( textEval )
 
@@ -88,14 +89,35 @@ export async function play ( scenario, baseURL ) {
 				} break
 				case '選択肢': {
 
-					let sel = await Action.showChoices( prop.map( c => c.map( textEval ) ) )
-					$.log( sel )
-					if ( typeof sel == 'object' ) await playAct( sel )
-					else {
-						let text = await $.fetchFile( 'text', `${ baseURL }/シナリオ/${ sel }.txt` )
-						let scenario = await parse( text )
-						await play( scenario, baseURL )
+					let act = await Action.showChoices( prop.map( c => c.map( textEval ) ) )
+					$.log( type, act )
+					if ( typeof act != 'object' ) {
+						let text = await $.fetchFile( 'text', `${ baseURL }/シナリオ/${ act }.txt` )
+						act = await parse( text ) [ 1 ]
 					}
+					await playAct( act )
+
+				} break
+				case '分岐': {
+
+					for ( let p of prop ) {
+						let [ con, act ] = p.map( textEval )
+						$.log( type, con, act )
+						if ( ! con && con !== '' ) continue 
+						if ( typeof act != 'object' ) {
+							let text = await $.fetchFile( 'text', `${ baseURL }/シナリオ/${ act }.txt` )
+							act = await parse( text ) [ 1 ]
+						}
+						await playAct( act )
+						break
+					}
+
+				} break
+				case 'パラメータ':{
+
+					let [ key, value ] = prop.map( textEval )
+					varMap.set( key, value )
+
 
 				} break
 				default : {
@@ -235,17 +257,13 @@ export function parse ( text ) {
 				break
 
 				case '立ち絵': case '立絵':
-					type = '立ち絵'
-					if ( progList[ progList.length -1 ].type != '立ち絵' ) addAct( '立ち絵', [ '無し', '' ] )
-				case '会話':
-				case '背景':
+					type = '立絵'
+					if ( progList[ progList.length -1 ].type != '立ち絵' ) addAct( '立絵', [ '無し', '' ] )
+				case '会話': case '背景': case 'パラメータ':
 					subParse( type, children, { separate: true } )
 				break
-				case '選択肢':
+				case '選択肢':　case '分岐':
 					subParse( type, children, { subjump: true } )
-				break
-				case '分岐':
-					subParse( type, children, { separate: true, subjump: true } )
 				break
 				default :
 					addAct( type, children[ 0 ].trim( ) )
@@ -254,7 +272,6 @@ export function parse ( text ) {
 
 		}
 
-		//$.log( 'PL', progList )
 		return progList 
 	}
 
@@ -369,14 +386,14 @@ export function parse ( text ) {
 
 				case '会話': {
 
-					act.prop = prop.map( parseText )
+					prop = prop.map( parseText )
 				
 				} break
-				case '立絵': case '立ち絵': {
+				case '立絵': {
 
 					let [ pos, name ] = prop.map( parseText )
 					pos = pos.normalize('NFKC')
-					act.prop = [ pos, name ]	
+					prop = [ pos, name ]	
 
 				} break
 				case '背景': {
@@ -384,26 +401,39 @@ export function parse ( text ) {
 					let [ pos, name ] = prop.map( parseText )
 					if ( name == `''` ) [ name, pos ] = [ pos, name ]
 					pos = pos.normalize('NFKC')
-					act.prop = [ pos, name ]	
+					prop = [ pos, name ]	
 
 				} break
 				case '選択肢': {
 
-					act.prop = prop.map( c => c.map( parseText ) )
+					prop = prop.map( c => c.map( parseText ) )
+
+				} break
+				case '分岐': {
+					
+					prop = prop.map( p => [ subParseText( p[ 0 ] ), parseText( p[ 1 ] ) ] )
+
+				} break
+				case 'パラメータ': {
+
+					prop = prop[ 0 ].split(/[:：]/)
+					prop = [ parseText( prop[ 0 ].replace(/^\＄/, '$' ) ), subParseText( prop[ 1 ] ) ]
 
 				} break
 				default : {
 
-					//$.warn( `"${ type }" このアクションは未実装です` )
+					$.warn( `"${ type }" このアクションは未実装です` )
 
 				}
 
 			}
 
+			act.prop = prop
+
 		}
 
 
-
+		$.log( 'PL', progList )
 
 		return progList
 	}

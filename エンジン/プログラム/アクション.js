@@ -112,13 +112,14 @@ export async function showMessage( name, text, speed ) {
 
 	//$.log( decoList )
 
-
+	let len = decoList.length
 	let index = 0
 
 	loop: while ( time = await anime.nextFrameOr( layer.nextClick( ) ) ) {
 		let to = speed * time / 1000 | 0
-		if ( time == Infinity ) to = decoList.length
+		if ( time == Infinity ) to = len
 		for ( ; index < to; index ++ ) {
+			if ( index >= len ) break
 			let deco = decoList[ index ], wait = deco.wait || 0 
 			if ( wait ) {
 				index ++
@@ -128,7 +129,7 @@ export async function showMessage( name, text, speed ) {
 			layer.messageArea.add( deco )
 		}
 		anime.ready( )
-		if ( to >= decoList.length ) anime.cancal( )
+		if ( to >= len ) anime.cancal( )
 	}
 
 	await layer.nextClick( )
