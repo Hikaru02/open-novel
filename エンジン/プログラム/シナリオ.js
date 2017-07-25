@@ -273,7 +273,7 @@ export function parse ( text ) {
 
 			text = text.replace( /\\{(.*?)}/g, ( _, t ) => `'+${ subParseText( t ) }+'` )
 
-			//$.log( `'${ text }'` )
+			$.log( `'${ text }'` )
 
 			return `'${ text.replace( /\\/g, '\\\\' ) }'`
 		}
@@ -309,7 +309,9 @@ export function parse ( text ) {
 					break; case '÷': case '／': case '/':				now = '/'
 					break; case '％': case '%':							now = '%'
 					break; case '＝': case '=':
-						if ( prev != '==' && /[=!><]/.test( prev ) )	now = '=='
+						if ( prev != '==' )
+							if ( /[=!><]/.test( prev ) )				now = '='
+							else										now = '=='
 					break; case '≠':									now = '!='
 					break; case '≧':									now = '>='
 					break; case '≦':									now = '<='
@@ -330,15 +332,21 @@ export function parse ( text ) {
 					break; case '`':
 						throw `"${ c }" この文字は式中で記号として使うことはできません`
 					break; default:
-						if ( mode != 'var_op' ) { now = '$Get(`'; if ( c = '＄' ) c = '$' }
-						mode = 'var'; now += c
+						if ( mode != 'var_op' ) {
+							let n = c.normalize('NFKC') // 数値の判定
+							if ( n.match( /\d/ ) ) { now = n }  
+							else { mode = 'var'; now = '$Get(`' + ( c == '＄' ? '$' : c ) }
+						}
+						else { mode = 'var'; now = c }
 
 				}
 
-				if ( mode == 'var_op' ) { mode == 'any'; now += '`)' }
+				prev = now
+
+				if ( mode == 'var_op' ) { mode = 'any'; now = '`)' + now }
 				if ( mode == 'var' ) mode = 'var_op'
 
-				prev = now
+				
 				res += now
 
 			}
