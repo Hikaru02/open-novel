@@ -9,12 +9,11 @@ import * as Action from './アクション.js'
 
 export async function play ( scenario, baseURL ) {
 
-
+	let isStop = false
 	let varMap = new Map
 	$.log( varMap )
 
-	let act = scenario[ 1 ]
-	return await playAct( act )
+	return await playScnario( scenario )
 
 
 
@@ -33,9 +32,32 @@ export async function play ( scenario, baseURL ) {
 
 
 
+	async function playScnario( scenarioOrTitle, jumpMark = '$root' ) {
+
+		let scenario
+
+		if ( typeof scenarioOrTitle != 'object' ) {
+			let title = scenarioOrTitle
+			let text = await $.fetchFile( 'text', `${ baseURL }/シナリオ/${ title }.txt` )
+			scenario = await parse( text )
+		} else scenario = scenarioOrTitle
+
+		let act = scenario.find( act => act.type == 'マーク' && textEval( act.prop ) == jumpMark )
+
+		if ( ! act ) throw `"${ jumpMark }" 指定されたマークが見つかりません`
+
+		await playAct( act )
+
+	}
+
+
+
 	async function playAct( act ) {
 
 		do {
+
+			if ( isStop ) return
+
 			let { type, prop } = act
 
 			switch ( type ) {
@@ -91,10 +113,6 @@ export async function play ( scenario, baseURL ) {
 
 					let act = await Action.showChoices( prop.map( c => c.map( textEval ) ) )
 					$.log( type, act )
-					if ( typeof act != 'object' ) {
-						let text = await $.fetchFile( 'text', `${ baseURL }/シナリオ/${ act }.txt` )
-						act = await parse( text ) [ 1 ]
-					}
 					await playAct( act )
 
 				} break
@@ -104,24 +122,61 @@ export async function play ( scenario, baseURL ) {
 						let [ con, act ] = p.map( textEval )
 						$.log( type, con, act )
 						if ( ! con && con !== '' ) continue 
-						if ( typeof act != 'object' ) {
-							let text = await $.fetchFile( 'text', `${ baseURL }/シナリオ/${ act }.txt` )
-							act = await parse( text ) [ 1 ]
-						}
 						await playAct( act )
 						break
 					}
 
 				} break
-				case 'パラメータ':{
+				case 'ジャンプ': {
+
+					let [ title, mark　] = prop.map( textEval )
+
+					let scenarioOrTitle = title || scenario
+					await playScnario( scenarioOrTitle, mark || undefined )
+
+
+				}break
+				case 'パラメータ': {
 
 					let [ key, value ] = prop.map( textEval )
 					varMap.set( key, value )
 
 
 				} break
+				case '入力': {
+
+					let [ key, value ] = prop.map( textEval )
+					value = prompt( '', value ) || value
+					varMap.set( key, value )
+
+
+				} break
+				case 'スクリプト': {
+
+					switch ( prop ) {
+
+						case '終わる': case　'おわる': {
+
+							isStop = true
+
+						} break
+						default : {
+
+							$.warn( `"${ type }" この「スクリプト」アクションのタイプは未実装です` )
+
+						}
+
+					}
+
+
+				} break
+				case 'マーク': {
+
+					// 何もしない
+
+				} break
 				default : {
-					//$.warn( `"${ type }" このアクションは未実装です` )
+					$.warn( `"${ type }" このアクションの「実行」は未実装です` )
 				}
 
 			}
@@ -179,7 +234,7 @@ export function parse ( text ) {
 	// アクション種に応じた配下の処理と、一次元配列への展開
 	function secondParse ( actList ) { 
 
-		let actRoot = { type: 'ルート', prop: '' }
+		let actRoot = { type: 'マーク', prop: '$root' }
 		let progList = [ actRoot ]
 		let prev = actRoot
 
@@ -259,7 +314,7 @@ export function parse ( text ) {
 				case '立ち絵': case '立絵':
 					type = '立絵'
 					if ( progList[ progList.length -1 ].type != '立ち絵' ) addAct( '立絵', [ '無し', '' ] )
-				case '会話': case '背景': case 'パラメータ':
+				case '会話': case '背景': case 'パラメータ': case '入力':
 					subParse( type, children, { separate: true } )
 				break
 				case '選択肢':　case '分岐':
@@ -288,7 +343,7 @@ export function parse ( text ) {
 	
 			if ( ! text || text == '無し' || text == 'なし' ) text = ''
 
-			text = text.replace( /\\{(.*?)}/g, ( _, t ) => `'+${ subParseText( t ) }+'` )
+			text = text.replace( /\\{(.*?)}/g, ( _, t ) => `'+(${ subParseText( t, true ) })+'` )
 
 			$.log( `'${ text }'` )
 
@@ -296,9 +351,11 @@ export function parse ( text ) {
 		}
 
 
-		function subParseText ( str ) {
+		function subParseText ( str, subuse = false ) {
 			
 			//console.log( '式→', str )
+
+			if ( ! subuse ) if ( ! str || str == '無し' || str == 'なし' ) return `''`
 
 			let res = '', prev = '', mode = 'any'
 
@@ -414,15 +471,26 @@ export function parse ( text ) {
 					prop = prop.map( p => [ subParseText( p[ 0 ] ), parseText( p[ 1 ] ) ] )
 
 				} break
-				case 'パラメータ': {
+				case 'パラメータ': case '入力': {
 
 					prop = prop[ 0 ].split(/[:：]/)
 					prop = [ parseText( prop[ 0 ].replace(/^\＄/, '$' ) ), subParseText( prop[ 1 ] ) ]
 
 				} break
+				case 'ジャンプ': {
+
+					prop = prop.split( /[#＃]/ ).map( parseText )
+
+
+				} break
+				case 'マーク': {
+
+					prop = parseText( prop )
+
+				} break
 				default : {
 
-					$.warn( `"${ type }" このアクションは未実装です` )
+					$.warn( `"${ type }" このアクションの「パース」は未実装です` )
 
 				}
 
