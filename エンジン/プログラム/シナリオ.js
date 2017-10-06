@@ -32,18 +32,18 @@ export async function play ( scenario, baseURL ) {
 
 
 
-	async function playScnario( scenarioOrTitle, jumpMark = '$root' ) {
+	async function playScnario( scenario_act_title, jumpMark = '$root' ) {
 
-		let scenario
+		let scenario, act
 
-		if ( typeof scenarioOrTitle != 'object' ) {
-			let title = scenarioOrTitle
+		if ( typeof scenario_act_title != 'object' ) {
+			let title = scenario_act_title
 			let text = await $.fetchFile( 'text', `${ baseURL }/シナリオ/${ title }.txt` )
 			scenario = await parse( text )
-		} else scenario = scenarioOrTitle
+		} else if( Array.isArray( scenario_act_title ) ) scenario = scenario_act_title
+		else act = scenario_act_title
 
-		let act = scenario.find( act => act.type == 'マーク' && textEval( act.prop ) == jumpMark )
-
+		if ( ! act ) act = scenario.find( act => act.type == 'マーク' && textEval( act.prop ) == jumpMark )
 		if ( ! act ) throw `"${ jumpMark }" 指定されたマークが見つかりません`
 
 		await playAct( act )
@@ -113,7 +113,7 @@ export async function play ( scenario, baseURL ) {
 
 					let act = await Action.showChoices( prop.map( c => c.map( textEval ) ) )
 					$.log( type, act )
-					await playAct( act )
+					await playScnario( act )
 
 				} break
 				case '分岐': {
@@ -122,7 +122,7 @@ export async function play ( scenario, baseURL ) {
 						let [ con, act ] = p.map( textEval )
 						$.log( type, con, act )
 						if ( ! con && con !== '' ) continue 
-						await playAct( act )
+						await playScnario( act )
 						break
 					}
 
@@ -149,6 +149,17 @@ export async function play ( scenario, baseURL ) {
 					value = prompt( '', value ) || value
 					varMap.set( key, value )
 
+
+				} break
+				case 'BGM': {
+
+					let name = textEval( prop )
+
+					if ( ! name ) Action.stopBGM( )
+					else {
+						let url = `${ baseURL }/BGM/${ name }.ogg`
+						Action.playBGM( url )
+					}
 
 				} break
 				case 'スクリプト': {
@@ -483,7 +494,7 @@ export function parse ( text ) {
 
 
 				} break
-				case 'マーク': {
+				case 'マーク': case 'BGM': {
 
 					prop = parseText( prop )
 

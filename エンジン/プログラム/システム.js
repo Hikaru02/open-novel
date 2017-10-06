@@ -9,7 +9,6 @@ import * as Action from './アクション.js'
 import * as Renderer from './レンダラー.js'
 import * as Sound from './サウンド.js'
 
-
 let opt = { }
 
 let setting = { }
@@ -22,10 +21,6 @@ async function init ( { ctx } ) {
 	opt.setting = setting
 	//Object.assign( setting, systemSetting )
 	$.log( opt )
-
-
-
-	await Sound.initSound( opt )
 
 	await Action.initAction( opt )
 

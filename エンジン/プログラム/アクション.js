@@ -17,6 +17,7 @@ export async function init ( opt ) {
 	setting = opt.setting
 
 	await Renderer.initRanderer( opt )
+	await Sound.initSound( opt )
 
 }
 
@@ -248,4 +249,7 @@ export async function showChoices ( choices ) {
 	return val
 
 }
+
+export { playBGM, stopBGM } from './サウンド.js'
+
 
