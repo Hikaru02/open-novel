@@ -52,9 +52,17 @@ async function main( ) {
 
 	for ( let type of captureEventTypes ) {
 		canvas.addEventListener( `pointer${ type }`, e => {
-			Player.onInputEvent( { type, x: e.layerX, y: e.layerY } )
+			Player.onPointerEvent( { type, x: e.layerX, y: e.layerY } )
 		} )
 	}
+
+
+	canvas.addEventListener( `wheel`, e => {
+		let type = e.deltaY >= 0 ? 'next' : 'back'
+		Player.onKeyEvent( { type } )
+	} )
+
+
 
 
 }

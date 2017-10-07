@@ -70,3 +70,28 @@ export function parseSetting ( text ) {
 	return setting
 }
 
+
+
+export class Awaiter {
+	
+	fire ( key ) {
+
+		if ( ! this[ key ] ) return
+		this[ key ].resolve( Infinity )
+		this[ key ] = null
+
+	}
+
+	on ( key ) {
+
+		if ( ! this[ key ] ) this[ key ] = { }
+		let { promise, resolve } = this[ key ]
+		if ( ! promise ) {
+			( { promise, resolve } = new Deferred )
+			this[ key ] = { promise, resolve }
+		}
+		return promise
+
+	}
+
+}

@@ -31,7 +31,8 @@ class Node {
 	constructor ( opt ) {
 
 		const def = { name: 'undefined', x: 0, y: 0, w: 1, h: 1, o: 1,
-			fill: '', stroke: '', shadow: true, region: '', children: [ ] }
+			fill: '', stroke: '', shadow: true, region: '', children: [ ],
+			awaiter: new $.Awaiter }
 
 		Object.assign( this, def, opt )
 
@@ -88,31 +89,15 @@ class Node {
 	fire ( eType ) {
 		let type = { up: 'click', move: 'focus' }[ eType ] || 'undefined'
 
-		let obj = registrants.get( this )
-		if ( ( ! obj ) || ( ! obj[ type ] ) || ( ! obj[ type ].resolve ) ) return
-		obj[ type ].resolve( Infinity )
-		obj[ type ].resolve = null
+		this.awaiter.fire( type )
 
 	}
 
-	next ( type ) {
-		let obj = registrants.get( this )
-		if ( ! obj ) {
-			obj = { }
-			registrants.set( this, obj )
-		}
-		if ( ! obj[ type ] ) obj[ type ] = { }
-		let { promise, resolve } = obj[ type ]
-		if ( ! promise ) {
-			( { promise, resolve } = new $.Deferred )
-			obj[ type ].resolve = resolve
-		}
-		return promise
+	on ( type ) {
+		
+		return this.awaiter.on( type )
+
 	}
-
-	nextClick ( ) { return this.next( 'click' ) }
-
-	nextFocus ( ) { return this.next( 'focus' ) }
 
 	show ( ) { this.o = 1 }
 
@@ -301,7 +286,7 @@ export function drawCanvas ( ) {
 
 
 
-export function onPointed ( { type, x, y } ) {
+export function onPoint ( { type, x, y } ) {
 
 	if ( ! ctx ) return
 	

@@ -8,8 +8,7 @@ import * as Renderer from './レンダラー.js'
 import * as Sound from './サウンド.js'
 
 
-let layer, backgroundImage, conversationBox, nameArea, textArea
-let setting
+let layer, setting
 
 
 export async function init ( opt ) {
@@ -30,9 +29,8 @@ export let { target: initAction, register: nextInit } = new $.AwaitRegister( ini
 } )( )
 
 
-let Anime = null
+const Anime = ( ( ) => {
 
-{
 	const registrants = new Set
 
 	loop()
@@ -72,7 +70,7 @@ let Anime = null
 		}
 
 		async pauseUntil ( ...interrupters ) {
-			this.ready( )
+			//this.ready( )
 			this.pauseTime = performance.now( )
 			await Promise.race( interrupters )
 			this.baseTime += performance.now( ) - this.pauseTime
@@ -87,8 +85,9 @@ let Anime = null
 
 	}
 
-	Anime = AnimationRegister
-}
+	return AnimationRegister
+
+} ) ( )
 
 
 
@@ -116,7 +115,7 @@ export async function showMessage( name, text, speed ) {
 	let len = decoList.length
 	let index = 0
 
-	loop: while ( time = await anime.nextFrameOr( layer.nextClick( ) ) ) {
+	loop: while ( time = await anime.nextFrameOr( layer.on( 'click' ), action.on( 'next' ) ) ) {
 		let to = speed * time / 1000 | 0
 		if ( time == Infinity ) to = len
 		for ( ; index < to; index ++ ) {
@@ -124,16 +123,16 @@ export async function showMessage( name, text, speed ) {
 			let deco = decoList[ index ], wait = deco.wait || 0 
 			if ( wait ) {
 				index ++
-				await anime.pauseUntil( $.timeout( wait / speed * 1000 ), layer.nextClick( ) )
+				await anime.pauseUntil( $.timeout( wait / speed * 1000 ), layer.on( 'click' ), action.on( 'next' ) )
 				continue loop
 			}
 			layer.messageArea.add( deco )
 		}
-		anime.ready( )
+		//anime.ready( )
 		if ( to >= len ) anime.cancal( )
 	}
 
-	await layer.nextClick( )
+	await Promise.race( [ layer.on( 'click' ), action.on( 'next' ) ] )
 
 }
 
@@ -238,7 +237,7 @@ export async function showChoices ( choices ) {
 		let textArea = new Renderer.TextNode( { name: 'textArea',
 			size: .7, y: .05, pos: 'center', fill: 'rgba( 255, 255, 255, .9 )' } )
 		choiceBox.append( textArea )
-		nextClicks.push( choiceBox.nextClick( ).then( _ => val ) )
+		nextClicks.push( choiceBox.on( 'click' ).then( _ => val ) )
 		textArea.set( key )
 	}
 
@@ -251,5 +250,13 @@ export async function showChoices ( choices ) {
 }
 
 export { playBGM, stopBGM } from './サウンド.js'
+
+
+const action = new $.Awaiter
+export function onAction ( type ) {
+	
+	$.log( type )
+	action.fire( type )
+}
 
 

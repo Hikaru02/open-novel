@@ -158,7 +158,7 @@ export async function play ( scenario, baseURL ) {
 					if ( ! name ) Action.stopBGM( )
 					else {
 						let url = `${ baseURL }/BGM/${ name }.ogg`
-						Action.playBGM( url )
+						await Action.playBGM( url )
 					}
 
 				} break

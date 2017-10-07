@@ -25,10 +25,10 @@ export let { target: initSound, register: nextInit } = new $.AwaitRegister( init
 
 
 
-export function playBGM ( url ) {
+export async function playBGM ( url ) {
 	
 	bgm.src = url
-	bgm.play( )
+	await bgm.play( )
 
 }
 

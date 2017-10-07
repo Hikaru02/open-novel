@@ -77,9 +77,14 @@ async function playSystemOpening ( ) {
 export let { target: initPlayer, register: nextInit } = new $.AwaitRegister( init )
 
 
-export function onInputEvent ( { type, x, y } ) {
+export function onPointerEvent ( { type, x, y } ) {
 
-	Renderer.onPointed( { type, x, y } )
+	Renderer.onPoint( { type, x, y } )
+}
+
+export function onKeyEvent ( { type } ) {
+
+	Action.onAction( type )
 }
 
 
