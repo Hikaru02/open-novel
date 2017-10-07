@@ -13,7 +13,7 @@ export async function play ( scenario, baseURL ) {
 	let varMap = new Map
 	$.log( varMap )
 
-	return await playScnario( scenario )
+	return await playScnario( scenario, scenario )
 
 
 
@@ -32,9 +32,9 @@ export async function play ( scenario, baseURL ) {
 
 
 
-	async function playScnario( scenario_act_title, jumpMark = '$root' ) {
+	async function playScnario( baseScenario, scenario_act_title, jumpMark = '$root' ) {
 
-		let scenario, act
+		let act, scenario = baseScenario
 
 		if ( typeof scenario_act_title != 'object' ) {
 			let title = scenario_act_title
@@ -44,15 +44,15 @@ export async function play ( scenario, baseURL ) {
 		else act = scenario_act_title
 
 		if ( ! act ) act = scenario.find( act => act.type == 'マーク' && textEval( act.prop ) == jumpMark )
-		if ( ! act ) throw `"${ jumpMark }" 指定されたマークが見つかりません`
+		if ( ! act ) { $.log( scenario ) ;throw `"${ jumpMark }" 指定されたマークが見つかりません` }
 
-		await playAct( act )
+		await playAct( act, scenario )
 
 	}
 
 
 
-	async function playAct( act ) {
+	async function playAct( act, scenario ) {
 
 		do {
 
@@ -83,7 +83,7 @@ export async function play ( scenario, baseURL ) {
 					if ( pos == '左' ) pos = [ 0, 0, 1 ]
 					else if ( pos == '右' ) pos = [ -0, 0, 1 ]
 					else if ( pos  ) { 
-						pos = pos.match( /\-?\d+(?=\%|％)/g )
+						pos = pos.match( /-?\d+(?=%|％)/g )
 						if ( pos.length == 1 ) pos[ 1 ] = 0
 						if ( pos.length == 2 ) pos[ 2 ] = 100
 						pos = pos.map( d => d / 100 )
@@ -113,7 +113,7 @@ export async function play ( scenario, baseURL ) {
 
 					let act = await Action.showChoices( prop.map( c => c.map( textEval ) ) )
 					$.log( type, act )
-					await playScnario( act )
+					await playScnario( scenario, act )
 
 				} break
 				case '分岐': {
@@ -122,7 +122,7 @@ export async function play ( scenario, baseURL ) {
 						let [ con, act ] = p.map( textEval )
 						$.log( type, con, act )
 						if ( ! con && con !== '' ) continue 
-						await playScnario( act )
+						await playScnario( scenario, act )
 						break
 					}
 
@@ -132,11 +132,12 @@ export async function play ( scenario, baseURL ) {
 					let [ title, mark　] = prop.map( textEval )
 
 					let scenarioOrTitle = title || scenario
-					await playScnario( scenarioOrTitle, mark || undefined )
+					$.log( 'JMP', title, mark, scenario )
+					await playScnario( scenario, scenarioOrTitle, mark || undefined )
 
 
 				}break
-				case 'パラメータ': {
+				case '変数': {
 
 					let [ key, value ] = prop.map( textEval )
 					varMap.set( key, value )
@@ -224,7 +225,7 @@ export function parse ( text ) {
 			if ( sta[ 0 ] == '・' ) {
 				addAct( sta )
 			} else {
-				if ( sta.slice( 0, 2 ) == '/\/' ) continue
+				if ( sta.slice( 0, 2 ) == '//' ) continue
 				else if ( sta[ 0 ].match( /#|＃/ ) ) {
 					addAct( 'マーク' )			
 					sta = sta.slice( 1 )
@@ -289,18 +290,18 @@ export function parse ( text ) {
 					if ( key ) {
 						// \t以外から始まったときで初回以外（バッファを見て判断）
 						if ( separate ) addAct( type, [ key, value ], { separate, subjump } )
-						  // 細かく分離する
+						// 細かく分離する
 						else prop.push( [ key, value ] )
-						  // 配列に貯める
+						// 配列に貯める
 					}
 					value = ''
-					key = child.replace( '・', '' ).replace( '\s+$', '' )
+					key = child.replace( '・', '' ).replace( /\s+$/, '' )
 				} else {
 					if ( value ) {
 						if ( subjump ) value += '\n'
 						else value += '\\w\\n'  // 『会話』用
 					}
-					value += child.replace( '\t', '' ).replace( '\s+$', '' )
+					value += child.replace( '\t', '' ).replace( /\s+$/, '' )
 				}
 			}
 			if ( ! separate ) addAct( type, prop, { separate, subjump } )
@@ -318,19 +319,24 @@ export function parse ( text ) {
 			}
 
 			switch ( type ) {
+				       case 'パラメータ': type = '変数'
+				break; case '立ち絵': type = '立絵'
+				break; case 'ＢＧＭ': type = 'BGM'
+			}
 
-				case 'コメント': /* 何もしない */
-				break
+			switch ( type ) {
 
-				case '立ち絵': case '立絵':
-					type = '立絵'
+				case 'コメント': /* 何もしない */ break
+
+				case '立絵':
 					if ( progList[ progList.length -1 ].type != '立ち絵' ) addAct( '立絵', [ '無し', '' ] )
-				case '会話': case '背景': case 'パラメータ': case '入力':
+				case '会話': case '背景': case '変数': case '入力':
 					subParse( type, children, { separate: true } )
 				break
 				case '選択肢':　case '分岐':
 					subParse( type, children, { subjump: true } )
 				break
+
 				default :
 					addAct( type, children[ 0 ].trim( ) )
 
@@ -351,6 +357,8 @@ export function parse ( text ) {
 		function parseText ( text ) {
 
 			if ( typeof text != 'string' ) return text
+
+			text = text.trim( )
 	
 			if ( ! text || text == '無し' || text == 'なし' ) text = ''
 
@@ -378,7 +386,7 @@ export function parse ( text ) {
 
 				if ( mode == 'str' ) switch ( c ) {
 
-					       case '”': case '’': case '"': case'\'':
+					        case '”': case '’': case '"': case'\'':
 						if ( prev == '\\' ) now = c
 						else mode = 'any'; now = '"'
 					break; case '\\':
@@ -389,7 +397,7 @@ export function parse ( text ) {
 				} else switch ( c ) {
 
 					       case '＋': case '+':							now = '+'
-					break; case 'ー': case '－':　case '―': case '-':		now = '-'
+					break; case '－':　case '―': case '-':				now = '-'
 					break; case '×': case '✕': case '＊': case '*':		now = '*'
 					break; case '÷': case '／': case '/':				now = '/'
 					break; case '％': case '%':							now = '%'
@@ -411,15 +419,16 @@ export function parse ( text ) {
 					break; case '（': case '(':
 						if ( !prev || /[+\-*/%=><&|?:(]/.test( prev ) )	now = '('
 						else throw `"${ str }" 式が正しくありません（括弧の開始位置）`
-					break; case '（': case '(':							now = ')'
+					break; case '）': case ')':							now = ')'
 					break; case '”': case '’': case '"': case'\'':
 						mode = 'str'; now = '"'
 					break; case '`':
 						throw `"${ c }" この文字は式中で記号として使うことはできません`
 					break; default:
-						if ( mode != 'var_op' ) {
+						if ( mode == 'any' ) {
 							let n = c.normalize('NFKC') // 数値の判定
-							if ( n.match( /\d/ ) ) { now = n }  
+							if ( n.match( /\d/ ) ) { now = n }
+							else if ( c == 'ー' ) { now = '-' } // 変数名中以外の「ー」はマイナス
 							else { mode = 'var'; now = '$Get(`' + ( c == '＄' ? '$' : c ) }
 						}
 						else { mode = 'var'; now = c }
@@ -482,10 +491,10 @@ export function parse ( text ) {
 					prop = prop.map( p => [ subParseText( p[ 0 ] ), parseText( p[ 1 ] ) ] )
 
 				} break
-				case 'パラメータ': case '入力': {
+				case '変数': case '入力': {
 
 					prop = prop[ 0 ].split(/[:：]/)
-					prop = [ parseText( prop[ 0 ].replace(/^\＄/, '$' ) ), subParseText( prop[ 1 ] ) ]
+					prop = [ parseText( prop[ 0 ].replace(/^＄/, '$' ) ), subParseText( prop[ 1 ] ) ]
 
 				} break
 				case 'ジャンプ': {
