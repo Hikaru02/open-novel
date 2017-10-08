@@ -13,46 +13,45 @@ export async function play ( scenario, baseURL ) {
 	let varMap = new Map
 	$.log( varMap )
 
-	return await playScnario( scenario, scenario )
+	return await playAct( scenario[ 0 ], scenario )
 
-
-
-	function textEval ( text ) {
-
-		if ( typeof text != 'string' ) return text
-		$.log( 'E', text )
-		function $Get( key ) {
-			if ( ! varMap.has( key ) ) {
-				varMap.set( key, 0 ) 
-				return 0
-			} else return varMap.get( key )
-		}
-		return eval( text )
-	}
-
-
-
-	async function playScnario( baseScenario, scenario_act_title, jumpMark = '$root' ) {
-
-		let act, scenario = baseScenario
-
-		if ( typeof scenario_act_title != 'object' ) {
-			let title = scenario_act_title
-			let text = await $.fetchFile( 'text', `${ baseURL }/シナリオ/${ title }.txt` )
-			scenario = await parse( text )
-		} else if( Array.isArray( scenario_act_title ) ) scenario = scenario_act_title
-		else act = scenario_act_title
-
-		if ( ! act ) act = scenario.find( act => act.type == 'マーク' && textEval( act.prop ) == jumpMark )
-		if ( ! act ) { $.log( scenario ) ;throw `"${ jumpMark }" 指定されたマークが見つかりません` }
-
-		await playAct( act, scenario )
-
-	}
 
 
 
 	async function playAct( act, scenario ) {
+
+
+		function textEval ( text ) {
+
+			if ( typeof text != 'string' ) return text
+			$.log( 'E', text )
+			function $Get( key ) {
+				if ( ! varMap.has( key ) ) {
+					varMap.set( key, 0 ) 
+					return 0
+				} else return varMap.get( key )
+			}
+			return eval( text )
+		}
+
+
+		async function playScnario( scenario_act_title, jumpMark = '$root' ) {
+
+			let act, newScenario = scenario
+
+			if ( typeof scenario_act_title != 'object' ) {
+				let title = scenario_act_title
+				let text = await $.fetchFile( 'text', `${ baseURL }/シナリオ/${ title }.txt` )
+				newScenario = await parse( text )
+			} else if( Array.isArray( scenario_act_title ) ) newScenario = scenario_act_title
+			else act = scenario_act_title
+
+			if ( ! act ) act = newScenario.find( act => act.type == 'マーク' && textEval( act.prop ) == jumpMark )
+			if ( ! act ) { $.log( newScenario ) ;throw `"${ jumpMark }" 指定されたマークが見つかりません` }
+
+			await playAct( act, newScenario )
+
+		}
 
 		do {
 
@@ -113,7 +112,7 @@ export async function play ( scenario, baseURL ) {
 
 					let act = await Action.showChoices( prop.map( c => c.map( textEval ) ) )
 					$.log( type, act )
-					await playScnario( scenario, act )
+					await playScnario( act )
 
 				} break
 				case '分岐': {
@@ -122,7 +121,7 @@ export async function play ( scenario, baseURL ) {
 						let [ con, act ] = p.map( textEval )
 						$.log( type, con, act )
 						if ( ! con && con !== '' ) continue 
-						await playScnario( scenario, act )
+						await playScnario( act )
 						break
 					}
 
@@ -133,7 +132,7 @@ export async function play ( scenario, baseURL ) {
 
 					let scenarioOrTitle = title || scenario
 					$.log( 'JMP', title, mark, scenario )
-					await playScnario( scenario, scenarioOrTitle, mark || undefined )
+					await playScnario( scenarioOrTitle, mark || undefined )
 
 
 				}break
