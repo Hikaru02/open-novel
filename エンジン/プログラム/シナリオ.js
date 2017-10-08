@@ -430,7 +430,10 @@ export function parse ( text ) {
 							else if ( c == 'ー' ) { now = '-' } // 変数名中以外の「ー」はマイナス
 							else { mode = 'var'; now = '$Get(`' + ( c == '＄' ? '$' : c ) }
 						}
-						else { mode = 'var'; now = c }
+						else { 
+							if ( c == 'ー' && ! /[ァ-ヴ]/.test( prev ) ) { now = '-' } // カタカナに続かない「ー」はマイナス
+							else { mode = 'var'; now = c }
+						}
 
 				}
 
