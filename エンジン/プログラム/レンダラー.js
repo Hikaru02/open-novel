@@ -89,7 +89,7 @@ class Node {
 	fire ( eType ) {
 		let type = { up: 'click', move: 'focus' }[ eType ] || 'undefined'
 
-		this.awaiter.fire( type, Infinity )
+		this.awaiter.fire( type, true )
 
 	}
 

@@ -74,10 +74,10 @@ export function parseSetting ( text ) {
 
 export class Awaiter {
 	
-	fire ( key, val ) {
+	fire ( key, interrupt = false ) {
 
 		if ( ! this[ key ] ) return
-		this[ key ].resolve( val )
+		this[ key ].resolve( interrupt )
 		this[ key ] = null
 
 	}
@@ -95,3 +95,27 @@ export class Awaiter {
 	}
 
 }
+
+
+
+export class Time {
+
+	constructor ( ) { 
+		this.origin = performance.now( )
+		this.pauseStart = 0
+	}
+
+	get ( ) {
+		return performance.now( ) - this.origin
+	}
+
+	pause ( ) { 
+		this.pauseStart = performance.now( )
+	}
+
+	resume ( ) {
+		this.origin += performance.now( ) - this.pauseStart
+	}
+
+}
+

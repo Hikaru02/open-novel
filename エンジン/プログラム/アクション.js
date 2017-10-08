@@ -29,79 +29,83 @@ export let { target: initAction, register: nextInit } = new $.AwaitRegister( ini
 } )( )
 
 
-const Anime = ( ( ) => {
+// const Anime = ( ( ) => {
 
-	const registrants = new Set
+// 	const registrants = new Set
 
-	loop()
-	function loop ( now ) {
-		window.requestAnimationFrame( loop )
+// 	loop()
+// 	function loop ( now ) {
+// 		window.requestAnimationFrame( loop )
 
-		let acts = [ ]
+// 		let acts = [ ]
 
-		for ( let reg of registrants ) {
-			if ( reg.pauseTime ) continue
-			let { promise, resolve } = new $.Deferred
-			acts.push( promise )
-			reg.ready = resolve
-			reg.resolve( now - reg.baseTime )
-		}
+// 		for ( let reg of registrants ) {
+// 			if ( reg.pauseTime ) continue
+// 			let { promise, resolve } = new $.Deferred
+// 			acts.push( promise )
+// 			reg.ready = resolve
+// 			reg.resolve( now - reg.baseTime )
+// 		}
 
-		Promise.all( acts ).then( Renderer.drawCanvas )
+// 		Promise.all( acts ).then( Renderer.drawCanvas )
+// 	}
+
+
+
+// 	class AnimationRegister {	
+
+// 		constructor ( ) {
+// 			this.pauseTime = 0
+// 			this.baseTime = performance.now( )
+// 			registrants.add( this )
+// 			this.nextFrameOr( )
+// 		}
+
+// 		nextFrameOr ( ...interrupters ) {
+// 			if ( ! registrants.has( this ) ) return Promise.resolve( 0 )
+// 			let { promise, resolve } = new $.Deferred
+// 			this.resolve = resolve
+// 			Promise.race( interrupters ).then( resolve )
+// 			return promise 
+// 		}
+
+// 		async pauseUntil ( ...interrupters ) {
+// 			//this.ready( )
+// 			this.pauseTime = performance.now( )
+// 			await Promise.race( interrupters )
+// 			this.baseTime += performance.now( ) - this.pauseTime
+// 			this.pauseTime = 0
+// 			this.resolve( performance.now( ) - this.baseTime )
+// 		}
+
+// 		cancal ( ) {
+// 			registrants.delete( this )
+// 			this.resolve( 0 )
+// 		}
+
+// 	}
+
+// 	return AnimationRegister
+
+// } ) ( )
+
+
+
+
+const frame = new $.Awaiter
+;( ( ) => { 
+	loop( )
+	function loop ( ) {
+		Renderer.drawCanvas( )
+		requestAnimationFrame( loop )
+		frame.fire( 'update' )
 	}
-
-
-
-	class AnimationRegister {	
-
-		constructor ( ) {
-			this.pauseTime = 0
-			this.baseTime = performance.now( )
-			registrants.add( this )
-			this.nextFrameOr( )
-		}
-
-		nextFrameOr ( ...interrupters ) {
-			if ( ! registrants.has( this ) ) return Promise.resolve( 0 )
-			let { promise, resolve } = new $.Deferred
-			this.resolve = resolve
-			Promise.race( interrupters ).then( resolve )
-			return promise 
-		}
-
-		async pauseUntil ( ...interrupters ) {
-			//this.ready( )
-			this.pauseTime = performance.now( )
-			await Promise.race( interrupters )
-			this.baseTime += performance.now( ) - this.pauseTime
-			this.pauseTime = 0
-			this.resolve( performance.now( ) - this.baseTime )
-		}
-
-		cancal ( ) {
-			registrants.delete( this )
-			this.resolve( 0 )
-		}
-
-	}
-
-	return AnimationRegister
-
 } ) ( )
 
 
 
-
-
-
-
-let anime = new Anime
 export async function showMessage( name, text, speed ) {
 		
-	anime.cancal( )
-	anime = new Anime
-
-	let time = 0
 
 	layer.nameArea.clear( ), layer.messageArea.clear( )
 
@@ -115,21 +119,31 @@ export async function showMessage( name, text, speed ) {
 	let len = decoList.length
 	let index = 0
 
-	loop: while ( time = await anime.nextFrameOr( layer.on( 'click' ), action.on( 'next' ) ) ) {
-		let to = speed * time / 1000 | 0
-		if ( time == Infinity ) to = len
-		for ( ; index < to; index ++ ) {
-			if ( index >= len ) break
+
+
+	let time = new $.Time
+
+	loop: while ( true ) {
+
+		let interrupt = await Promise.race( 
+			[ frame.on( 'update' ), layer.on( 'click' ), action.on( 'next' ) ] )
+
+		let to = interrupt ? len : speed * time.get( ) / 1000 | 0
+
+		for ( ; index < to && index < len; index ++ ) {
 			let deco = decoList[ index ], wait = deco.wait || 0 
 			if ( wait ) {
 				index ++
-				await anime.pauseUntil( $.timeout( wait / speed * 1000 ), layer.on( 'click' ), action.on( 'next' ) )
+				time.pause( )
+				await Promise.race( 
+					[ $.timeout( wait / speed * 1000 ), layer.on( 'click' ), action.on( 'next' ) ] )
+				time.resume( )
 				continue loop
 			}
 			layer.messageArea.add( deco )
 		}
-		//anime.ready( )
-		if ( to >= len ) anime.cancal( )
+
+		if ( to >= len ) break
 	}
 
 	await Promise.race( [ layer.on( 'click' ), action.on( 'next' ) ] )
@@ -256,7 +270,7 @@ const action = new $.Awaiter
 export function onAction ( type ) {
 	
 	$.log( type )
-	action.fire( type, Infinity )
+	action.fire( type, true )
 }
 
 
