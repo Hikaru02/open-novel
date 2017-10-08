@@ -74,10 +74,10 @@ export function parseSetting ( text ) {
 
 export class Awaiter {
 	
-	fire ( key ) {
+	fire ( key, val ) {
 
 		if ( ! this[ key ] ) return
-		this[ key ].resolve( Infinity )
+		this[ key ].resolve( val )
 		this[ key ] = null
 
 	}

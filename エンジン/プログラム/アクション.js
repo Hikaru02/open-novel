@@ -256,7 +256,7 @@ const action = new $.Awaiter
 export function onAction ( type ) {
 	
 	$.log( type )
-	action.fire( type )
+	action.fire( type, Infinity )
 }
 
 
