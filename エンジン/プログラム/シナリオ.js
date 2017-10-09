@@ -72,25 +72,28 @@ export async function play ( scenario, baseURL ) {
 				} break
 				case '立絵': {
 
-					let [ pos, name ] = prop.map( textEval )
+					Action.removePortraits( )
 
-					if ( ! pos ) {
-						Action.removePortraits( )
-						continue
-					}
+					await Promise.all( prop.map( p => {
 
-					if ( pos == '左' ) pos = [ 0, 0, 1 ]
-					else if ( pos == '右' ) pos = [ -0, 0, 1 ]
-					else if ( pos  ) { 
-						pos = pos.match( /-?\d+(?=%|％)/g )
-						if ( pos.length == 1 ) pos[ 1 ] = 0
-						if ( pos.length == 2 ) pos[ 2 ] = 100
-						pos = pos.map( d => d / 100 )
-						$.log( pos )
-					}
+						let [ pos, name ] = p.map( textEval )
 
-					let url = `${ baseURL }/立ち絵/${ name }.png`
-					await Action.showPortraits( url, pos )
+						if ( ! pos ) return
+
+						if ( pos == '左' ) pos = [ 0, 0, 1 ]
+						else if ( pos == '右' ) pos = [ -0, 0, 1 ]
+						else if ( pos  ) { 
+							pos = pos.match( /-?\d+(?=%|％)/g )
+							if ( pos.length == 1 ) pos[ 1 ] = 0
+							if ( pos.length == 2 ) pos[ 2 ] = 100
+							pos = pos.map( d => d / 100 )
+							$.log( pos )
+						}
+
+						let url = `${ baseURL }/立ち絵/${ name }.png`
+						return Action.showPortraits( url, pos )
+
+					} ) )
 
 
 				} break
@@ -138,16 +141,20 @@ export async function play ( scenario, baseURL ) {
 				}break
 				case '変数': {
 
-					let [ key, value ] = prop.map( textEval )
-					varMap.set( key, value )
+					prop = prop.forEach( p => {
+						let [ key, value ] = p.map( textEval )
+						varMap.set( key, value )
+					} )
 
 
 				} break
 				case '入力': {
 
-					let [ key, value ] = prop.map( textEval )
-					value = prompt( '', value ) || value
-					varMap.set( key, value )
+					prop = prop.forEach( p => {
+						let [ key, value ] = p.map( textEval )
+						value = prompt( '', value ) || value
+						varMap.set( key, value )
+					} )
 
 
 				} break
@@ -325,17 +332,17 @@ export function parse ( text ) {
 
 			switch ( type ) {
 
-				case 'コメント': /* 何もしない */ break
-
-				case '立絵':
-					if ( progList[ progList.length -1 ].type != '立ち絵' ) addAct( '立絵', [ '無し', '' ] )
-				case '会話': case '背景': case '変数': case '入力':
+				case 'コメント': /* 何もしない */
+				break
+				case '立絵': case '変数': case '入力':
+					subParse( type, children )
+				break
+				case '会話': case '背景':
 					subParse( type, children, { separate: true } )
 				break
 				case '選択肢':　case '分岐':
 					subParse( type, children, { subjump: true } )
 				break
-
 				default :
 					addAct( type, children[ 0 ].trim( ) )
 
@@ -363,7 +370,7 @@ export function parse ( text ) {
 
 			text = text.replace( /\\{(.*?)}/g, ( _, t ) => `'+(${ subParseText( t, true ) })+'` )
 
-			$.log( `'${ text }'` )
+			// $.log( `'${ text }'` )
 
 			return `'${ text.replace( /\\/g, '\\\\' ) }'`
 		}
@@ -470,9 +477,10 @@ export function parse ( text ) {
 				} break
 				case '立絵': {
 
-					let [ pos, name ] = prop.map( parseText )
-					pos = pos.normalize('NFKC')
-					prop = [ pos, name ]	
+					prop = prop.map( p => {
+						let [ pos, name ] = p.map( parseText )
+						return [ pos.normalize('NFKC'), name ]
+					} )
 
 				} break
 				case '背景': {
@@ -495,8 +503,10 @@ export function parse ( text ) {
 				} break
 				case '変数': case '入力': {
 
-					prop = prop[ 0 ].split(/[:：]/)
-					prop = [ parseText( prop[ 0 ].replace(/^＄/, '$' ) ), subParseText( prop[ 1 ] ) ]
+					prop = prop.map( p => {
+						p = p[ 0 ].split(/[:：]/)
+						return [ parseText( p[ 0 ].replace(/^＄/, '$' ) ), subParseText( p[ 1 ] ) ]
+					} )
 
 				} break
 				case 'ジャンプ': {
